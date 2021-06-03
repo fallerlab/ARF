@@ -1,0 +1,22 @@
+Package: RP4
+Title: RP4 - Differential Ribosomal Heterogeneity Prediction using Ribo-seq produced rRNA fragments
+Version: 0.0.1
+Authors@R: 
+    person(given = "Ferhat",
+           family = "Alkan",
+           role = c("aut", "cre"),
+           email = "f.alkan@nki.nl",
+           comment = c(ORCID = "0000-0001-6709-9605"))
+Description: RP4 predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity 
+across given samples by overlapping Ribo-seq produced rRNA fragment data with 3D structure of the ribosome
+License: use_gpl3_license()
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
+Imports:
+	DESeq2 (>= 1.30.1),
+	ggplot2,
+	reshape2,
+	clusterProfiler,
+	enrichplot
