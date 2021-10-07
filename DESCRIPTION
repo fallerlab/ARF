@@ -19,8 +19,12 @@ Imports:
 	matrixStats,
 	ggplot2,
 	ggrepel,
+	scales,
 	reshape2,
 	clusterProfiler,
-	enrichplot
+	enrichplot,
+	fgsea,
+	ComplexHeatmap,
+	grid
 Depends: 
     R (>= 2.10)

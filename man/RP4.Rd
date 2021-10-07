@@ -4,16 +4,36 @@
 \alias{RP4}
 \title{RP4 wrapper}
 \usage{
-RP4(samplesFile, organism = "hs", QCplot = TRUE, targetDir = NA)
+RP4(
+  samplesFile,
+  organism = "hs",
+  comparison = "group",
+  QCplot = TRUE,
+  targetDir = NA,
+  comparisons = NULL,
+  exclude = NULL
+)
 }
 \arguments{
 \item{samplesFile}{Samples.txt file that describes file locations and sample groupings}
+
+\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+
+\item{comparison}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+
+\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+
+\item{targetDir}{Direcory to save QC plots in.}
+
+\item{comparisons}{List of comparisons to be included.}
+
+\item{exclude}{Sample ids to be excluded from analysis}
 }
 \description{
 This function allows you to run the whole RP4 pipeline
 }
 \examples{
-RP4("samples.txt")
+RP4("samples.txt", organism="mm", targetDir="/target/directory/to/save/results")
 }
 \keyword{RP4}
 \keyword{pipeline}

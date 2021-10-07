@@ -2,7 +2,7 @@
 % Please edit documentation in R/RP4_package.R
 \name{RP4_predict_heterogenity}
 \alias{RP4_predict_heterogenity}
-\title{Predict Diff.Rib.Het. candidate RPs with rRNA count data}
+\title{Predict Differential Ribosomal Heterogeneity candidates with rRNA count data}
 \usage{
 RP4_predict_heterogenity(
   samples,
@@ -10,7 +10,8 @@ RP4_predict_heterogenity(
   compare = "group",
   organism = "hs",
   QCplot = FALSE,
-  targetDir = NA
+  targetDir = NA,
+  comparisons = NULL
 )
 }
 \arguments{
@@ -21,6 +22,8 @@ RP4_predict_heterogenity(
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 
 \item{targetDir}{Direcory to save QC plots in.}
+
+\item{comparisons}{List of comparisons to be included.}
 }
 \description{
 Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.
