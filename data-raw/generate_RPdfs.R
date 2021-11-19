@@ -1,6 +1,6 @@
 
 
-for (specie in c("human","mouse","opossum","rhesus","chicken")){
+for (specie in c("human","mouse")){ #},"opossum","rhesus","chicken")){
   # HUMAN
   RP_proximity_df <- reshape2::dcast(
     read.csv(file = paste("/home/projects/ribosomal_heterogeneity/data/public/ribosome_structure/",specie,"_final_3D_distance_data.tsv",sep=""),
@@ -11,15 +11,32 @@ for (specie in c("human","mouse","opossum","rhesus","chicken")){
 
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
+  RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
 
   rrnas <- c("18S", "28S", "5.8S", "5S")
 
   poslists <- sapply(rrnas, FUN = function(x){return(which(sub(x = rownames(RP_proximity_df), pattern = "_[[:alnum:]]*$", replacement = "")==x))})
   rrna_lengths <- sapply(rrnas,function(x){return(length(poslists[[x]]))})
 
+  RP_proxpos <- list()
   for (RP in RPfocus){
-    print(paste(RP,specie))
     proxpos <- which(RP_proximity_df[,RP]<25)
+
+    # RP_proxpos[[RP]] <- proxpos
+    # if (length(proxpos)>250 & !(startsWith(RP,"ES")))
+    #   RP_proxpos[[paste0(RP,"_shrinked")]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:250]])
+    if (length(proxpos)>250 & !(startsWith(RP,"ES"))){
+      RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:250]])
+    } else if (length(proxpos)>0){
+      RP_proxpos[[RP]] <- proxpos
+    }
+
+  }
+
+  for (RP in names(RP_proxpos)){
+    print(paste(RP,specie))
+    proxpos <- RP_proxpos[[RP]]
+
     if(length(proxpos)>0) {
       gsea_sets_RP <- rbind(gsea_sets_RP,
                                   data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_")))
@@ -106,22 +123,38 @@ for (specie in c("human","mouse","opossum","rhesus","chicken")){
 #   }
 # }
 
-usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
-                  mouse_gsea_sets_RP, human_gsea_sets_RP, chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
+usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
+                  mouse_gsea_sets_RP, human_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
                   internal = TRUE, overwrite = TRUE)
 
 ## TEST ##
 load("R/sysdata.rda")
-targetDir=paste(getwd(),"test",sep="/")
+targetDir=paste0(getwd(),"/test/")
 compare="group"
 organism="mm"
 QCplot=TRUE
 comparisons=NULL
 
-samples<-read_RP4_samples_file("/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv")
-rRNA_counts <- RP4_read_rRNA_fragments(samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
+samples<-read_ARF_samples_file("/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv")
+rRNA_counts <- DRIP_ARF_read_rRNA_fragments(samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
 org_RP_df <- RP_proximity_mouse_df
 gsea_sets_RP <- mouse_gsea_sets_RP
+
+DRIPARF_results <- DRIP_ARF_predict_heterogenity(samples,rRNA_counts,organism = "mm")
+DRIP_ARF_result_heatmap(DRIPARF_results,"test",targetDir)
+DRIPARF_rpspec <- DRIP_ARF_report_RPspec_pos_results(samplesFile = "/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv",
+                                   organism = "mm",savefolder = targetDir)
+
+DRIP_ARF_result_df <- DRIPARF_results
+DRIP_ARF_DRF <- DRIPARF_rpspec
+simpleresults <- DRIP_ARF_simplify_results(DRIPARF_results)
+RPs<-unique(simpleresults$Description)
+RPs<-RPs[startsWith(RPs,"RP")]
+title="rRNA_pos_spec_heatmap"
+randZscore_thr=1
+ORA_adjP_thr=0.05
+GSEA_adjP_thr=0.05
+ORA_sig_n=-1
 
 ###
 pca_df$figname <- factor(pca_df$sample,
