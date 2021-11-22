@@ -136,18 +136,26 @@ QCplot=TRUE
 comparisons=NULL
 
 samples<-read_ARF_samples_file("/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv")
-rRNA_counts <- DRIP_ARF_read_rRNA_fragments(samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
+rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
 org_RP_df <- RP_proximity_mouse_df
 gsea_sets_RP <- mouse_gsea_sets_RP
 
-DRIPARF_results <- DRIP_ARF_predict_heterogenity(samples,rRNA_counts,organism = "mm")
-DRIP_ARF_result_heatmap(DRIPARF_results,"test",targetDir)
-DRIPARF_rpspec <- DRIP_ARF_report_RPspec_pos_results(samplesFile = "/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv",
+dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, organism = organism)
+dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, organism = organism)
+
+means <- dripARF_report_RPset_group_counts(samples = samples, rRNA_counts = rRNA_counts, dripARF_dds = dripARF_dds, organism = organism)
+
+
+dripARF_results <- dripARF_predict_heterogenity(samples = samples, rRNA_counts = rRNA_counts,
+                                                comparisons = list(c("Rpl10a_FLAG","Rpl22_HA"),c("Rps25_FLAG","Rpl22_HA")), organism = "mm")
+
+dripARF_result_heatmap(dripARF_results,"test",targetDir)
+dripARF_rpspec <- dripARF_report_RPspec_pos_results(samplesFile = "/home/projects/ribosomal_heterogeneity/RP4_space/benchmark/SRP064202_Barna_Rpl10aRps25Rpl22_samples_mouse.tsv",
                                    organism = "mm",savefolder = targetDir)
 
-DRIP_ARF_result_df <- DRIPARF_results
-DRIP_ARF_DRF <- DRIPARF_rpspec
-simpleresults <- DRIP_ARF_simplify_results(DRIPARF_results)
+dripARF_result_df <- dripARF_results
+dripARF_DRF <- dripARF_rpspec
+simpleresults <- dripARF_simplify_results(dripARF_results)
 RPs<-unique(simpleresults$Description)
 RPs<-RPs[startsWith(RPs,"RP")]
 title="rRNA_pos_spec_heatmap"

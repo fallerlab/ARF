@@ -36,7 +36,7 @@ ARF_check_organism <- function(organism) {
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in.
+#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
 #' @keywords Reader rRNA fragment alignment
 #' @export
 #' @examples
@@ -146,7 +146,7 @@ get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organi
     samples <- samples[!samples$sampleName%in%exclude,]
 
   if (is.null(rRNA_counts)) {
-    rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism=organism, QCplot=FALSE, targetDir=NA)
+    rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot=FALSE, targetDir=NA)
   } else{
     rRNA_counts<-rRNA_counts[,samples$sampleName]
   }
@@ -169,29 +169,34 @@ get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organi
 
 #' Get average read count of RP proximity sets
 #' @description Calculate the average read count of RP proximity sets
-#' @param samplesFile File that describes file locations and sample groupings
+#' @param samples Samples dataframe created by read_ARF_samples_file() function.
+#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
+#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from get_ARF_DESEQ_dds() function: (optional)
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @keywords Average RP-set count of RP proximitty sets
 #' @export
 #' @examples
 #' dripARF("samples.txt", organism="hs")
-dripARF_report_RPset_group_counts <- function(samplesFile, organism="hs", compare="group", comparisons=NULL, exclude=NULL){
+dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
+                                              organism="hs", compare="group", exclude=NULL){
 
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
 
-  samples <- read_ARF_samples_file(samplesFile)
-
+  # Read samples
   if(!is.null(exclude))
     samples <- samples[!samples$sampleName%in%exclude,]
 
-  rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism = organism, QCplot = FALSE)
-
-  dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare = compare, organism = organism, exclude = exclude)
+  # GEt read counts
+  if (is.null(dripARF_dds)){
+    if (is.null(rRNA_counts)) {
+      rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism=organism, QCplot=FALSE, targetDir=NA)
+    }
+    dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+  }
 
   samples$DESEQcondition <- samples[,compare]
 
@@ -221,22 +226,30 @@ dripARF_report_RPset_group_counts <- function(samplesFile, organism="hs", compar
     return(NULL)
   }
   RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+
   ###############################################################
-  vsd <- DESeq2::vst(dds, blind=FALSE)
+  vsd <- DESeq2::vst(dripARF_dds, blind=FALSE)
+  counts <- DESeq2::counts(dripARF_dds,normalized=TRUE)
 
   results <- NULL
   for (RP in RPs_toreport){
     for (group in unique(samples$DESEQcondition)){
-      results<-rbind(results, data.frame(RP=RP, group=group, AvgCount=mean(rowMeans(na.rm = TRUE),na.rm = TRUE)))
+      results<-rbind(results, data.frame(RP=RP, group=group,
+                       AvgCount=mean(rowMeans(counts[,samples$sampleName[samples$DESEQcondition==group]],na.rm = TRUE)[gsea_sets_RP$gene[gsea_sets_RP$ont==RP]],na.rm = TRUE)))
     }
   }
+
+  results_df <- reshape2::dcast(results, RP~group, value.var = "AvgCount")
+  rownames(results_df) <- results_df$RP
+  return(results_df)
 }
 
 
 #' Predict Differential Ribosomal Heterogeneity candidates with rRNA count data
 #' @description Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)
+#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
+#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from get_ARF_DESEQ_dds() function: (optional)
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
@@ -253,6 +266,11 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
   if (!ARF_check_organism(organism))
     return(NA)
 
+  # Assign target directory
+  if (is.na(targetDir)){
+    targetDir=getwd()
+  }
+
   # Read samples
   if(!is.null(exclude))
     samples <- samples[!samples$sampleName%in%exclude,]
@@ -260,9 +278,9 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
   # GEt read counts
   if (is.null(dripARF_dds)){
     if (is.null(rRNA_counts)) {
-      rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism=organism, QCplot=FALSE, targetDir=NA)
+      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
     }
-    dripARF_dds <- get_ARF_DESEQ_dds(samples, rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
   }
 
   s_n <- unique(samples[,compare])
@@ -275,7 +293,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
       for (j in (i+1):s_l) {
         print(paste("Comparing",s_n[i],"vs",s_n[j]))
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
-        res <- DESeq2::results(dripARF_dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE )
+        res <- DESeq2::results(dripARF_dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
         print(DESeq2::summary(res))
       }
     }
@@ -331,83 +349,93 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
   }
-
   RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
 
   ########## Overrepresentation Analysis ############
   RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
 
-  ######### Gene set enrichment Analysis ############
+  ########### Group specific means ##################
+  RP_means <- dripARF_report_RPset_group_counts(samples = samples, rRNA_counts = rRNA_counts, dripARF_dds = dripARF_dds,
+                                                organism = organism, compare = compare, exclude = exclude)
 
+  ######### Gene set enrichment Analysis ############
   #library(clusterProfiler)
   #library(enrichplot)
   #library(gprofiler2)
 
   all_GSEA_results <- NULL
+
   # Separate for each DESEQcondition
   for (comp in comparisons) {
     print(paste("Running predictions for",comp[1],"vs",comp[2]))
 
     GSEA_result_df <- NULL
-
     res <- DESeq2::results(dripARF_dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE)
-
-    ### Average read count on RP contact points
-    if (!(FALSE%in% (comparisons[[1]]==comp))) {
-      RPspec_baseMean <- sapply(RPs_toreport, function(x){return(mean(res[gsea_sets_RP$gene[gsea_sets_RP$ont==x],"baseMean"],na.rm = TRUE))})
-      GSEA_result_df <- data.frame(measure="AvgBaseMean", Description = RPs_toreport, NES=RPspec_baseMean, NES_rand_zscore=scale(RPspec_baseMean),
-                                   p.adjust=NA, qvalues=NA)
-    }
-
-    ### Overrepresentation hook ####
-    or_df <- fgsea::fora(pathways = RP_pathways,genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)], universe = rownames(res), minSize = 10)
-    GSEA_result_df <- rbind(GSEA_result_df, data.frame(measure="ORA", Description = or_df$pathway, NES=or_df$overlap, NES_rand_zscore=or_df$size,
-                                                       p.adjust=or_df$padj, qvalues=or_df$pval))
 
     temp_df <- res
     temp_df$weight <- scales::rescale(log10(temp_df$baseMean), to = c(0, 5))
     temp_df$padj[temp_df$padj<0.00001] = 0.00001
 
-    for (measureID in c("abs_GSEA_measure")){ #},"GSEA_measure","w_GSEA_m", "abs_w_GSEA_m")){
-      used_measure <- NULL
-      if (measureID=="GSEA_measure")
-        used_measure <- res$log2FoldChange*(-log10(temp_df$padj))
-      else if (measureID=="abs_GSEA_measure")
-        used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))
-      else if (measureID=="w_GSEA_m")
-        used_measure <- res$log2FoldChange*(-log10(temp_df$padj))*temp_df$weight
-      else if (measureID=="abs_w_GSEA_m")
-        used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))*temp_df$weight
+    measureID = "abs_GSEA_measure" #)){ #},"GSEA_measure","w_GSEA_m", "abs_w_GSEA_m")){
 
-      names(used_measure)<-rownames(res)
-      used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
-      used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
-      used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
-
-      egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, pvalueCutoff = 1,scoreType = "pos")
-      egmt_used_measure@result$NES_rand_zscore <- NA
-      for (RP in RPs_toreport){
-        tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
-        egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
+    used_measure <- NULL
+    if (measureID=="GSEA_measure"){
+      used_measure <- res$log2FoldChange*(-log10(temp_df$padj))
+      } else if (measureID=="abs_GSEA_measure"){
+      used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))
+      } else if (measureID=="w_GSEA_m"){
+      used_measure <- res$log2FoldChange*(-log10(temp_df$padj))*temp_df$weight
+      } else if (measureID=="abs_w_GSEA_m"){
+      used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))*temp_df$weight
       }
 
-      if(dim(egmt_used_measure@result)[1]>0){
-        pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
-        for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
-          if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                                                                                        "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
-        }
-        dev.off()
-        GSEA_result_df<-rbind(GSEA_result_df,
-                              data.frame(measure=measureID,
-                                         egmt_used_measure@result[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran"),
-                                                                  c("Description","NES","NES_rand_zscore","p.adjust","qvalues")]))
+
+    names(used_measure)<-rownames(res)
+    used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
+    used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
+    used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
+
+    egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, pvalueCutoff = 1,scoreType = "pos")
+    egmt_used_measure@result$NES_rand_zscore <- NA
+    for (RP in RPs_toreport){
+      tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
+      egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
+    }
+
+    ### Overrepresentation hook ####
+    or_df <- fgsea::fora(pathways = RP_pathways,genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)],
+                         universe = rownames(res), minSize = 10)
+
+    GSEA_result_df <- data.frame(Description = or_df$pathway,
+                              ORA.overlap=or_df$overlap, ORA.setSize=or_df$size, ORA.padj=or_df$padj, ORA.p=or_df$pval,
+                              RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.q=NA)
+    GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
+    GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
+    rownames(GSEA_result_df) <- GSEA_result_df$Description
+
+    if(dim(egmt_used_measure@result)[1]>0){
+      pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
+      for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
+        if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
+          print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
+                                                                                      "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
+      }
+      dev.off()
+
+      for (RP in (egmt_used_measure@result$Description[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran")])){
+        temp<-egmt_used_measure@result[RP,]
+        GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
+        GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
+        GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
+        GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
       }
     }
 
     write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_results.csv",sep = ""), row.names = FALSE)
-    all_GSEA_results <- rbind(all_GSEA_results, data.frame(GSEA_result_df,comp=paste(comp,collapse = "_vs_")))
+    colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q",
+                                  "C1.avg.read.c","C2.avg.read.c")
+    all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
+                                                           GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
   }
 
   rownames(all_GSEA_results) <- 1:(dim(all_GSEA_results)[1])
