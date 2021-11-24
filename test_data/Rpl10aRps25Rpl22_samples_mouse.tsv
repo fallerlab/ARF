@@ -1,15 +1,13 @@
 sampleName	bedGraphFile	group	taggedRP	ribosomeIsolation
-Rpl10a_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rpl10a_rep1/accepted_hits.bedgraph	Rpl10a_FLAG	Rpl10a_w_FLAG	FLAG
-Rpl10a_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rpl10a_rep2/accepted_hits.bedgraph	Rpl10a_FLAG	Rpl10a_w_FLAG	FLAG
-Rpl22_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rpl22_rep1/accepted_hits.bedgraph	Rpl22_HA	Rpl22_w_HA	HA
-Rpl22_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rpl22_rep2/accepted_hits.bedgraph	Rpl22_HA	Rpl22_w_HA	HA
-Rps25_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rps25_rep1/accepted_hits.bedgraph	Rps25_FLAG	Rps25_w_FLAG	FLAG
-Rps25_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/Rps25_rep2/accepted_hits.bedgraph	Rps25_FLAG	Rps25_w_FLAG	FLAG
-TotalRpl10a_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRpl10a_rep1/accepted_hits.bedgraph	Rpl10a_Total	Rpl10a_w_FLAG	Total
-TotalRpl10a_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRpl10a_rep2/accepted_hits.bedgraph	Rpl10a_Total	Rpl10a_w_FLAG	Total
-TotalRpl22_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRpl22_rep1/accepted_hits.bedgraph	Rpl22_Total	Rpl22_w_HA	Total
-TotalRpl22_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRpl22_rep2/accepted_hits.bedgraph	Rpl22_Total	Rpl22_w_HA	Total
-TotalRps25_rep1	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRps25_rep1/accepted_hits.bedgraph	Rps25_Total	Rps25_w_FLAG	Total
-TotalRps25_rep2	/home/projects/ribosomal_heterogeneity/data/alignments/Barna_heterogeneity/TotalRps25_rep2/accepted_hits.bedgraph	Rps25_Total	Rps25_w_FLAG	Total
-
-
+uL1_rep1	test_data/Rpl10a_rep1.bedgraph	uL1_FLAG	uL1_w_FLAG	FLAG
+uL1_rep2	test_data/Rpl10a_rep2.bedgraph	uL1_FLAG	uL1_w_FLAG	FLAG
+eL22_rep1	test_data/Rpl22_rep1.bedgraph	eL22_HA	eL22_w_HA	HA
+eL22_rep2	test_data/Rpl22_rep2.bedgraph	eL22_HA	eL22_w_HA	HA
+eS25_rep1	test_data/Rps25_rep1.bedgraph	eS25_FLAG	eS25_w_FLAG	FLAG
+eS25_rep2	test_data/Rps25_rep2.bedgraph	eS25_FLAG	eS25_w_FLAG	FLAG
+uL1_Total_rep1	test_data/TotalRpl10a_rep1.bedgraph	uL1_Total	uL1_w_FLAG	Total
+uL1_Total_rep2	test_data/TotalRpl10a_rep2.bedgraph	uL1_Total	uL1_w_FLAG	Total
+eL22_Total_rep1	test_data/TotalRpl22_rep1.bedgraph	eL22_Total	eL22_w_HA	Total
+eL22_Total_rep2	test_data/TotalRpl22_rep2.bedgraph	eL22_Total	eL22_w_HA	Total
+eS25_Total_rep1	test_data/TotalRps25_rep1.bedgraph	eS25_Total	eS25_w_FLAG	Total
+eS25_Total_rep2	test_data/TotalRps25_rep2.bedgraph	eS25_Total	eS25_w_FLAG	Total

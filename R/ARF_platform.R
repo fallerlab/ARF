@@ -132,11 +132,13 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param count_threshold Exclude the positions with reads less than this threshold on average. (Default: 1000)
+#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
+#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
 #' @keywords Normalization
 #' @examples
-#' get_ARF_DESEQ_dds(samples_df)
+#' dripARF_get_DESEQ_dds(samples_df)
 #' @export
-get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organism="hs", exclude=NULL, count_threshold=1000){
+dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organism="hs", exclude=NULL, count_threshold=100, QCplot=FALSE, targetDir=NA){
 
   # Check organism first
   if (!ARF_check_organism(organism))
@@ -146,7 +148,7 @@ get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organi
     samples <- samples[!samples$sampleName%in%exclude,]
 
   if (is.null(rRNA_counts)) {
-    rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot=FALSE, targetDir=NA)
+    rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
   } else{
     rRNA_counts<-rRNA_counts[,samples$sampleName]
   }
@@ -162,6 +164,22 @@ get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organi
   dds <- dds[keep,]
   dds <- DESeq2::DESeq(dds)
 
+  if (QCplot) {
+    vsd <- DESeq2::vst(dds, blind=FALSE)
+    sampleDists <- dist(t(SummarizedExperiment::assay(vsd)))
+    sampleDistMatrix <- as.matrix(sampleDists)
+    rownames(sampleDistMatrix) <- vsd$sampleName
+    colnames(sampleDistMatrix) <- NULL
+    colors <- colorRampPalette(rev(RColorBrewer::brewer.pal(9, "Blues")))(255)
+    write.table(x = sampleDistMatrix, file = paste0(targetDir,'/Sample_similarity_distance_vsdbased.tsv'), sep = "\t",quote = FALSE,
+                row.names = TRUE, col.names = rownames(sampleDistMatrix))
+    pdf(paste0(targetDir,'/Sample_similarity_distance_vsdbased.pdf'),
+        width = 3+(floor(length(samples$sampleName)**0.5)*3), height = 3+(floor(length(samples$sampleName)**0.5)*3))
+    ht <- ComplexHeatmap::pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
+    ComplexHeatmap::draw(ht)
+    dev.off()
+  }
+
   return(dds)
 }
 
@@ -171,7 +189,7 @@ get_ARF_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", organi
 #' @description Calculate the average read count of RP proximity sets
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
-#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from get_ARF_DESEQ_dds() function: (optional)
+#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param exclude List of sample names to be excluded from the analysis.
@@ -195,8 +213,11 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
     if (is.null(rRNA_counts)) {
       rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism=organism, QCplot=FALSE, targetDir=NA)
     }
-    dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+  } else {
+    dds <- dripARF_dds
   }
+
 
   samples$DESEQcondition <- samples[,compare]
 
@@ -228,8 +249,8 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
   RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
 
   ###############################################################
-  vsd <- DESeq2::vst(dripARF_dds, blind=FALSE)
-  counts <- DESeq2::counts(dripARF_dds,normalized=TRUE)
+  vsd <- DESeq2::vst(dds, blind=FALSE)
+  counts <- DESeq2::counts(dds,normalized=TRUE)
 
   results <- NULL
   for (RP in RPs_toreport){
@@ -249,7 +270,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 #' @description Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
-#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from get_ARF_DESEQ_dds() function: (optional)
+#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
@@ -280,7 +301,9 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     if (is.null(rRNA_counts)) {
       rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
     }
-    dripARF_dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+  } else {
+    dds <- dripARF_dds
   }
 
   s_n <- unique(samples[,compare])
@@ -293,14 +316,14 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
       for (j in (i+1):s_l) {
         print(paste("Comparing",s_n[i],"vs",s_n[j]))
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
-        res <- DESeq2::results(dripARF_dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
+        res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
         print(DESeq2::summary(res))
       }
     }
   }
 
   # Read count transformations
-  vsd <- DESeq2::vst(dripARF_dds, blind=FALSE)
+  vsd <- DESeq2::vst(dds, blind=FALSE)
 
   if (QCplot) {
     g1 <- ggplot2::ggplot(reshape2::melt(SummarizedExperiment::assay(vsd)), ggplot2::aes(x=Var2, y=value)) +
@@ -355,7 +378,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
   RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
 
   ########### Group specific means ##################
-  RP_means <- dripARF_report_RPset_group_counts(samples = samples, rRNA_counts = rRNA_counts, dripARF_dds = dripARF_dds,
+  RP_means <- dripARF_report_RPset_group_counts(samples = samples, rRNA_counts = rRNA_counts, dripARF_dds = dds,
                                                 organism = organism, compare = compare, exclude = exclude)
 
   ######### Gene set enrichment Analysis ############
@@ -370,7 +393,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     print(paste("Running predictions for",comp[1],"vs",comp[2]))
 
     GSEA_result_df <- NULL
-    res <- DESeq2::results(dripARF_dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE)
+    res <- DESeq2::results(dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE)
 
     temp_df <- res
     temp_df$weight <- scales::rescale(log10(temp_df$baseMean), to = c(0, 5))
@@ -446,46 +469,46 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
 
 #' Simplify result file
 #' @description Simplify results based on thresholds
-#' @param dripARFresults dripARF results data frame
+#' @param dripARF_results dripARF results data frame
 #' @param randZscore_thr Default=1
 #' @param ORA_adjP_thr Default=0.05
-#' @param GSEA_adjP_thr Default=0.05
-#' @keywords dripARF results candidates
+#' @param RPSEA_adjP_thr Default=0.05
+#' @keywords dripARF results simple
 #' @export
 #' @examples
-#' dripARF_simplify_results(dripARFresults)
-dripARF_simplify_results <- function(dripARFresults, randZscore_thr=1, ORA_adjP_thr=0.05, GSEA_adjP_thr=0.05, ORA_sig_n=0) {
-  temp <- NULL
-  for (comp in unique(dripARFresults$comp)){
-    ORA_pass <- dripARFresults$Description[dripARFresults$measure=="ORA" & dripARFresults$comp==comp &
-                                         dripARFresults$p.adjust<ORA_adjP_thr & dripARFresults$NES>ORA_sig_n]
+#' dripARF_simplify_results(dripARF_results)
+dripARF_simplify_results <- function(dripARF_results, randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=0) {
+  temp <- dripARF_results[, c("comp", "Description", "C1.avg.read.c", "C2.avg.read.c")]
+  temp$ES1 <- dripARF_results$RPSEA.NES
+  temp$ES1.pass <- (dripARF_results$RPSEA.padj<RPSEA_adjP_thr)
+  temp$ES2 <- dripARF_results$RPSEA.NES_randZ
+  temp$ES2.pass <- (dripARF_results$RPSEA.NES_randZ >= randZscore_thr)
+  temp$ORA <- (dripARF_results$ORA.padj < ORA_adjP_thr)
+  temp$ORA.sigN <- (dripARF_results$ORA.overlap >= ORA_sig_n)
+  temp$top <- (dripARF_results$RPSEA.padj <= RPSEA_adjP_thr & dripARF_results$RPSEA.NES_randZ >= randZscore_thr &
+                 dripARF_results$ORA.padj <= ORA_adjP_thr & dripARF_results$ORA.overlap >= ORA_sig_n)
 
-    randZscore_GSEA_pass <- dripARFresults$Description[dripARFresults$measure=="abs_GSEA_measure" & dripARFresults$comp==comp &
-                                                     dripARFresults$p.adjust < GSEA_adjP_thr &
-                                                     dripARFresults$NES_rand_zscore > randZscore_thr]
-
-    temp <- rbind(temp, dripARFresults[(dripARFresults$comp==comp) &(dripARFresults$Description%in%intersect(ORA_pass, randZscore_GSEA_pass)) ,])
-  }
-  return(temp)
+  return(temp[,c(c("comp", "Description", "top", "ES1", "ES2", "ORA", "ES1.pass", "ES2.pass", "ORA.sigN", "C1.avg.read.c", "C2.avg.read.c"))])
 }
 
 
 
 #' Draw heatmap for multiple comparisons.
 #' @description Draw heatmap of NES and NES_randZscore based on different thresholds.
-#' @param dripARF_result_df dripARF result data.
+#' @param dripARF_results dripARF result data.
 #' @param title Title for the plot and files.
 #' @param targetDir Directory to save the plots in.
 #' @param addedRPs Add given RPs to the plot no matter if they are significant or not..
 #' @keywords Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
-#' dripARF_result_heatmap(dripARFresults,"Title","/Folder/to/save/in/")
-dripARF_result_heatmap <- function(dripARF_result_df, title, targetDir, addedRPs=NULL,
-                               randZscore_thr=c(1,1,1.5,0), ORA_adjP_thr=c(.05,2,.05,2), GSEA_adjP_thr=c(.05,.05,.05,.05),
-                               ORA_sig_n=c(0,0,0,0)){
+#' dripARF_result_heatmap(dripARF_results,"Title","/Folder/to/save/in/")
+#' dripARF_result_heatmap(dripARF_results,"Title","/Folder/to/save/in/", randZscore_thr=1)
+dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=NULL,
+                                   randZscore_thr=c(1,1,1.5,0), ORA_adjP_thr=c(.05,2,.05,2),
+                                   RPSEA_adjP_thr=c(.05,.05,.05,.05), ORA_sig_n=c(1,1,1,1)){
 
-  thrlist <- list(z=randZscore_thr,p=GSEA_adjP_thr,o=ORA_adjP_thr,n=ORA_sig_n)
+  thrlist <- list(z=randZscore_thr,p=RPSEA_adjP_thr,o=ORA_adjP_thr,n=ORA_sig_n)
 
   palette1 = circlize::colorRamp2(c(0,1, 1.5, 2),
                                   c("white","#D9D0D3","#CCBA72","#0F0D0E"))
@@ -493,57 +516,63 @@ dripARF_result_heatmap <- function(dripARF_result_df, title, targetDir, addedRPs
   for (i in 1:length(thrlist[[1]])) {
     print(i)
 
-    filtered_tmp <- dripARF_simplify_results(dripARF_result_df,
-                                         GSEA_adjP_thr=thrlist[["p"]][i],
+    simplified <- dripARF_simplify_results(dripARF_results,
+                                         RPSEA_adjP_thr=thrlist[["p"]][i],
                                          randZscore_thr = thrlist[["z"]][i],
                                          ORA_adjP_thr = thrlist[["o"]][i],
                                          ORA_sig_n=thrlist[["n"]][i])
 
-    pdf(file = paste(targetDir,title,
-                     "_randZ",as.character(thrlist[["z"]][i]*100),
-                     "_GSEAp",as.character(thrlist[["p"]][i]*100),
-                     "_ORAp",as.character(thrlist[["o"]][i]*100),
-                     "_SigPosN",as.character(thrlist[["n"]][i]),
+    pdf(file = paste(targetDir, title,
+                     "_randZ", as.character(thrlist[["z"]][i]*100),
+                     "_GSEAp", as.character(thrlist[["p"]][i]*100),
+                     "_ORAp", as.character(thrlist[["o"]][i]*100),
+                     "_SigPosN", as.character(thrlist[["n"]][i]),
                      ".pdf",sep=""), width = 16, height = 16)
-    set.seed(i)
+    tryCatch(
+      expr = {
+        set.seed(i)
 
-    allstudies_abs_sig_RPS <- unique(filtered_tmp$Description[filtered_tmp$NES_rand_zscore > thrlist[["z"]][i] &
-                                                                filtered_tmp$p.adjust < thrlist[["p"]][i] &
-                                                                filtered_tmp$measure=="abs_GSEA_measure"])
+        allstudies_abs_sig_RPS <- unique(simplified$Description[simplified$top])
+        temp <- simplified[simplified$top, ]
 
+        if (length(addedRPs)>0)
+          temp <- unique(rbind(temp, simplified[simplified$Description %in% addedRPs, ]))
 
-    temp <- filtered_tmp[filtered_tmp$measure=="abs_GSEA_measure" &
-                           filtered_tmp$Description%in%allstudies_abs_sig_RPS &
-                           filtered_tmp$NES_rand_zscore > thrlist[["z"]][i] &
-                           filtered_tmp$p.adjust < thrlist[["p"]][i], ]
+        comp_all_abs_matrix <- reshape2::acast(temp, formula=Description ~ comp, value.var = "ES1")
+        comp_all_abs_matrix[is.na(comp_all_abs_matrix)] <- 0
+        ht <- ComplexHeatmap::Heatmap(comp_all_abs_matrix, name = "ES1", na_col = "#0F0D0E",
+                                      column_title = paste0(title," ES1 - RPSEA NES ",
+                                                            "\n(ORA padj<",as.character(ORA_adjP_thr[i]),
+                                                            ", RPSEA padj<",as.character(RPSEA_adjP_thr[i]),
+                                                            ", RPSEA_rand z-score>",as.character(randZscore_thr[i]),")"),
+                                      col = palette1)
 
-    if (length(addedRPs)>0)
-      temp <- unique(rbind(temp,dripARF_result_df[dripARF_result_df$Description %in% addedRPs & filtered_tmp$measure=="abs_GSEA_measure",]))
+        last <- ht
+        ComplexHeatmap::draw(ht, padding = grid::unit(c(30, 2, 2, 2), "mm"))
 
-    comp_all_abs_matrix <- reshape2::acast(temp, formula=Description ~ comp, value.var = "NES")
-    comp_all_abs_matrix[is.na(comp_all_abs_matrix)] <- 0
-    ht <- ComplexHeatmap::Heatmap(comp_all_abs_matrix, name = "RPSEA", na_col = "#0F0D0E",
-                  column_title = paste0(title," RPSEA NES ",
-                                       "\n(ORA padj<",as.character(ORA_adjP_thr[i]),
-                                       ", RPSEA padj<",as.character(GSEA_adjP_thr[i]),
-                                       ", RPSEA_rand z-score>",as.character(randZscore_thr[i]),")"),
-                  col = palette1)
+        ## NESrand
+        comp_all_abs_matrix <- reshape2::acast(temp, formula=Description ~ comp, value.var = "ES2")
+        comp_all_abs_matrix[is.na(comp_all_abs_matrix)] <- 0
+        ht <- ComplexHeatmap::Heatmap(comp_all_abs_matrix, name = "ES2", na_col = "#0F0D0E",
+                                      column_title = paste0(title," ES2 - RPSEA_rand Zscore",
+                                                           "\n(ORA padj<",as.character(ORA_adjP_thr[i]),
+                                                           ", RPSEA padj<",as.character(RPSEA_adjP_thr[i]),
+                                                           ", RPSEA_rand z-score>",as.character(randZscore_thr[i]),")"),
+                                      col = palette1)
 
-    last <- ht
-    ComplexHeatmap::draw(ht, padding = grid::unit(c(30, 2, 2, 2), "mm"))
+        ComplexHeatmap::draw(ht, padding = grid::unit(c(30, 2, 2, 2), "mm"))
+      },
+      error = function(e){
+        print(e)
+      },
+      warning = function(w){
+        print(w)
+      },
+      finally = {
+        dev.off()
+      }
+    )
 
-    ## NESrand
-    comp_all_abs_matrix <- reshape2::acast(temp, formula=Description ~ comp, value.var = "NES_rand_zscore")
-    comp_all_abs_matrix[is.na(comp_all_abs_matrix)] <- 0
-    ht <- ComplexHeatmap::Heatmap(comp_all_abs_matrix, name = "RPSEA_rand", na_col = "#0F0D0E",
-                  column_title = paste(title,"RPSEA_rand zscore",
-                                       "\n(ORA padj<",as.character(ORA_adjP_thr[i]),
-                                       ", RPSEA padj<",as.character(GSEA_adjP_thr[i]),
-                                       ", RPSEA_rand z-score>",as.character(randZscore_thr[i]),")"),
-                  col = palette1)
-
-    ComplexHeatmap::draw(ht, padding = grid::unit(c(30, 2, 2, 2), "mm"))
-    dev.off()
   }
   return(last)
 }
@@ -551,49 +580,150 @@ dripARF_result_heatmap <- function(dripARF_result_df, title, targetDir, addedRPs
 
 #' Draw dripARF result scatterplot for multiple comparisons
 #' @description Draw scatterplot for GSEA and ORA analyses
-#' @param dripARF_result_df Full dripARF result data.
+#' @param dripARF_results Full dripARF result data.
 #' @param targetDir Directory to save the plots in.
-#' @param title Default is "DRH_prediction_volcanos"
+#' @param title Default is "DRH_prediction_volcanos"#'
+#' @param addedRPs Add given RPs to the plot no matter if they are significant or not.
+#' @param highlightRPS List of RPs to highlight instead of highlighting the top RPs.
+#' @param randZscore_thr Default=1
+#' @param ORA_adjP_thr Default=0.05
+#' @param RPSEA_adjP_thr Default=0.05
+#' @param ORA_sig_n Default=1
 #' @keywords Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
-#' dripARF_result_scatterplot(dripARFresults,"/Folder/to/save/in/")
-dripARF_result_scatterplot <- function(dripARF_result_df, targetDir, title="DRH_prediction_volcanos",
-                                   randZscore_thr=1, ORA_adjP_thr=0.05, GSEA_adjP_thr=0.05, ORA_sig_n=-1){
-  to_highlight <- dripARF_simplify_results(dripARF_result_df,
-                                       randZscore_thr=randZscore_thr, ORA_adjP_thr=ORA_adjP_thr, GSEA_adjP_thr=GSEA_adjP_thr, ORA_sig_n=ORA_sig_n)
+#' dripARF_result_scatterplot(dripARF_results,"/Folder/to/save/in/")
+dripARF_result_scatterplot <- function(dripARF_results, targetDir,
+                                       title="DRH_prediction_volcanos", addedRPs=NULL, highlightRPS=NULL,
+                                       randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
+
+  simplified <- dripARF_simplify_results(dripARF_results = dripARF_results,
+                                         randZscore_thr = randZscore_thr, ORA_adjP_thr = ORA_adjP_thr,
+                                         RPSEA_adjP_thr = RPSEA_adjP_thr, ORA_sig_n = ORA_sig_n)
+
+  if (is.null(highlightRPS))
+    to_highlight <- simplified[simplified$top,]
+  else
+    to_highlight <- simplified[simplified$Description%in%highlightRPS,]
+
+  if (length(addedRPs)>0)
+    to_highlight <- rbind(to_highlight, simplified[simplified$Description %in% c(addedRPs), ])
 
   cols <- c("#ECCBAE", "#046C9A", "#D69C4E", "#ABDDDE", "#000000")
-  dripARF_result_df$colorchange <- (dripARF_result_df$p.adjust < min(ORA_adjP_thr,GSEA_adjP_thr))
-  dripARF_result_df$colorchange[dripARF_result_df$measure!="ORA"] <-  (dripARF_result_df$p.adjust[dripARF_result_df$measure!="ORA"] < ORA_adjP_thr)
-  dripARF_result_df$colorchange[dripARF_result_df$measure=="ORA"] <-  (dripARF_result_df$p.adjust[dripARF_result_df$measure=="ORA"] < GSEA_adjP_thr)
 
-  g1 <- ggplot2::ggplot(dripARF_result_df,
-                        ggplot2::aes(x=NES_rand_zscore,y=NES))+
+  g1 <- ggplot2::ggplot(simplified,
+                        ggplot2::aes(x=ES2,y=ES1))+
     ggplot2::geom_hline(yintercept = 0)+
-    ggplot2::geom_hline(yintercept = c(1), linetype="dashed", col=cols[5])+
+    ggplot2::geom_vline(xintercept = c(1), linetype="dashed", col=cols[5])+
     ggplot2::geom_vline(xintercept = 0, col=cols[5])+
-    ggplot2::facet_wrap(comp~measure,scales = "free")+
-    ggplot2::geom_point(ggplot2::aes(col=colorchange))+
-    ggplot2::geom_point(data = to_highlight, inherit.aes = TRUE, col="black")+
-    ggrepel::geom_text_repel(data = to_highlight,
+    ggplot2::facet_grid(comp~.,scales = "free")+
+    ggplot2::geom_point(ggplot2::aes(col=ORA,shape=ES1.pass),alpha=.5)+
+    ggplot2::geom_point(data = to_highlight, size=.1, inherit.aes = TRUE, col="black")+
+    ggrepel::geom_text_repel(data = to_highlight, force = 3,
                              inherit.aes = TRUE, col="black", ggplot2::aes(label=Description),max.overlaps = 100)+
     ggplot2::scale_color_manual(values = c(cols[3],cols[2],cols[5]))+
+    ggplot2::scale_shape_manual(values = c(16,17),breaks = c(TRUE,FALSE))+
     ggplot2::theme_bw()+
-    ggplot2::labs(col=paste0("Significancy\nORA_padj<",as.character(ORA_adjP_thr),"\nRPSEA_padj<",as.character(GSEA_adjP_thr)))+
-    ggplot2::xlab("NES |baseMean Z | rRNA proximity set size ")+
-    ggplot2::ylab("NES z-score | baseMean | No of significant pos.")
+    ggplot2::labs(col=paste0("ORA \n padj<",as.character(ORA_adjP_thr)), shape=paste0("RPSEA\n padj<",as.character(RPSEA_adjP_thr)))+
+    ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
+    ggplot2::ylab("Enrichment Score 1 (RPSEA NES)")
   print(g1)
   ggplot2::ggsave(plot = g1, filename = paste(targetDir, "/", title, ".pdf",sep=""),
-                  width = 4+(ceiling(length(unique(dripARF_result_df$comp))**0.5)*4),
-                  height = ceiling(length(unique(dripARF_result_df$comp))**0.5)*4,limitsize = FALSE)
+                  width = 5,
+                  height = 4+(ceiling(length(unique(dripARF_results$comp))**0.5)*2),limitsize = FALSE)
+  return(g1)
 }
 
 
+#' Get lFC profiles of RP proximity sets
+#' @description Fish out the Differential values for RP proximity sets
+#' @param samples Samples dataframe created by read_ARF_samples_file() function.
+#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
+#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
+#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
+#' @param comparisons List of comparisons to be included.
+#' @param exclude List of sample names to be excluded from the analysis.
+#' @keywords lFCprofile RP rRNA proximity sets
+#' @export
+#' @examples
+#' dripARF("samples.txt", organism="mm")
+dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
+                                              organism="hs", compare="group", comparisons=NULL, exclude=NULL){
+  # Check organism first
+  if (!ARF_check_organism(organism))
+    return(NA)
+
+  # Read samples
+  if(!is.null(exclude))
+    samples <- samples[!samples$sampleName%in%exclude,]
+
+  # GEt read counts
+  if (is.null(dripARF_dds)){
+    if (is.null(rRNA_counts)) {
+      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
+    }
+    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+  } else {
+    dds <- dripARF_dds
+  }
+
+  s_n <- unique(samples[,compare])
+  s_l <- length(s_n)
+  samples$DESEQcondition <- samples[,compare]
+
+  if(is.null(comparisons) || length(comparisons)==0) {
+    comparisons <- list()
+    for (i in 1:(s_l-1)) {
+      for (j in (i+1):s_l) {
+        comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
+      }
+    }
+  }
+
+  all_results <- NULL
+  for (comp in comparisons){
+    print(paste("Comparing",comp[1],"vs",comp[2]))
+    res <- data.frame(DESeq2::results(dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE ))
+    res$pos <- rownames(res)
+    res$comp <- paste0(comp[1],"_vs_",comp[2])
+    all_results <- rbind(all_results, res)
+  }
+
+  ###################################################
+  org_RP_df <- NULL
+  gsea_sets_RP <- NULL
+  if (organism=="hs"){
+    org_RP_df <- ARF:::RP_proximity_human_df
+    gsea_sets_RP <- ARF:::human_gsea_sets_RP
+  } else if (organism=="mm") {
+    org_RP_df <- ARF:::RP_proximity_mouse_df
+    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+    # } else if (organism=="rm") {
+    #   org_RP_df <- ARF:::RP_proximity_rhesus_df
+    #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
+    # } else if (organism=="op") {
+    #   org_RP_df <- ARF:::RP_proximity_opossum_df
+    #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
+    # } else if (organism=="ch") {
+    #   org_RP_df <- ARF:::RP_proximity_chicken_df
+    #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
+    # } else if (organism=="sc") {
+    #   org_RP_df <- ARF:::RP_proximity_yeast_df
+    #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+  } else {
+    print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
+    return(NULL)
+  }
+
+  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+
+  rownames(all_results) <- 1:(dim(all_results)[1])
+  return(all_results)
+}
 
 #' Draw Differential rRNA abundance heatmap and its overlap with RP-rRNA proximity sets
 #' @description Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance
-#' @param dripARF_result_df Full dripARF result data.
 #' @param dripARF_DRF rRNA position specific differential rRNA fragment abundace results
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param targetDir Directory to save the plots in.
@@ -601,8 +731,8 @@ dripARF_result_scatterplot <- function(dripARF_result_df, targetDir, title="DRH_
 #' @keywords Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
-#' dripARF_rRNApos_heatmaps(dripARFresults,"/Folder/to/save/in/")
-dripARF_rRNApos_heatmaps <- function(dripARF_result_df, dripARF_DRF, organism, RPs, targetDir, title="rRNA_pos_spec_heatmap"){
+#' dripARF_rRNApos_heatmaps(dripARF_results,"/Folder/to/save/in/")
+dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, title="rRNA_pos_spec_heatmap"){
   org_RP_df <- NULL
   gsea_sets_RP <- NULL
   if (organism=="hs"){
@@ -643,10 +773,6 @@ dripARF_rRNApos_heatmaps <- function(dripARF_result_df, dripARF_DRF, organism, R
   profileplot$tomatrix <- abs(profileplot$log2FoldChange)*profileplot$sig
   profileplot$signedmatrix <- profileplot$log2FoldChange*profileplot$sig
 
-  # filtered_results <- dripARF_simplify_results(dripARF_result_df, randZscore_thr = randZscore_thr, ORA_adjP_thr=ORA_adjP_thr,
-  #                                          GSEA_adjP_thr=GSEA_adjP_thr, ORA_sig_n=ORA_sig_n)
-  # #profileplot <- profileplot[profileplot$comp%in%filtered_results$comp[filtered_results$Description%in%RPs],]
-
   rrnas<-unique(org_RP_df$rRNA)
   focused_order <- c()
   for (rrna in unique(profileplot$rrna)){
@@ -677,6 +803,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_result_df, dripARF_DRF, organism, R
     else
       tags<-c(tags,val_pos[i])
   }
+
   exclude <- c()
   for (tag in unique(tags)){
     if (sum(val_pos[tags==tag]%in%rids)==0)
@@ -684,10 +811,13 @@ dripARF_rRNApos_heatmaps <- function(dripARF_result_df, dripARF_DRF, organism, R
     else
       tags[tags==tag] <- paste0("[",temp$resno[min(val_pos[tags==tag])],", ",temp$resno[max(val_pos[tags==tag])],"]")
   }
+
   if(length(exclude)>0) {
     get_pos <- list(val_pos=val_pos[exclude],tags=tags[exclude])
   }  else{
-    get_pos <- list(val_pos=val_pos,tags=tags)}
+    get_pos <- list(val_pos=val_pos,tags=tags)
+  }
+
 
   whichPos <- get_pos[[1]]
   tags <- get_pos[[2]]
@@ -705,121 +835,34 @@ dripARF_rRNApos_heatmaps <- function(dripARF_result_df, dripARF_DRF, organism, R
 
   comparisons <- unique(as.character(dripARF_DRF$comp))
 
-  matrixplot <- reshape2::acast(profileplot, formula=comp ~ pos, value.var = "tomatrix")[,unique(profileplot$pos)]
+  if (length(unique(profileplot$comp))>1) {
+    matrixplot <- reshape2::acast(profileplot, formula=comp ~ pos, value.var = "tomatrix")[,unique(profileplot$pos)]
+  } else {
+    matrixplot <- reshape2::acast(profileplot, formula=comp ~ pos, value.var = "tomatrix")
+  }
 
   pdf(paste0(targetDir,"/",title,".pdf"),height = 5+round((length(RPs)+length(comparisons))/4), width = 11+round(length(RPs)/10))
-  ht <- ComplexHeatmap::Heatmap(matrixplot[,focused_order[whichPos]], name = "abs(log2FC)", top_annotation = ha,
-                                cluster_columns = FALSE,show_column_names = FALSE,
-                col=circlize::colorRamp2(c(0,0.5,8),c("white","cornsilk","black")),na_col = "white",
-                column_split = factor(tags,levels = unique(tags),labels = unique(tags)),
-                column_title_rot = 90, heatmap_legend_param = list(at=c(0.5,2,4,6,8)))
-  ComplexHeatmap::draw(ht, padding = grid::unit(c(2, 2, 16, 2), "mm"))
+  if (length(unique(profileplot$comp))>1) {
+    ht <- ComplexHeatmap::Heatmap(matrixplot[,focused_order[whichPos]], name = "abs(log2FC)", top_annotation = ha,
+                                  cluster_columns = FALSE,show_column_names = FALSE,
+                                  col=circlize::colorRamp2(c(0,0.5,8),c("white","cornsilk","black")),na_col = "white",
+                                  column_split = factor(tags,levels = unique(tags),labels = unique(tags)),
+                                  column_title_rot = 90, heatmap_legend_param = list(at=c(0.5,2,4,6,8)))
+    ComplexHeatmap::draw(ht, padding = grid::unit(c(2, 2, 16, 2), "mm"))
+  } else {
+    tp <- t(matrixplot[,focused_order[whichPos]])
+    rownames(tp)<-unique(profileplot$comp)
+    ht <- ComplexHeatmap::Heatmap(tp, name = "abs(log2FC)", top_annotation = ha,
+                                  cluster_columns = FALSE, show_column_names = FALSE,
+                                  col=circlize::colorRamp2(c(0,0.5,8),c("white","cornsilk","black")),na_col = "white",
+                                  column_split = factor(tags,levels = unique(tags),labels = unique(tags)),
+                                  column_title_rot = 90, heatmap_legend_param = list(at=c(0.5,2,4,6,8)))
+    ComplexHeatmap::draw(ht, padding = grid::unit(c(2, 2, 16, 2), "mm"))
+  }
+
   dev.off()
   return(ht)
 }
-
-
-#' Get lFC profiles of RP proximity sets
-#' @description Fish out the Differential values for RP proximity sets
-#' @param samplesFile File that describes file locations and sample groupings
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param save_sample_sim Create a sample similarity heatmap
-#' @param savefolder where to save
-#' @keywords lFCprofile RP rRNA proximity sets
-#' @export
-#' @examples
-#' dripARF("samples.txt", organism="mm")
-dripARF_report_RPspec_pos_results <- function(samplesFile, organism="hs", compare="group", comparisons=NULL, exclude=NULL, save_sample_sim=FALSE, savefolder=NA){
-
-  # Check organism first
-  if (!ARF_check_organism(organism))
-    return(NA)
-
-  samples <- read_ARF_samples_file(samplesFile)
-
-  if(!is.null(exclude))
-    samples <- samples[!samples$sampleName%in%exclude,]
-
-  rRNA_counts <- dripARF_read_rRNA_fragments(samples, organism = organism, QCplot = FALSE)
-
-  dds <- get_ARF_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare = compare, organism = organism, exclude = exclude)
-
-  s_n <- unique(samples[,compare])
-  s_l <- length(s_n)
-  samples$DESEQcondition <- samples[,compare]
-
-  if(is.null(comparisons) || length(comparisons)==0) {
-    comparisons <- list()
-    for (i in 1:(s_l-1)) {
-      for (j in (i+1):s_l) {
-        comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
-      }
-    }
-  }
-
-  if(save_sample_sim){
-    if (is.na(savefolder))
-      savefolder=getwd()
-
-    vsd <- DESeq2::vst(dds, blind=FALSE)
-    sampleDists <- dist(t(SummarizedExperiment::assay(vsd)))
-    sampleDistMatrix <- as.matrix(sampleDists)
-    rownames(sampleDistMatrix) <- vsd$sampleName
-    colnames(sampleDistMatrix) <- NULL
-    colors <- colorRampPalette(rev(RColorBrewer::brewer.pal(9, "Blues")))(255)
-    write.table(x = sampleDistMatrix, file = paste0(savefolder,'/Sample_similarity_distance_vsdbased.tsv'), sep = "\t",quote = FALSE,
-              row.names = TRUE, col.names = rownames(sampleDistMatrix))
-    pdf(paste0(savefolder,'/Sample_similarity_distance_vsdbased.pdf'),
-        width = 3+(floor(length(samples$sampleName)**0.5)*3), height = 3+(floor(length(samples$sampleName)**0.5)*3))
-    ht <- ComplexHeatmap::pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
-    ComplexHeatmap::draw(ht)
-    dev.off()
-  }
-
-  all_results <- NULL
-  for (comp in comparisons){
-    print(paste("Comparing",comp[1],"vs",comp[2]))
-    res <- data.frame(DESeq2::results(dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE ))
-    res$pos <- rownames(res)
-    res$comp <- paste0(comp[1],"_vs_",comp[2])
-    all_results <- rbind(all_results, res)
-  }
-
-  ###################################################
-  org_RP_df <- NULL
-  gsea_sets_RP <- NULL
-  if (organism=="hs"){
-    org_RP_df <- ARF:::RP_proximity_human_df
-    gsea_sets_RP <- ARF:::human_gsea_sets_RP
-  } else if (organism=="mm") {
-    org_RP_df <- ARF:::RP_proximity_mouse_df
-    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-  # } else if (organism=="rm") {
-  #   org_RP_df <- ARF:::RP_proximity_rhesus_df
-  #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
-  # } else if (organism=="op") {
-  #   org_RP_df <- ARF:::RP_proximity_opossum_df
-  #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
-  # } else if (organism=="ch") {
-  #   org_RP_df <- ARF:::RP_proximity_chicken_df
-  #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
-  # } else if (organism=="sc") {
-  #   org_RP_df <- ARF:::RP_proximity_yeast_df
-  #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-  } else {
-    print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
-    return(NULL)
-  }
-
-  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
-
-  rownames(all_results) <- 1:(dim(all_results)[1])
-  return(all_results)
-}
-
 
 #' dripARF wrapper
 #' @description This function allows you to run the whole dripARF pipeline
@@ -850,8 +893,9 @@ dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,
   if(!is.null(exclude))
     samples_df <- samples_df[!samples_df$sampleName%in%exclude,]
 
-  rRNA_counts_df <- dripARF_read_rRNA_fragments(samples_df, organism = organism, QCplot = QCplot, targetDir = targetDir)
-  dripARF_results <- dripARF_predict_heterogenity(samples_df, rRNA_counts_df, compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir, comparisons = comparisons)
+  rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, organism = organism, QCplot = QCplot, targetDir = targetDir)
+  dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNA_counts = rRNA_counts_df,
+                                                  compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir, comparisons = comparisons)
 
   return(dripARF_results)
 }
