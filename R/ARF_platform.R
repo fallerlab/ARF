@@ -1,4 +1,18 @@
 
+# Copyright (C) 2021  Ferhat Alkan
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #' Read the input tsv file
 #' @description This function allows you to read the samples data, returning a dataframe.
@@ -9,7 +23,7 @@
 #' read_ARF_samples_file("samples.txt")
 read_ARF_samples_file <- function(samplesFile){
   samples_df <- read.csv(file = samplesFile, header = TRUE, sep = "\t", comment.char = "#", stringsAsFactors = FALSE)
-  rownames(samples_df) <- samples_df$sampleName
+  rownames(samples_df) <- samples_df[,1]
   return(samples_df)
 }
 
@@ -55,27 +69,27 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
 
   df <- NULL
   if (organism == "hs") {
-    df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (5070+1869+157+121),data=0)), samples$sampleName)
+    df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (5070+1869+157+121),data=0)), samples[,1])
     rownames(df) <- c(paste("human_28S",0:5069,sep = "_"), paste("human_18S",0:1868,sep = "_"),
                     paste("human_5.8S",0:156,sep = "_"), paste("human_5S",0:120,sep = "_"))
   } else if (organism=="mm") {
-    df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (4730+1870+157+121),data=0)), samples$sampleName)
+    df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (4730+1870+157+121),data=0)), samples[,1])
     rownames(df) <- c(paste("NR_003279.1",0:4729,sep = "_"), paste("NR_003278.3",0:1869,sep = "_"),
                       paste("NR_003280.2",0:156,sep = "_"), paste("NR_030686.1",0:120,sep = "_"))
   # } else if (organism=="rm") {
-  #   df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (4810+1869+157+119),data=0)), samples$sampleName)
+  #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (4810+1869+157+119),data=0)), samples[,1])
   #   rownames(df) <- c(paste("rhesus_28S",0:4809,sep = "_"), paste("rhesus_18S",0:1868,sep = "_"),
   #                     paste("rhesus_5.8S",0:156,sep = "_"), paste("rhesus_5S",0:118,sep = "_"))
   # } else if (organism=="op") {
-  #   df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (4955+1891+153+119),data=0)), samples$sampleName)
+  #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (4955+1891+153+119),data=0)), samples[,1])
   #   rownames(df) <- c(paste("opossum_28S",0:4954,sep = "_"), paste("opossum_18S",0:1890,sep = "_"),
   #                     paste("opossum_5.8S",0:152,sep = "_"), paste("opossum_5S",0:118,sep = "_"))
   # } else if (organism=="ch") {
-  #   df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (4439+1823+153+120),data=0)), samples$sampleName)
+  #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (4439+1823+153+120),data=0)), samples[,1])
   #   rownames(df) <- c(paste("chicken_28S",0:4438,sep = "_"), paste("chicken_18S",0:1822,sep = "_"),
   #                     paste("chicken_5.8S",0:152,sep = "_"), paste("chicken_5S",0:119,sep = "_"))
   # } else if (organism=="sc") {
-  #   df <- setNames(data.frame(matrix(ncol = length(samples$sampleName), nrow = (3396+1800+157+121),data=0)), samples$sampleName)
+  #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (3396+1800+157+121),data=0)), samples[,1])
   #   rownames(df) <- c(paste("yeast_25S",0:3395,sep = "_"), paste("yeast_18S",0:1799,sep = "_"),
   #                     paste("yeast_5.8S",0:156,sep = "_"), paste("yeast_5S",0:120,sep = "_"))
   } else {
@@ -84,8 +98,8 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
   }
 
   for (i in 1:dim(samples)[1]) {
-    sample <- samples$sampleName[i]
-    inputFile <- samples$bedGraphFile[i]
+    sample <- samples[i,1]
+    inputFile <- samples[i,2]
     print(paste("Reading bedgraph/bam file for sample",sample,"(",as.character(i),"of",as.character(dim(samples)[1]),")"))
 
     if(endsWith(x = inputFile, suffix=".bedGraph") | endsWith(x = inputFile, suffix=".bedgraph")) {
@@ -117,7 +131,7 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
       ggplot2::xlab("Positional rRNA fragment counts (log-scale)")+ggplot2::ylab("Samples")
     print(g1)
     ggplot2::ggsave(filename = paste(targetDir, "/", "raw_rRNA_counts.png", sep = ""), plot = g1, limitsize = FALSE,
-                    width = 8, height = 3+(floor(length(samples$sampleName)**0.5)*3))
+                    width = 8, height = 3+(floor(length(samples[,1])**0.5)*3))
   }
 
   return(df[rowSums(is.na(df))==0,])
@@ -145,12 +159,12 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
     return(NA)
 
   if(!is.null(exclude))
-    samples <- samples[!samples$sampleName%in%exclude,]
+    samples <- samples[!samples[,1]%in%exclude,]
 
   if (is.null(rRNA_counts)) {
     rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot=QCplot, targetDir=targetDir)
   } else{
-    rRNA_counts<-rRNA_counts[,samples$sampleName]
+    rRNA_counts<-rRNA_counts[,samples[,1]]
   }
 
   s_n <- unique(samples[,compare])
@@ -174,7 +188,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
     write.table(x = sampleDistMatrix, file = paste0(targetDir,'/Sample_similarity_distance_vsdbased.tsv'), sep = "\t",quote = FALSE,
                 row.names = TRUE, col.names = rownames(sampleDistMatrix))
     pdf(paste0(targetDir,'/Sample_similarity_distance_vsdbased.pdf'),
-        width = 3+(floor(length(samples$sampleName)**0.5)*3), height = 3+(floor(length(samples$sampleName)**0.5)*3))
+        width = 3+(floor(length(samples[,1])**0.5)*3), height = 3+(floor(length(samples[,1])**0.5)*3))
     ht <- ComplexHeatmap::pheatmap(sampleDistMatrix, clustering_distance_rows=sampleDists, clustering_distance_cols=sampleDists, col=colors)
     ComplexHeatmap::draw(ht)
     dev.off()
@@ -206,7 +220,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 
   # Read samples
   if(!is.null(exclude))
-    samples <- samples[!samples$sampleName%in%exclude,]
+    samples <- samples[!samples[,1]%in%exclude,]
 
   # GEt read counts
   if (is.null(dripARF_dds)){
@@ -256,7 +270,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
   for (RP in RPs_toreport){
     for (group in unique(samples$DESEQcondition)){
       results<-rbind(results, data.frame(RP=RP, group=group,
-                       AvgCount=mean(rowMeans(counts[,samples$sampleName[samples$DESEQcondition==group]],na.rm = TRUE)[gsea_sets_RP$gene[gsea_sets_RP$ont==RP]],na.rm = TRUE)))
+                       AvgCount=mean(rowMeans(counts[,samples[,1][samples$DESEQcondition==group]],na.rm = TRUE)[gsea_sets_RP$gene[gsea_sets_RP$ont==RP]],na.rm = TRUE)))
     }
   }
 
@@ -277,12 +291,14 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 #' @param targetDir Directory to save the QCplots in.
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
+#' @param GSEAplots Whether to produce standard GSEA plots.
 #' @keywords Diffferential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
 #' dripARF_predict_heterogenity(samples_df, rRNA_counts_df, organism="hs", QCplot=TRUE)
 dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
-                                         compare="group", organism="hs", QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL) {
+                                         compare="group", organism="hs", QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
+                                         GSEAplots=FALSE) {
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
@@ -294,7 +310,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
 
   # Read samples
   if(!is.null(exclude))
-    samples <- samples[!samples$sampleName%in%exclude,]
+    samples <- samples[!samples[,1]%in%exclude,]
 
   # GEt read counts
   if (is.null(dripARF_dds)){
@@ -331,20 +347,20 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
       ggplot2::xlab("Positional rRNA fragment counts (vsd) after DESeq2 normalization")+ggplot2::ylab("Samples")
     print(g1)
     ggplot2::ggsave(filename = paste(targetDir, "/", "norm_rRNA_counts.png", sep = ""), limitsize = FALSE, plot = g1,
-                    width = 8, height = 3+(floor(length(samples$sampleName)**0.5)*3))
+                    width = 8, height = 3+(floor(length(samples[,1])**0.5)*3))
 
     #PCA_analysis
     pca <- prcomp(SummarizedExperiment::assay(vsd)[order(matrixStats::rowVars(SummarizedExperiment::assay(vsd)),decreasing = TRUE),])
     pca_df <- data.frame(pca$rotation)
     pca_map <- paste(colnames(pca_df),' (Var.Exp.:%',round(100*((pca$sdev^2)/sum(pca$sdev^2)),1),')', sep='')
     pca_df$sample <- rownames(pca_df)
-    pca_df$group <- sapply(pca_df$sample,FUN=function(x){return(samples$DESEQcondition[samples$sampleName==x])})
+    pca_df$group <- sapply(pca_df$sample,FUN=function(x){return(samples$DESEQcondition[samples[,1]==x])})
 
     g1 <- ggplot2::ggplot(pca_df, ggplot2::aes(x=PC1,y=PC2,color=group)) + ggplot2::geom_point() +
       ggplot2::labs(x=pca_map[1], y=pca_map[2]) + ggrepel::geom_text_repel(ggplot2::aes(label=sample), show.legend = FALSE)
     print(g1)
     ggplot2::ggsave(filename = paste(targetDir, "/", "vsd_based_PCA.png", sep = ""), plot = g1,limitsize = FALSE,
-                    width = 2+(floor(length(samples$sampleName)**0.5)*2), height = 2+(floor(length(samples$sampleName)**0.5)*2))
+                    width = 2+(floor(length(samples[,1])**0.5)*2), height = 2+(floor(length(samples[,1])**0.5)*2))
   }
 
   ###################################################
@@ -437,13 +453,15 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     rownames(GSEA_result_df) <- GSEA_result_df$Description
 
     if(dim(egmt_used_measure@result)[1]>0){
-      pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
-      for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
-        if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-          print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                                                                                      "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
+      if (GSEAplots){
+        pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
+        for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
+          if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
+            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
+                                                                                        "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
+        }
+        dev.off()
       }
-      dev.off()
 
       for (RP in (egmt_used_measure@result$Description[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran")])){
         temp<-egmt_used_measure@result[RP,]
@@ -522,7 +540,7 @@ dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=N
                                          ORA_adjP_thr = thrlist[["o"]][i],
                                          ORA_sig_n=thrlist[["n"]][i])
 
-    pdf(file = paste(targetDir, title,
+    pdf(file = paste(targetDir,"/", title,
                      "_randZ", as.character(thrlist[["z"]][i]*100),
                      "_GSEAp", as.character(thrlist[["p"]][i]*100),
                      "_ORAp", as.character(thrlist[["o"]][i]*100),
@@ -630,7 +648,7 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
   print(g1)
   ggplot2::ggsave(plot = g1, filename = paste(targetDir, "/", title, ".pdf",sep=""),
                   width = 5,
-                  height = 4+(ceiling(length(unique(dripARF_results$comp))**0.5)*2),limitsize = FALSE)
+                  height = 4+(ceiling(length(unique(dripARF_results$comp)))*3),limitsize = FALSE)
   return(g1)
 }
 
@@ -656,7 +674,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 
   # Read samples
   if(!is.null(exclude))
-    samples <- samples[!samples$sampleName%in%exclude,]
+    samples <- samples[!samples[,1]%in%exclude,]
 
   # GEt read counts
   if (is.null(dripARF_dds)){
@@ -873,11 +891,13 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, titl
 #' @param targetDir Directory to save the QC plots in.
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
+#' @param GSEAplots Whether to produce standard GSEA plots.
 #' @keywords dripARF pipeline
 #' @export
 #' @examples
 #' dripARF("samples.txt", organism="mm", targetDir="/target/directory/to/save/results")
-dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,  targetDir=NA, comparisons=NULL, exclude=NULL){
+dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,  targetDir=NA,
+                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE){
 
   # Check organism first
   if (!ARF_check_organism(organism))
@@ -891,11 +911,16 @@ dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,
   samples_df <- read_ARF_samples_file(samplesFile)
 
   if(!is.null(exclude))
-    samples_df <- samples_df[!samples_df$sampleName%in%exclude,]
+    samples_df <- samples_df[!samples_df[,1]%in%exclude,]
 
   rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, organism = organism, QCplot = QCplot, targetDir = targetDir)
   dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNA_counts = rRNA_counts_df,
-                                                  compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir, comparisons = comparisons)
+                                                  compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir, comparisons = comparisons,
+                                                  GSEAplots=GSEAplots)
+
+  dripARF_result_scatterplot(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions")
+  dripARF_result_heatmap(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions",
+                         randZscore_thr = c(1), ORA_adjP_thr = c(0.05), RPSEA_adjP_thr = c(0.05), ORA_sig_n = 1)
 
   return(dripARF_results)
 }
