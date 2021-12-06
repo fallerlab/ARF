@@ -750,7 +750,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 #' @export
 #' @examples
 #' dripARF_rRNApos_heatmaps(dripARF_results,"/Folder/to/save/in/")
-dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, title="rRNA_pos_spec_heatmap"){
+dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_lFC_thr=0.5, adjP_thr=0.05, title="rRNA_pos_spec_heatmap"){
   org_RP_df <- NULL
   gsea_sets_RP <- NULL
   if (organism=="hs"){
@@ -781,7 +781,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, titl
   prox_col = circlize::colorRamp2(c(0,24.999,25.0,50,200,300),c("black","black","grey30","grey60","grey99","white"))
 
   profileplot <- dripARF_DRF
-  profileplot$sig <- (abs(profileplot$log2FoldChange)>0.5) & (profileplot$padj<0.05)
+  profileplot$sig <- (abs(profileplot$log2FoldChange)>abs_lFC_thr) & (profileplot$padj<adjP_thr)
   if (organism =="mm") {
     profileplot$rrna <-vapply(strsplit(profileplot$pos,".",fixed = TRUE), `[`, 1, FUN.VALUE=character(1))
   } else{
@@ -863,18 +863,18 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, titl
   if (length(unique(profileplot$comp))>1) {
     ht <- ComplexHeatmap::Heatmap(matrixplot[,focused_order[whichPos]], name = "abs(log2FC)", top_annotation = ha,
                                   cluster_columns = FALSE,show_column_names = FALSE,
-                                  col=circlize::colorRamp2(c(0,0.5,8),c("white","cornsilk","black")),na_col = "white",
+                                  col=circlize::colorRamp2(c(0,abs_lFC_thr,8),c("white","cornsilk","black")),na_col = "white",
                                   column_split = factor(tags,levels = unique(tags),labels = unique(tags)),
-                                  column_title_rot = 90, heatmap_legend_param = list(at=c(0.5,2,4,6,8)))
+                                  column_title_rot = 90, heatmap_legend_param = list(at=c(abs_lFC_thr,2,4,6,8)))
     ComplexHeatmap::draw(ht, padding = grid::unit(c(2, 2, 16, 2), "mm"))
   } else {
     tp <- t(matrixplot[,focused_order[whichPos]])
     rownames(tp)<-unique(profileplot$comp)
     ht <- ComplexHeatmap::Heatmap(tp, name = "abs(log2FC)", top_annotation = ha,
                                   cluster_columns = FALSE, show_column_names = FALSE,
-                                  col=circlize::colorRamp2(c(0,0.5,8),c("white","cornsilk","black")),na_col = "white",
+                                  col=circlize::colorRamp2(c(0,abs_lFC_thr,8),c("white","cornsilk","black")),na_col = "white",
                                   column_split = factor(tags,levels = unique(tags),labels = unique(tags)),
-                                  column_title_rot = 90, heatmap_legend_param = list(at=c(0.5,2,4,6,8)))
+                                  column_title_rot = 90, heatmap_legend_param = list(at=c(abs_lFC_thr,2,4,6,8)))
     ComplexHeatmap::draw(ht, padding = grid::unit(c(2, 2, 16, 2), "mm"))
   }
 

@@ -62,7 +62,7 @@ Please make sure that you have the following packages installed as dripARF requi
 
 ## Copyright
 
-Copyright 2021 by the contributors (see AUTHORS and README files)
+Copyright 2021 by Ferhat Alkan
 
 ARF is released under the GNU General Public License.
 
