@@ -18,7 +18,7 @@ dripARF_rRNApos_heatmaps(
 \arguments{
 \item{dripARF_DRF}{rRNA position specific differential rRNA fragment abundace results}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{RPs}{Set of RPs that should be included in the figure.}
 

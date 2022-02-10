@@ -22,7 +22,7 @@ dripARF_get_DESEQ_dds(
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{exclude}{List of sample names to be excluded from the analysis.}
 

@@ -21,7 +21,7 @@ dripARF_report_RPset_group_counts(
 
 \item{dripARF_dds}{DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
 

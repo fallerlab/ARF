@@ -7,7 +7,7 @@
 ARF_check_organism(organism)
 }
 \arguments{
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 }
 \description{
 Check if the organism is valid for analysis in ARF.

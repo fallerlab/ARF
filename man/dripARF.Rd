@@ -18,7 +18,7 @@ dripARF(
 \arguments{
 \item{samplesFile}{File that describes file locations and sample groupings}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
 

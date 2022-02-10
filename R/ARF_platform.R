@@ -30,15 +30,15 @@ read_ARF_samples_file <- function(samplesFile){
 
 #' Organism Check
 #' @description Check if the organism is valid for analysis in ARF.
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @keywords ARF Organism dripARF
 #' @export
 #' @examples
 #' ARF_check_organism("hs")
 ARF_check_organism <- function(organism) {
-  if (!(organism %in% c("hs","mm"))) {
+  if (!(organism %in% c("hs","mm","sc"))) {
     #,"rm","op","ch"))) {
-    print("Choose a valid organism. hs (Homo sapiens, human) or mm (Mus musculus, mouse).")
+    print("Choose a valid organism. hs (Homo sapiens, human), mm (Mus musculus, mouse) or sc (Saccharomyces cerevisiae, yeast).")
     # print("Choose a valid organism. hs (Homo sapiens, human), mm (Mus musculus, mouse), rm (rhesus macaque, Macaca mulatta),
     #       op (grey short-tailed opossum, Monodelphis domestica), ch (chicken, red junglefowl, Gallus gallus) etc.")
     return(FALSE)
@@ -49,7 +49,7 @@ ARF_check_organism <- function(organism) {
 #' Read rRNA quantification from .bedGraph or .bam files
 #' @description Read bedgraph/bam files to create the rRNA count data.
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
 #' @keywords Reader rRNA fragment alignment
@@ -89,10 +89,10 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
   #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (4439+1823+153+120),data=0)), samples[,1])
   #   rownames(df) <- c(paste("chicken_28S",0:4438,sep = "_"), paste("chicken_18S",0:1822,sep = "_"),
   #                     paste("chicken_5.8S",0:152,sep = "_"), paste("chicken_5S",0:119,sep = "_"))
-  # } else if (organism=="sc") {
-  #   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (3396+1800+157+121),data=0)), samples[,1])
-  #   rownames(df) <- c(paste("yeast_25S",0:3395,sep = "_"), paste("yeast_18S",0:1799,sep = "_"),
-  #                     paste("yeast_5.8S",0:156,sep = "_"), paste("yeast_5S",0:120,sep = "_"))
+  } else if (organism=="sc") {
+    df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = (3396+1800+157+121),data=0)), samples[,1])
+    rownames(df) <- c(paste("yeast_25S",0:3395,sep = "_"), paste("yeast_18S",0:1799,sep = "_"),
+                      paste("yeast_5.8S",0:156,sep = "_"), paste("yeast_5S",0:120,sep = "_"))
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -144,7 +144,7 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param count_threshold Exclude the positions with reads less than this threshold on average. (Default: 1000)
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
@@ -205,7 +205,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
 #' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @keywords Average RP-set count of RP proximitty sets
@@ -246,6 +246,10 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
     org_RP_df <- ARF:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
       gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+  } else if (organism=="sc") {
+    org_RP_df <- ARF:::RP_proximity_yeast_df
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -276,7 +280,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
 #' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QCplots in.
 #' @param comparisons List of comparisons to be included.
@@ -363,6 +367,10 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     org_RP_df <- ARF:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
       gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+  } else if (organism=="sc") {
+    org_RP_df <- ARF:::RP_proximity_yeast_df
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -639,7 +647,7 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
 #' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
@@ -661,7 +669,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
   # GEt read counts
   if (is.null(dripARF_dds)){
     if (is.null(rRNA_counts)) {
-      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
+      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = FALSE)
     }
     dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
   } else {
@@ -700,6 +708,10 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
     org_RP_df <- ARF:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
       gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+  } else if (organism=="sc") {
+    org_RP_df <- ARF:::RP_proximity_yeast_df
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -714,7 +726,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 #' Draw Differential rRNA abundance heatmap and its overlap with RP-rRNA proximity sets
 #' @description Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance
 #' @param dripARF_DRF rRNA position specific differential rRNA fragment abundace results
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param RPs Set of RPs that should be included in the figure.
 #' @param targetDir Directory to save the plots in.
 #' @param abs_lFC_thr Differential abundance abs(logFC) threshold.
@@ -735,6 +747,10 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
     org_RP_df <- ARF:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
       gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+  } else if (organism=="sc") {
+    org_RP_df <- ARF:::RP_proximity_yeast_df
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -849,7 +865,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
 #' dripARF wrapper
 #' @description This function allows you to run the whole dripARF pipeline
 #' @param samplesFile File that describes file locations and sample groupings
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QC plots in.
@@ -895,7 +911,7 @@ dripARF <- function(samplesFile, organism="hs", compare="group", QCplot=TRUE,  t
 #' dripARF threshold_test wrapper
 #' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
 #' @param samplesFile File that describes file locations and sample groupings
-#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
@@ -916,6 +932,8 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
     RP_proximity_df <- ARF:::RP_proximity_human_df
   } else if (organism=="mm") {
     RP_proximity_df <- ARF:::RP_proximity_mouse_df
+  } else if (organism=="sc") {
+    RP_proximity_df <- ARF:::RP_proximity_yeast_df
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -963,13 +981,13 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
     
     gsea_sets_RP <- NULL
     RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
-    RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
+    # RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"YCI"))]
     
     RP_proxpos <- list()
     for (RP in RPfocus){
       proxpos <- which(RP_proximity_df[,RP]<thr[1])
       
-      if (length(proxpos)>thr[2] & !(startsWith(RP,"ES"))){
+      if (length(proxpos)>thr[2] & (!startsWith(RP,"ES")) & (!startsWith(RP,"YCI")) & (!startsWith(RP,"yeast"))){
         RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:thr[2]]])
       } else if (length(proxpos)>0){
         RP_proxpos[[RP]] <- proxpos
@@ -1072,3 +1090,6 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
   
   return(dripARF_results_collected)
 }
+
+
+

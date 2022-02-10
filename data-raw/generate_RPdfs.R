@@ -20,7 +20,7 @@ nomenclature <- read.csv2(file = "data-raw/nomenclature.csv", sep = "\t", header
 colnames(RP_proximity_df)[!colnames(RP_proximity_df)%in%nomenclature$humanST]
 nomenclature$humanST[!nomenclature$humanST%in%colnames(RP_proximity_df)]
 
-for (specie in c("human","mouse")){
+for (specie in c("human","mouse","yeast")){
   # HUMAN
   RP_proximity_df <- reshape2::dcast(
     read.csv(file = paste("data-raw/",specie,"_final_3D_distance_data.tsv",sep=""),
@@ -30,11 +30,15 @@ for (specie in c("human","mouse")){
   rownames(RP_proximity_df) = paste(RP_proximity_df$rRNA, RP_proximity_df$resno, sep = "_")
 
   rrnas <- c("18S", "28S", "5.8S", "5S")
+  if (specie=="yeast")
+    rrnas <- c("18S", "25S", "5.8S", "5S")
+  
 
   poslists <- sapply(rrnas, FUN = function(x){return(which(sub(x = rownames(RP_proximity_df), pattern = "_[[:alnum:]]*$", replacement = "")==x))})
   rrna_lengths <- sapply(rrnas,function(x){return(length(poslists[[x]]))})
 
-  colnames(RP_proximity_df) <- as.character(factor(colnames(RP_proximity_df),
+  if (specie!="yeast")
+    colnames(RP_proximity_df) <- as.character(factor(colnames(RP_proximity_df),
                                                    levels=colnames(RP_proximity_df),
                                                    labels=unlist(sapply(colnames(RP_proximity_df), function(x){
                                                      if(x %in% nomenclature$humanST)
@@ -79,9 +83,14 @@ for (specie in c("human","mouse")){
   
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
-  RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
-  
+  # RPfocus <- RPfocus[which(!startsWith(x = RPfocus,"ES"))]
+  # if (specie!="yeast")
+  #   RPfocus <- RPfocus[which(!startsWith(x = RPfocus,"yeast"))]
+
   thr<-c(27.40514, 360)
+  if (specie=="yeast")
+    thr<-c(25.73664, 262)
+  
   
   RP_proxpos <- list()
   for (RP in RPfocus){
@@ -113,10 +122,11 @@ for (specie in c("human","mouse")){
   assign(paste(specie,"_gsea_sets_RP",sep = ""), gsea_sets_RP)
 }
 
+
 #################################
 
-usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
-                  mouse_gsea_sets_RP, human_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
+usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df,  RP_proximity_yeast_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
+                  mouse_gsea_sets_RP, human_gsea_sets_RP, yeast_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
                   internal = TRUE, overwrite = TRUE)
 
 library(roxygen2); library(devtools); devtools::document(); devtools::install()

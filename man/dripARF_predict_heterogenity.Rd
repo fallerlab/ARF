@@ -27,7 +27,7 @@ dripARF_predict_heterogenity(
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 

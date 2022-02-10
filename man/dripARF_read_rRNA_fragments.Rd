@@ -14,7 +14,7 @@ dripARF_read_rRNA_fragments(
 \arguments{
 \item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
+\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 
