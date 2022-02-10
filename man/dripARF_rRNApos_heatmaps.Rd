@@ -11,7 +11,8 @@ dripARF_rRNApos_heatmaps(
   targetDir,
   abs_lFC_thr = 0.5,
   adjP_thr = 0.05,
-  title = "rRNA_pos_spec_heatmap"
+  title = "rRNA_pos_spec_heatmap",
+  gsea_sets_RP = NULL
 )
 }
 \arguments{
@@ -19,9 +20,17 @@ dripARF_rRNApos_heatmaps(
 
 \item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
 
+\item{RPs}{Set of RPs that should be included in the figure.}
+
 \item{targetDir}{Directory to save the plots in.}
 
+\item{abs_lFC_thr}{Differential abundance abs(logFC) threshold.}
+
+\item{adjP_thr}{Differential abundance adjusted P-value threshold.}
+
 \item{title}{Default is "rRNA_pos_spec_heatmap"}
+
+\item{gsea_sets_RP}{Use given alternative contact point sets (experimental purposes).}
 }
 \description{
 Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance

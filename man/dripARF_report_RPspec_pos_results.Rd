@@ -11,7 +11,8 @@ dripARF_report_RPspec_pos_results(
   organism = "hs",
   compare = "group",
   comparisons = NULL,
-  exclude = NULL
+  exclude = NULL,
+  gsea_sets_RP = NULL
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ dripARF_report_RPspec_pos_results(
 \item{comparisons}{List of comparisons to be included.}
 
 \item{exclude}{List of sample names to be excluded from the analysis.}
+
+\item{gsea_sets_RP}{Use given alternative contact point sets (experimental purposes).}
 }
 \description{
 Fish out the Differential values for RP proximity sets

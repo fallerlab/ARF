@@ -1,5 +1,5 @@
 
-# Copyright (C) 2021  Ferhat Alkan
+# Copyright (C) 2022  Ferhat Alkan
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,13 +14,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#' Read the input tsv file
-#' @description This function allows you to read the samples data, returning a dataframe.
-#' @param samplesFile File that describes file locations and sample groupings.
-#' @keywords Reader Samples
+#' Read the input tsv file for sample data
+#' @description This function allows you to read the tab-seperated ARF-samples file, returning a dataframe.
+#' @param samplesFile Sample data file that describes file locations and sample groupings.
+#' @keywords Reader Input Samples
 #' @export
 #' @examples
 #' read_ARF_samples_file("samples.txt")
+#' read_ARF_samples_file("samples.tsv")
 read_ARF_samples_file <- function(samplesFile){
   samples_df <- read.csv(file = samplesFile, header = TRUE, sep = "\t", comment.char = "#", stringsAsFactors = FALSE)
   rownames(samples_df) <- samples_df[,1]
@@ -28,7 +29,7 @@ read_ARF_samples_file <- function(samplesFile){
 }
 
 #' Organism Check
-#' @description Check if the organism is valid.
+#' @description Check if the organism is valid for analysis in ARF.
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @keywords ARF Organism dripARF
 #' @export
@@ -142,7 +143,7 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
 #' @description A function that normalizes rRNA counts with DESEQ2
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
+#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param count_threshold Exclude the positions with reads less than this threshold on average. (Default: 1000)
@@ -212,7 +213,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
 #' @examples
 #' dripARF("samples.txt", organism="hs")
 dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
-                                              organism="hs", compare="group", exclude=NULL){
+                                              organism="hs", compare="group", exclude=NULL, gsea_sets_RP=NULL){
 
   # Check organism first
   if (!ARF_check_organism(organism))
@@ -237,25 +238,14 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 
   ###################################################
   org_RP_df <- NULL
-  gsea_sets_RP <- NULL
   if (organism=="hs"){
     org_RP_df <- ARF:::RP_proximity_human_df
-    gsea_sets_RP <- ARF:::human_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::human_gsea_sets_RP
   } else if (organism=="mm") {
     org_RP_df <- ARF:::RP_proximity_mouse_df
-    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-  # } else if (organism=="rm") {
-  #   org_RP_df <- ARF:::RP_proximity_rhesus_df
-  #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
-  # } else if (organism=="op") {
-  #   org_RP_df <- ARF:::RP_proximity_opossum_df
-  #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
-  # } else if (organism=="ch") {
-  #   org_RP_df <- ARF:::RP_proximity_chicken_df
-  #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
-  # } else if (organism=="sc") {
-  #   org_RP_df <- ARF:::RP_proximity_yeast_df
-  #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -285,20 +275,20 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 #' @param samples Samples dataframe created by read_ARF_samples_file() function.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
 #' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
+#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QCplots in.
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param GSEAplots Whether to produce standard GSEA plots.
-#' @keywords Diffferential Ribosome Heterogeneity rRNA ribosome RP
+#' @keywords Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
 #' dripARF_predict_heterogenity(samples_df, rRNA_counts_df, organism="hs", QCplot=TRUE)
 dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
                                          compare="group", organism="hs", QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
-                                         GSEAplots=FALSE) {
+                                         GSEAplots=FALSE, gsea_sets_RP=NULL) {
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
@@ -365,25 +355,14 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
 
   ###################################################
   org_RP_df <- NULL
-  gsea_sets_RP <- NULL
   if (organism=="hs"){
     org_RP_df <- ARF:::RP_proximity_human_df
-    gsea_sets_RP <- ARF:::human_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::human_gsea_sets_RP
   } else if (organism=="mm") {
     org_RP_df <- ARF:::RP_proximity_mouse_df
-    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-  # } else if (organism=="rm") {
-  #   org_RP_df <- ARF:::RP_proximity_rhesus_df
-  #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
-  # } else if (organism=="op") {
-  #   org_RP_df <- ARF:::RP_proximity_opossum_df
-  #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
-  # } else if (organism=="ch") {
-  #   org_RP_df <- ARF:::RP_proximity_chicken_df
-  #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
-  # } else if (organism=="sc") {
-  #   org_RP_df <- ARF:::RP_proximity_yeast_df
-  #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -395,7 +374,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
 
   ########### Group specific means ##################
   RP_means <- dripARF_report_RPset_group_counts(samples = samples, rRNA_counts = rRNA_counts, dripARF_dds = dds,
-                                                organism = organism, compare = compare, exclude = exclude)
+                                                organism = organism, compare = compare, exclude = exclude, gsea_sets_RP=gsea_sets_RP)
 
   ######### Gene set enrichment Analysis ############
   #library(clusterProfiler)
@@ -434,7 +413,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
     used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
 
-    egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, pvalueCutoff = 1,scoreType = "pos")
+    egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, minGSSize = 10, maxGSSize = 10000, pvalueCutoff = 2, scoreType = "pos")
     egmt_used_measure@result$NES_rand_zscore <- NA
     for (RP in RPs_toreport){
       tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
@@ -472,7 +451,9 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
       }
     }
 
-    write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_results.csv",sep = ""), row.names = FALSE)
+    if (!is.null(gsea_sets_RP))
+      write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_results.csv",sep = ""), row.names = FALSE)
+    
     colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q",
                                   "C1.avg.read.c","C2.avg.read.c")
     all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
@@ -602,7 +583,7 @@ dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=N
 #' @param targetDir Directory to save the plots in.
 #' @param title Default is "DRH_prediction_volcanos"#'
 #' @param addedRPs Add given RPs to the plot no matter if they are significant or not.
-#' @param highlightRPS List of RPs to highlight instead of highlighting the top RPs.
+#' @param highlightRPs List of RPs to highlight instead of highlighting the top-predicted RPs.
 #' @param randZscore_thr Default=1
 #' @param ORA_adjP_thr Default=0.05
 #' @param RPSEA_adjP_thr Default=0.05
@@ -612,17 +593,17 @@ dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=N
 #' @examples
 #' dripARF_result_scatterplot(dripARF_results,"/Folder/to/save/in/")
 dripARF_result_scatterplot <- function(dripARF_results, targetDir,
-                                       title="DRH_prediction_volcanos", addedRPs=NULL, highlightRPS=NULL,
+                                       title="DRH_prediction_volcanos", addedRPs=NULL, highlightRPs=NULL,
                                        randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
 
   simplified <- dripARF_simplify_results(dripARF_results = dripARF_results,
                                          randZscore_thr = randZscore_thr, ORA_adjP_thr = ORA_adjP_thr,
                                          RPSEA_adjP_thr = RPSEA_adjP_thr, ORA_sig_n = ORA_sig_n)
 
-  if (is.null(highlightRPS))
+  if (is.null(highlightRPs))
     to_highlight <- simplified[simplified$top,]
   else
-    to_highlight <- simplified[simplified$Description%in%highlightRPS,]
+    to_highlight <- simplified[simplified$Description%in%highlightRPs,]
 
   if (length(addedRPs)>0)
     to_highlight <- rbind(to_highlight, simplified[simplified$Description %in% c(addedRPs), ])
@@ -662,12 +643,13 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
+#' @param gsea_sets_RP Use given alternative contact point sets (experimental purposes).
 #' @keywords lFCprofile RP rRNA proximity sets
 #' @export
 #' @examples
 #' dripARF("samples.txt", organism="mm")
 dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
-                                              organism="hs", compare="group", comparisons=NULL, exclude=NULL){
+                                              organism="hs", compare="group", comparisons=NULL, exclude=NULL, gsea_sets_RP=NULL){
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
@@ -710,25 +692,14 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 
   ###################################################
   org_RP_df <- NULL
-  gsea_sets_RP <- NULL
   if (organism=="hs"){
     org_RP_df <- ARF:::RP_proximity_human_df
-    gsea_sets_RP <- ARF:::human_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::human_gsea_sets_RP
   } else if (organism=="mm") {
     org_RP_df <- ARF:::RP_proximity_mouse_df
-    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    # } else if (organism=="rm") {
-    #   org_RP_df <- ARF:::RP_proximity_rhesus_df
-    #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
-    # } else if (organism=="op") {
-    #   org_RP_df <- ARF:::RP_proximity_opossum_df
-    #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
-    # } else if (organism=="ch") {
-    #   org_RP_df <- ARF:::RP_proximity_chicken_df
-    #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
-    # } else if (organism=="sc") {
-    #   org_RP_df <- ARF:::RP_proximity_yeast_df
-    #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -744,33 +715,26 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 #' @description Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance
 #' @param dripARF_DRF rRNA position specific differential rRNA fragment abundace results
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param RPs Set of RPs that should be included in the figure.
 #' @param targetDir Directory to save the plots in.
+#' @param abs_lFC_thr Differential abundance abs(logFC) threshold.
+#' @param adjP_thr Differential abundance adjusted P-value threshold.
 #' @param title Default is "rRNA_pos_spec_heatmap"
+#' @param gsea_sets_RP Use given alternative contact point sets (experimental purposes).
 #' @keywords Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
 #' dripARF_rRNApos_heatmaps(dripARF_results,"/Folder/to/save/in/")
-dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_lFC_thr=0.5, adjP_thr=0.05, title="rRNA_pos_spec_heatmap"){
+dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_lFC_thr=0.5, adjP_thr=0.05, title="rRNA_pos_spec_heatmap", gsea_sets_RP=NULL){
   org_RP_df <- NULL
-  gsea_sets_RP <- NULL
   if (organism=="hs"){
     org_RP_df <- ARF:::RP_proximity_human_df
-    gsea_sets_RP <- ARF:::human_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::human_gsea_sets_RP
   } else if (organism=="mm") {
     org_RP_df <- ARF:::RP_proximity_mouse_df
-    gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-  # } else if (organism=="rm") {
-  #   org_RP_df <- ARF:::RP_proximity_rhesus_df
-  #   gsea_sets_RP <- ARF:::rhesus_gsea_sets_RP
-  # } else if (organism=="op") {
-  #   org_RP_df <- ARF:::RP_proximity_opossum_df
-  #   gsea_sets_RP <- ARF:::opossum_gsea_sets_RP
-  # } else if (organism=="ch") {
-  #   org_RP_df <- ARF:::RP_proximity_chicken_df
-  #   gsea_sets_RP <- ARF:::chicken_gsea_sets_RP
-  # } else if (organism=="sc") {
-  #   org_RP_df <- ARF:::RP_proximity_yeast_df
-  #   gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+    if (is.null(gsea_sets_RP))
+      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -778,7 +742,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
 
   RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
 
-  prox_col = circlize::colorRamp2(c(0,24.999,25.0,50,200,300),c("black","black","grey30","grey60","grey99","white"))
+  prox_col = circlize::colorRamp2(c(0,26.9999,27, 50,200,300),c("black","black","grey30","grey60","grey99","white"))
 
   profileplot <- dripARF_DRF
   profileplot$sig <- (abs(profileplot$log2FoldChange)>abs_lFC_thr) & (profileplot$padj<adjP_thr)
@@ -802,7 +766,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
   rids <- c()
   extended_rids <- c()
   for (RP in RPs){
-    tmp_rids <- which(temp[,RP]<25)
+    tmp_rids <- which(temp[,RP]<27.40514)
     tmp_extended_rids <- c()
     for (i in 1:length(tmp_rids)){
       rid <- tmp_rids[i]
@@ -849,7 +813,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
   ha <- ComplexHeatmap::HeatmapAnnotation(rRNA = org_RP_df[focused_order,"rRNA"][whichPos],
                          foo=foo, col=list(foo=prox_col,
                                            rRNA=setNames(wesanderson::wes_palette("Rushmore1")[c(1,3,4,5)],rrnas), na_col = "white"),
-                         annotation_legend_param = list(foo=list(title="RP-rRNA\nproximity map\ndistance (Å)",at=c(0,25,100,200,300))))
+                         annotation_legend_param = list(foo=list(title="RP-rRNA\nproximity map\ndistance (Å)",at=c(0,27,100,200,300))))
 
   comparisons <- unique(as.character(dripARF_DRF$comp))
 
@@ -886,17 +850,17 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_
 #' @description This function allows you to run the whole dripARF pipeline
 #' @param samplesFile File that describes file locations and sample groupings
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
-#' @param comparison If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
+#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QC plots in.
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
-#' @param GSEAplots Whether to produce standard GSEA plots.
+#' @param GSEAplots Whether to produce and save the standard GSEA plots.
 #' @keywords dripARF pipeline
 #' @export
 #' @examples
 #' dripARF("samples.txt", organism="mm", targetDir="/target/directory/to/save/results")
-dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,  targetDir=NA,
+dripARF <- function(samplesFile, organism="hs", compare="group", QCplot=TRUE,  targetDir=NA,
                     comparisons=NULL, exclude=NULL, GSEAplots=FALSE){
 
   # Check organism first
@@ -927,3 +891,184 @@ dripARF <- function(samplesFile, organism="hs", comparison="group", QCplot=TRUE,
 
 
 
+
+#' dripARF threshold_test wrapper
+#' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
+#' @param samplesFile File that describes file locations and sample groupings
+#' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
+#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
+#' @param comparisons List of comparisons to be included.
+#' @param exclude List of sample names to be excluded from the analysis.
+#' @param thresholds List of given threshold vectors. Every vector contains the Angstrom threshold as 1st value, Set-size threshold as 2nd, and directionality as 3rd (optional, default=FALSE). 
+#' @keywords dripARF pipeline
+#' @export
+#' @examples
+#' dripARF_threshold_test("samples.txt", organism="mm", thresholds=list(c(20,150),c(15,100)))
+#' 
+dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", comparisons=NULL, exclude=NULL, thresholds=NULL){
+  
+  # Check organism first
+  if (!ARF_check_organism(organism))
+    return(NA)
+  
+  RP_proximity_df <- NULL
+  if (organism=="hs"){
+    RP_proximity_df <- ARF:::RP_proximity_human_df
+  } else if (organism=="mm") {
+    RP_proximity_df <- ARF:::RP_proximity_mouse_df
+  } else {
+    print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
+    return(NULL)
+  }
+  
+  samples <- read_ARF_samples_file(samplesFile)
+  if(!is.null(exclude))
+    samples <- samples[!samples[,1]%in%exclude,]
+  
+  rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism = organism, QCplot = FALSE)
+  
+  dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+  
+  s_n <- unique(samples[,compare])
+  s_l <- length(s_n)
+  samples$DESEQcondition <- samples[,compare]
+  
+  # Read count transformations
+  vsd <- DESeq2::vst(dds, blind=FALSE)
+  
+  if(is.null(comparisons) || length(comparisons)==0) {
+    comparisons <- list()
+    for (i in 1:(s_l-1)) {
+      for (j in (i+1):s_l) {
+        comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
+      }
+    }
+  }
+  
+  dripARF_results_collected <- NULL
+
+
+  for (thr in thresholds){
+    ## first get the RPsets based on the threshold
+    print(paste("Running dripARF for threshold", thr[1], thr[2]))
+    
+    directional = FALSE
+    if (length(thr)>2) {
+      if (thr[3]) {
+        directional = TRUE
+        print("Directional Test")
+      }
+    }
+    
+    
+    gsea_sets_RP <- NULL
+    RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
+    RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
+    
+    RP_proxpos <- list()
+    for (RP in RPfocus){
+      proxpos <- which(RP_proximity_df[,RP]<thr[1])
+      
+      if (length(proxpos)>thr[2] & !(startsWith(RP,"ES"))){
+        RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:thr[2]]])
+      } else if (length(proxpos)>0){
+        RP_proxpos[[RP]] <- proxpos
+      }
+    }
+    
+    gsea_sets_RP <- do.call("rbind", lapply(names(RP_proxpos), FUN = function(RP){
+      tmp_df<-NULL
+      proxpos <- RP_proxpos[[RP]]
+      
+      tmp_df <- data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
+      rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
+      
+      tmp_df <- rbind(tmp_df, as.data.frame(do.call("rbind", lapply(1:99, FUN = function(i){
+        randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
+        return(data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
+                          gene=paste(RP_proximity_df$rRNA[randset], RP_proximity_df$resno[randset], sep = "_")))
+      }))))
+      return(tmp_df)
+    }))
+    
+    ######### Gene set enrichment Analysis ############
+    dripARF_results <- NULL
+    ###################################################
+    RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+    ########## Overrepresentation Analysis ############
+    RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
+    
+    # Separate for each DESEQcondition
+    for (comp in comparisons) {
+      print(paste("Running predictions for",comp[1],"vs",comp[2]))
+      
+      GSEA_result_df <- NULL
+      res <- DESeq2::results(dds, contrast=c("DESEQcondition",comp[1],comp[2]), cooksCutoff = FALSE)
+      
+      temp_df <- res
+      temp_df$weight <- scales::rescale(log10(temp_df$baseMean), to = c(0, 5))
+      temp_df$padj[temp_df$padj<0.00001] = 0.00001
+      
+      measureID = "abs_GSEA_measure" #)){ #},"GSEA_measure","w_GSEA_m", "abs_w_GSEA_m")){
+      if (directional)
+        measureID = "GSEA_measure" 
+      
+      used_measure <- NULL
+      if (measureID=="GSEA_measure"){
+        used_measure <- res$log2FoldChange*(-log10(temp_df$padj))
+      } else if (measureID=="abs_GSEA_measure"){
+        used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))
+      } else if (measureID=="w_GSEA_m"){
+        used_measure <- res$log2FoldChange*(-log10(temp_df$padj))*temp_df$weight
+      } else if (measureID=="abs_w_GSEA_m"){
+        used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))*temp_df$weight
+      }
+      
+      names(used_measure)<-rownames(res)
+      used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
+      used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
+      used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
+
+      if(directional) {
+        egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, minGSSize = 10, maxGSSize = 10000, pvalueCutoff = 2)
+      } else {
+        egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, minGSSize = 10, maxGSSize = 10000, pvalueCutoff = 2, scoreType = "pos")
+      }
+      egmt_used_measure@result$NES_rand_zscore <- NA
+      for (RP in RPs_toreport){
+        tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
+        egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
+      }
+      
+      ### Overrepresentation hook ####
+      or_df <- fgsea::fora(pathways = RP_pathways,genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)],
+                           universe = rownames(res), minSize = 10)
+      
+      GSEA_result_df <- data.frame(Description = or_df$pathway,
+                                   ORA.overlap=or_df$overlap, ORA.setSize=or_df$size, ORA.padj=or_df$padj, ORA.p=or_df$pval,
+                                   RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.q=NA)
+      rownames(GSEA_result_df) <- GSEA_result_df$Description
+      
+      if(dim(egmt_used_measure@result)[1]>0){
+        for (RP in (egmt_used_measure@result$Description[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran")])){
+          temp<-egmt_used_measure@result[RP,]
+          GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
+          GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
+          GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
+          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        }
+      }
+      
+      colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q")
+      dripARF_results <- rbind(dripARF_results, data.frame(comp=paste(comp, collapse = "_vs_"),
+                                                             GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
+    }
+    
+    dripARF_results_collected <- rbind(dripARF_results_collected, data.frame(prox_threshold=thr[1], RPset_size_threshold=thr[2], directional=directional,  
+                                                                             dripARF_results))
+    
+    gc(verbose = T)
+  }
+  
+  return(dripARF_results_collected)
+}

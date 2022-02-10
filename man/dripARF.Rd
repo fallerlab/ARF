@@ -7,7 +7,7 @@
 dripARF(
   samplesFile,
   organism = "hs",
-  comparison = "group",
+  compare = "group",
   QCplot = TRUE,
   targetDir = NA,
   comparisons = NULL,
@@ -20,7 +20,7 @@ dripARF(
 
 \item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
 
-\item{comparison}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
 
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 
@@ -30,7 +30,7 @@ dripARF(
 
 \item{exclude}{List of sample names to be excluded from the analysis.}
 
-\item{GSEAplots}{Whether to produce standard GSEA plots.}
+\item{GSEAplots}{Whether to produce and save the standard GSEA plots.}
 }
 \description{
 This function allows you to run the whole dripARF pipeline

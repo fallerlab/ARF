@@ -10,7 +10,7 @@ ARF_check_organism(organism)
 \item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
 }
 \description{
-Check if the organism is valid.
+Check if the organism is valid for analysis in ARF.
 }
 \examples{
 ARF_check_organism("hs")

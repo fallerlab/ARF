@@ -9,7 +9,7 @@ dripARF_result_scatterplot(
   targetDir,
   title = "DRH_prediction_volcanos",
   addedRPs = NULL,
-  highlightRPS = NULL,
+  highlightRPs = NULL,
   randZscore_thr = 1,
   ORA_adjP_thr = 0.05,
   RPSEA_adjP_thr = 0.05,
@@ -25,7 +25,7 @@ dripARF_result_scatterplot(
 
 \item{addedRPs}{Add given RPs to the plot no matter if they are significant or not.}
 
-\item{highlightRPS}{List of RPs to highlight instead of highlighting the top RPs.}
+\item{highlightRPs}{List of RPs to highlight instead of highlighting the top-predicted RPs.}
 
 \item{randZscore_thr}{Default=1}
 

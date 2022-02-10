@@ -20,7 +20,7 @@ dripARF_get_DESEQ_dds(
 
 \item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
 \item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
 

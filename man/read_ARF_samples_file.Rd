@@ -2,18 +2,20 @@
 % Please edit documentation in R/ARF_platform.R
 \name{read_ARF_samples_file}
 \alias{read_ARF_samples_file}
-\title{Read the input tsv file}
+\title{Read the input tsv file for sample data}
 \usage{
 read_ARF_samples_file(samplesFile)
 }
 \arguments{
-\item{samplesFile}{File that describes file locations and sample groupings.}
+\item{samplesFile}{Sample data file that describes file locations and sample groupings.}
 }
 \description{
-This function allows you to read the samples data, returning a dataframe.
+This function allows you to read the tab-seperated ARF-samples file, returning a dataframe.
 }
 \examples{
 read_ARF_samples_file("samples.txt")
+read_ARF_samples_file("samples.tsv")
 }
+\keyword{Input}
 \keyword{Reader}
 \keyword{Samples}

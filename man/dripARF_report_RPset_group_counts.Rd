@@ -10,7 +10,8 @@ dripARF_report_RPset_group_counts(
   dripARF_dds = NULL,
   organism = "hs",
   compare = "group",
-  exclude = NULL
+  exclude = NULL,
+  gsea_sets_RP = NULL
 )
 }
 \arguments{

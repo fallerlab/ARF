@@ -14,7 +14,8 @@ dripARF_predict_heterogenity(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE
+  GSEAplots = FALSE,
+  gsea_sets_RP = NULL
 )
 }
 \arguments{
@@ -24,7 +25,7 @@ dripARF_predict_heterogenity(
 
 \item{dripARF_dds}{DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
 \item{organism}{Organism abbrevation. Pass "hs" for human and "mm" for mouse.}
 
@@ -44,7 +45,7 @@ Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data an
 \examples{
 dripARF_predict_heterogenity(samples_df, rRNA_counts_df, organism="hs", QCplot=TRUE)
 }
-\keyword{Diffferential}
+\keyword{Differential}
 \keyword{Heterogeneity}
 \keyword{RP}
 \keyword{Ribosome}

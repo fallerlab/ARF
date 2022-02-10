@@ -23,7 +23,7 @@ nomenclature$humanST[!nomenclature$humanST%in%colnames(RP_proximity_df)]
 for (specie in c("human","mouse")){
   # HUMAN
   RP_proximity_df <- reshape2::dcast(
-    read.csv(file = paste("/home/projects/ribosomal_heterogeneity/data/public/ribosome_structure/",specie,"_final_3D_distance_data.tsv",sep=""),
+    read.csv(file = paste("data-raw/",specie,"_final_3D_distance_data.tsv",sep=""),
              header = TRUE,sep = ",",stringsAsFactors = FALSE), rRNA+resno~Species, value.var="mind",fun.aggregate = min)
   RP_proximity_df[RP_proximity_df == -Inf] <- NA
   RP_proximity_df[RP_proximity_df == Inf] <- NA
@@ -43,48 +43,82 @@ for (specie in c("human","mouse")){
                                                        return(x)
                                                    }))))
 
+  # gsea_sets_RP <- NULL
+  # RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
+  # RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
+  # 
+  # 
+  # RP_proxpos <- list()
+  # for (RP in RPfocus){
+  #   proxpos <- which(RP_proximity_df[,RP]<25)
+  # 
+  #   if (length(proxpos)>250 & !(startsWith(RP,"ES"))){
+  #     RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:250]])
+  #   } else if (length(proxpos)>0){
+  #     RP_proxpos[[RP]] <- proxpos
+  #   }
+  # }
+  # 
+  # for (RP in names(RP_proxpos)){
+  #   print(paste(RP,specie))
+  #   proxpos <- RP_proxpos[[RP]]
+  # 
+  #   if(length(proxpos)>0) {
+  #     gsea_sets_RP <- rbind(gsea_sets_RP,
+  #                                 data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_")))
+  # 
+  #     rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
+  #     for (i in 1:99) {
+  #       randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
+  #       gsea_sets_RP <- rbind(gsea_sets_RP, data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
+  #                                                                  gene=paste(RP_proximity_df$rRNA[randset],
+  #                                                                             RP_proximity_df$resno[randset], sep = "_")))
+  #     }
+  #   }
+  # }
+  
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
   RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
-
-
+  
+  thr<-c(27.40514, 360)
+  
   RP_proxpos <- list()
   for (RP in RPfocus){
-    proxpos <- which(RP_proximity_df[,RP]<25)
-
-    if (length(proxpos)>250 & !(startsWith(RP,"ES"))){
-      RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:250]])
+    proxpos <- which(RP_proximity_df[,RP]<thr[1])
+    
+    if (length(proxpos)>thr[2] & !(startsWith(RP,"ES"))){
+      RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:thr[2]]])
     } else if (length(proxpos)>0){
       RP_proxpos[[RP]] <- proxpos
     }
   }
-
-  for (RP in names(RP_proxpos)){
-    print(paste(RP,specie))
+  
+  gsea_sets_RP <- do.call("rbind", lapply(names(RP_proxpos), FUN = function(RP){
+    tmp_df<-NULL
     proxpos <- RP_proxpos[[RP]]
-
-    if(length(proxpos)>0) {
-      gsea_sets_RP <- rbind(gsea_sets_RP,
-                                  data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_")))
-
-      rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
-      for (i in 1:99) {
-        randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
-        gsea_sets_RP <- rbind(gsea_sets_RP, data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
-                                                                   gene=paste(RP_proximity_df$rRNA[randset],
-                                                                              RP_proximity_df$resno[randset], sep = "_")))
-      }
-    }
-  }
+    
+    tmp_df <- data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
+    rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
+    
+    tmp_df <- rbind(tmp_df, as.data.frame(do.call("rbind", lapply(1:99, FUN = function(i){
+      randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
+      return(data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
+                        gene=paste(RP_proximity_df$rRNA[randset], RP_proximity_df$resno[randset], sep = "_")))
+    }))))
+    return(tmp_df)
+  }))
 
   assign(paste("RP_proximity_",specie,"_df",sep = ""), RP_proximity_df)
   assign(paste(specie,"_gsea_sets_RP",sep = ""), gsea_sets_RP)
 }
 
+#################################
 
 usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
                   mouse_gsea_sets_RP, human_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
                   internal = TRUE, overwrite = TRUE)
 
 library(roxygen2); library(devtools); devtools::document(); devtools::install()
+
 
