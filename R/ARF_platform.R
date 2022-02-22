@@ -239,17 +239,17 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
   ###################################################
   org_RP_df <- NULL
   if (organism=="hs"){
-    org_RP_df <- ARF:::RP_proximity_human_df
+    org_RP_df <- ARFcollide:::RP_proximity_human_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::human_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::human_gsea_sets_RP
   } else if (organism=="mm") {
-    org_RP_df <- ARF:::RP_proximity_mouse_df
+    org_RP_df <- ARFcollide:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::mouse_gsea_sets_RP
   } else if (organism=="sc") {
-    org_RP_df <- ARF:::RP_proximity_yeast_df
+    org_RP_df <- ARFcollide:::RP_proximity_yeast_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -360,17 +360,17 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
   ###################################################
   org_RP_df <- NULL
   if (organism=="hs"){
-    org_RP_df <- ARF:::RP_proximity_human_df
+    org_RP_df <- ARFcollide:::RP_proximity_human_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::human_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::human_gsea_sets_RP
   } else if (organism=="mm") {
-    org_RP_df <- ARF:::RP_proximity_mouse_df
+    org_RP_df <- ARFcollide:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::mouse_gsea_sets_RP
   } else if (organism=="sc") {
-    org_RP_df <- ARF:::RP_proximity_yeast_df
+    org_RP_df <- ARFcollide:::RP_proximity_yeast_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -701,17 +701,17 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
   ###################################################
   org_RP_df <- NULL
   if (organism=="hs"){
-    org_RP_df <- ARF:::RP_proximity_human_df
+    org_RP_df <- ARFcollide:::RP_proximity_human_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::human_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::human_gsea_sets_RP
   } else if (organism=="mm") {
-    org_RP_df <- ARF:::RP_proximity_mouse_df
+    org_RP_df <- ARFcollide:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::mouse_gsea_sets_RP
   } else if (organism=="sc") {
-    org_RP_df <- ARF:::RP_proximity_yeast_df
+    org_RP_df <- ARFcollide:::RP_proximity_yeast_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -740,17 +740,17 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
 dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, abs_lFC_thr=0.5, adjP_thr=0.05, title="rRNA_pos_spec_heatmap", gsea_sets_RP=NULL){
   org_RP_df <- NULL
   if (organism=="hs"){
-    org_RP_df <- ARF:::RP_proximity_human_df
+    org_RP_df <- ARFcollide:::RP_proximity_human_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::human_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::human_gsea_sets_RP
   } else if (organism=="mm") {
-    org_RP_df <- ARF:::RP_proximity_mouse_df
+    org_RP_df <- ARFcollide:::RP_proximity_mouse_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::mouse_gsea_sets_RP
   } else if (organism=="sc") {
-    org_RP_df <- ARF:::RP_proximity_yeast_df
+    org_RP_df <- ARFcollide:::RP_proximity_yeast_df
     if (is.null(gsea_sets_RP))
-      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+      gsea_sets_RP <- ARFcollide:::yeast_gsea_sets_RP
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -929,11 +929,11 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
   
   RP_proximity_df <- NULL
   if (organism=="hs"){
-    RP_proximity_df <- ARF:::RP_proximity_human_df
+    RP_proximity_df <- ARFcollide:::RP_proximity_human_df
   } else if (organism=="mm") {
-    RP_proximity_df <- ARF:::RP_proximity_mouse_df
+    RP_proximity_df <- ARFcollide:::RP_proximity_mouse_df
   } else if (organism=="sc") {
-    RP_proximity_df <- ARF:::RP_proximity_yeast_df
+    RP_proximity_df <- ARFcollide:::RP_proximity_yeast_df
   } else {
     print(paste(c("Organism", organism, "Not implemented yet!"), collapse = " "))
     return(NULL)
@@ -1092,4 +1092,27 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
 }
 
 
-
+visualize_geneset <- function(organism, chain_file, RP) {
+  org_RP_df <- NULL
+  if (organism=="hs"){
+    org_RP_df <- ARFcollide:::RP_proximity_human_df
+    gsea_sets_RP <- ARFcollide:::human_gsea_sets_RP
+    chainData_raw <- read.csv(chain_file)
+  } else if (organism=="sc") {
+    org_RP_df <- ARFcollide:::RP_proximity_yeast_df
+    gsea_sets_RP <- ARFcollide:::yeast_gsea_sets_RP
+    chainData_raw <- read.csv(chain_file, header = F)
+    colnames(chainData_raw) <- c("chain_lead","chain_trail","name","RP","type")
+    chainData_raw$Chain_id <- sapply(1:dim(chainData_raw)[1], FUN = function(i){
+      if (chainData_raw$chain_lead[i]!=chainData_raw$chain_trail[i]){
+        return(paste(chainData_raw$chain_lead[i],chainData_raw$chain_trail[i],sep = "+"))
+      } else {return(chainData_raw$chain_lead[i])}
+    })
+  } else {
+    print(paste(c("Organism", organism, "Not possible structure!"), collapse = " "))
+    return(NULL)
+  }
+  
+  cat()
+    
+}
