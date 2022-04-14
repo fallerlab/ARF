@@ -31,7 +31,7 @@ dripARF_report_RPset_group_counts(
 Calculate the average read count of RP proximity sets
 }
 \examples{
-dripARF("samples.txt", organism="hs")
+dripARF_report_RPset_group_counts(samples_df)
 }
 \keyword{Average}
 \keyword{RP}

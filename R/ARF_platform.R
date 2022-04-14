@@ -211,7 +211,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
 #' @keywords Average RP-set count of RP proximitty sets
 #' @export
 #' @examples
-#' dripARF("samples.txt", organism="hs")
+#' dripARF_report_RPset_group_counts(samples_df)
 dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
                                               organism="hs", compare="group", exclude=NULL, gsea_sets_RP=NULL){
 
@@ -307,7 +307,7 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     if (is.null(rRNA_counts)) {
       rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
     }
-    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude, QCplot = QCplot, targetDir = targetDir)
   } else {
     dds <- dripARF_dds
   }

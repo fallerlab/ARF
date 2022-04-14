@@ -79,7 +79,7 @@ for (specie in c("human","mouse")){
   
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
-  RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
+  RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast") | startsWith(x = RPfocus,"YCI"))]
   
   thr<-c(27.40514, 360)
   
@@ -114,11 +114,20 @@ for (specie in c("human","mouse")){
 }
 
 #################################
+df_4v6x <- read.csv("data-raw/4v6x_chain_data.edited.csv", sep=",")
+get_chain_id <- function(x){
+  temp <- human_gsea_sets_RP$gene[human_gsea_sets_RP$ont==x]
+  
+}
+  
+
+#################################
 
 usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
                   mouse_gsea_sets_RP, human_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
                   internal = TRUE, overwrite = TRUE)
 
 library(roxygen2); library(devtools); devtools::document(); devtools::install()
+
 
 

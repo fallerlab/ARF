@@ -1,5 +1,5 @@
 Package: ARF
-Title: ARF - R platform for the Analysis of rRNA Fragments originating from Ribo-seq experiments
+Title: ARF - R package for the Analysis of rRNA Fragments originating from Ribo-seq experiments
 Version: 0.9.1
 Authors@R: c(
     person(given = "Ferhat",
@@ -12,7 +12,7 @@ Authors@R: c(
            role = c("aut"),
            comment = c(ORCID = "0000-0002-0738-2254"))
            )
-Description: ARF is a platform that consists multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity across samples by overlapping rRNA fragment data with the 3D structure of the ribosome
+Description: ARF is a platform that consists of multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It currently contains the following methods; dripARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity across samples by overlapping rRNA fragment data with the 3D structure of the ribosome.
 License: use_gpl3_license()
 Encoding: UTF-8
 LazyData: true
