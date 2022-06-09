@@ -643,13 +643,15 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
+#' @param targetDir Directory to save the plots in.
 #' @param gsea_sets_RP Use given alternative contact point sets (experimental purposes).
 #' @keywords lFCprofile RP rRNA proximity sets
 #' @export
 #' @examples
 #' dripARF("samples.txt", organism="mm")
 dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
-                                              organism="hs", compare="group", comparisons=NULL, exclude=NULL, gsea_sets_RP=NULL){
+                                              organism="hs", compare="group", comparisons=NULL, exclude=NULL, 
+                                              targetDir=NA, gsea_sets_RP=NULL){
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
@@ -661,7 +663,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNA_counts=NULL, dripARF
   # GEt read counts
   if (is.null(dripARF_dds)){
     if (is.null(rRNA_counts)) {
-      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = QCplot, targetDir=targetDir)
+      rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, organism=organism, QCplot = F, targetDir=targetDir)
     }
     dds <- dripARF_get_DESEQ_dds(samples = samples, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
   } else {

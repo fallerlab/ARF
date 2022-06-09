@@ -12,6 +12,7 @@ dripARF_report_RPspec_pos_results(
   compare = "group",
   comparisons = NULL,
   exclude = NULL,
+  targetDir = NA,
   gsea_sets_RP = NULL
 )
 }
@@ -29,6 +30,8 @@ dripARF_report_RPspec_pos_results(
 \item{comparisons}{List of comparisons to be included.}
 
 \item{exclude}{List of sample names to be excluded from the analysis.}
+
+\item{targetDir}{Directory to save the plots in.}
 
 \item{gsea_sets_RP}{Use given alternative contact point sets (experimental purposes).}
 }
