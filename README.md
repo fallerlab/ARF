@@ -9,7 +9,7 @@ Currently, it includes the following methods:
 In R (>= 2.10) environment
 
 	install.packages("devtools")
-    devtools::install_github("fallerlab/ARF")
+    devtools::install_github("fallerlab/ARF@main")
 
 
 ### Required R libraries
