@@ -2,6 +2,7 @@
 
 export(ARF_check_organism)
 export(dripARF)
+export(dripARF_add_replicates)
 export(dripARF_get_DESEQ_dds)
 export(dripARF_predict_heterogenity)
 export(dripARF_rRNApos_heatmaps)

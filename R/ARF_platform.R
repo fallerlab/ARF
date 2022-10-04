@@ -52,6 +52,7 @@ ARF_check_organism <- function(organism) {
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' @param add_random_replicates For sample gorups with a single replicate, add a second one that is "randomly" altered (Default: F)
 #' @keywords Reader rRNA fragment alignment
 #' @export
 #' @examples
@@ -60,7 +61,7 @@ ARF_check_organism <- function(organism) {
 dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, targetDir=NA) {
 
   # Check organism first
-  if (!ARF_check_organism(organism))
+  if (!ARF::ARF_check_organism(organism))
     return(NA)
 
   # Assign target directory
@@ -124,7 +125,6 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
       return(NULL)
     }
   }
-
   print("ALL bedgraphs have been read.")
   if (QCplot) {
     g1 <- ggplot2::ggplot(reshape2::melt(df), ggplot2::aes(x=variable, y=value)) +
@@ -138,6 +138,28 @@ dripARF_read_rRNA_fragments <- function(samples, organism="hs", QCplot=FALSE, ta
   return(df[rowSums(is.na(df))==0,])
 }
 
+
+#' Add random-edited replicates to single replicate groups
+#' @description Add random-edited replicates to single replicate groups
+#' @param samples Samples dataframe created by read_ARF_samples_file() function.
+#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function
+#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
+#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' @keywords Reader rRNA fragment alignment
+#' @export
+#' @examples
+#' dripARF_add_replicates(samples_df)
+#' dripARF_add_replicates(samples_df, QCplot=TRUE, targetDir="./")
+dripARF_add_replicates <- function(samples, rRNA_counts, QCplot=FALSE, targetDir=NA) {
+  group_counts <- table(samples$group)
+  for (sample in samples$sampleName[samples$group%in%names(group_counts)[group_counts==1]]){
+    new_sampleName <- paste0(sample,"_ADDED")
+    samples[new_sampleName,] <- data.frame(sampleName=new_sampleName, samples[samples$sampleName==sample,-1])
+    samples[new_sampleName,2] <- NA
+    rRNA_counts[,new_sampleName] <- round(rRNA_counts[,sample] * runif(dim(rRNA_counts)[1], min = 0.9, max = 1.1),0)
+  }
+  return(list(samples=samples,rRNA_counts=rRNA_counts))
+}
 
 #' To normalize the counts with DESEQ
 #' @description A function that normalizes rRNA counts with DESEQ2
