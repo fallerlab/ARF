@@ -345,9 +345,9 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     comparisons <- list()
     for (i in 1:(s_l-1)) {
       for (j in (i+1):s_l) {
-        print(paste("Comparing",s_n[i],"vs",s_n[j]))
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
         if(optimize_run==F){
+          print(paste("Comparing",s_n[i],"vs",s_n[j]))
           res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
           print(DESeq2::summary(res))
         }
@@ -439,17 +439,21 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
     used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
     used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
     used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
-
+    
+    print("# GSEA measures Done!")
+    
     egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, minGSSize = 10, maxGSSize = 10000, pvalueCutoff = 2, scoreType = "pos")
     egmt_used_measure@result$NES_rand_zscore <- NA
     for (RP in RPs_toreport){
       tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
       egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
     }
-
+    print("# GSEA RUN Done!")
+    
     ### Overrepresentation hook ####
     or_df <- fgsea::fora(pathways = RP_pathways,genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)],
                          universe = rownames(res), minSize = 10)
+    print("# Overrepresentation Done!")
 
     GSEA_result_df <- data.frame(Description = or_df$pathway,
                               ORA.overlap=or_df$overlap, ORA.setSize=or_df$size, ORA.padj=or_df$padj, ORA.p=or_df$pval,
@@ -480,6 +484,8 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
 
     if (!is.null(gsea_sets_RP))
       write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_results.csv",sep = ""), row.names = FALSE)
+    
+    print("# GSEA report done!")
     
     colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q",
                                   "C1.avg.read.c","C2.avg.read.c")
