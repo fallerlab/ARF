@@ -15,7 +15,8 @@ dripARF_predict_heterogenity(
   comparisons = NULL,
   exclude = NULL,
   GSEAplots = FALSE,
-  gsea_sets_RP = NULL
+  gsea_sets_RP = NULL,
+  optimize_run = F
 )
 }
 \arguments{
@@ -38,6 +39,10 @@ dripARF_predict_heterogenity(
 \item{exclude}{List of sample names to be excluded from the analysis.}
 
 \item{GSEAplots}{Whether to produce standard GSEA plots.}
+
+\item{gsea_sets_RP}{Use given alternative contact point sets (experimental purposes).}
+
+\item{optimize_run}{Run in optimized mode for time-saving.}
 }
 \description{
 Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.

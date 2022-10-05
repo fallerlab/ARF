@@ -1,6 +1,6 @@
 Package: ARF
 Title: ARF - R package for the Analysis of rRNA Fragments originating from Ribo-seq experiments
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(
     person(given = "Ferhat",
            family = "Alkan",

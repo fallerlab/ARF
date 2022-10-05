@@ -230,6 +230,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNA_counts=NULL, compare="group", or
 #' @param organism Organism abbrevation. Pass "hs" for human and "mm" for mouse.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param exclude List of sample names to be excluded from the analysis.
+#' @param gsea_sets_RP Use given alternative contact point sets (experimental purposes).
 #' @keywords Average RP-set count of RP proximitty sets
 #' @export
 #' @examples
@@ -304,13 +305,15 @@ dripARF_report_RPset_group_counts <- function(samples, rRNA_counts=NULL, dripARF
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param GSEAplots Whether to produce standard GSEA plots.
+#' @param gsea_sets_RP Use given alternative contact point sets (experimental purposes).
+#' @param optimize_run Run in optimized mode for time-saving.
 #' @keywords Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
 #' dripARF_predict_heterogenity(samples_df, rRNA_counts_df, organism="hs", QCplot=TRUE)
 dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=NULL,
                                          compare="group", organism="hs", QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
-                                         GSEAplots=FALSE, gsea_sets_RP=NULL) {
+                                         GSEAplots=FALSE, gsea_sets_RP=NULL, optimize_run=F) {
   # Check organism first
   if (!ARF_check_organism(organism))
     return(NA)
@@ -344,8 +347,10 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
       for (j in (i+1):s_l) {
         print(paste("Comparing",s_n[i],"vs",s_n[j]))
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
-        res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
-        print(DESeq2::summary(res))
+        if(optimize_run==F){
+          res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
+          print(DESeq2::summary(res))
+        }
       }
     }
   }
