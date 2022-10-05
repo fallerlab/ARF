@@ -478,7 +478,14 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
         GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
         GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
         GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-        GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        if("qvalue" %in% colnames(temp)){
+          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
+        } else if("qvalues" %in% colnames(temp)){
+          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        } else{
+          print("qvalue is not part of egmt_result!!")
+          GSEA_result_df[RP,"RPSEA.q"] <- NULL
+        }
       }
     }
 
