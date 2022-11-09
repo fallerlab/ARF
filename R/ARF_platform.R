@@ -467,8 +467,10 @@ dripARF_predict_heterogenity <- function(samples, rRNA_counts=NULL, dripARF_dds=
         pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
         for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
           if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                                                                                        "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
+            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],
+                                                                                        "NES=",as.character(round(egmt_used_measure$NES[i],2)),
+                                                                                        "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),
+                                                                                        "; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
         }
         dev.off()
       }
@@ -1097,7 +1099,14 @@ dripARF_threshold_test <- function(samplesFile, organism="hs", compare="group", 
           GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
           GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
           GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+          if("qvalue" %in% colnames(temp)){
+            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
+          } else if("qvalues" %in% colnames(temp)){
+            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+          } else{
+            print("qvalue is not part of egmt_result!!")
+            GSEA_result_df[RP,"RPSEA.q"] <- NULL
+          }
         }
       }
       
