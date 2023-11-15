@@ -13,7 +13,7 @@ dripARF_get_DESEQ_dds(
   exclude = NULL,
   count_threshold = 100,
   QCplot = FALSE,
-  targetDir = NA
+  targetDir = paste0(getwd(), "/")
 )
 }
 \arguments{

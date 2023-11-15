@@ -17,7 +17,8 @@ dripARF_predict_heterogenity(
   exclude = NULL,
   GSEAplots = FALSE,
   gsea_sets_RP = NULL,
-  RP_proximity_df = NULL
+  RP_proximity_df = NULL,
+  optimized_run = F
 )
 }
 \arguments{
@@ -46,6 +47,8 @@ dripARF_predict_heterogenity(
 \item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
 
 \item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+
+\item{optimized_run}{Run in optimized mode for time-saving.}
 }
 \description{
 Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.

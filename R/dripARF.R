@@ -83,7 +83,7 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
   if (QCplot) {
     g1 <- ggplot2::ggplot(reshape2::melt(df), ggplot2::aes(x=variable, y=value)) +
       ggplot2::geom_violin()+ggplot2::scale_y_log10()+ggplot2::coord_flip()+
-      ggplot2::xlab("Positional rRNA fragment counts (log-scale)")+ggplot2::ylab("Samples")
+      ggplot2::ylab("Positional rRNA fragment counts (log-scale)")+ggplot2::xlab("Samples")
     print(g1)
     ggplot2::ggsave(filename = paste(targetDir, "/", "raw_rRNA_counts.png", sep = ""), plot = g1, limitsize = FALSE,
                     width = 8, height = 3+(floor(length(samples[,1])**0.5)*3))
@@ -108,7 +108,8 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
 #' @examples
 #' dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa")
 #' @export
-dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compare="group", organism=NULL, exclude=NULL, count_threshold=100, QCplot=FALSE, targetDir=NA){
+dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compare="group", organism=NULL, exclude=NULL, count_threshold=100, QCplot=FALSE, 
+                                  targetDir=paste0(getwd(),"/")){
   
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -150,6 +151,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compar
     dev.off()
   }
   
+  save(file = paste0(targetDir,"/temp.dds.RData"), list = c("dds"))
   return(dds)
 }
 
@@ -213,7 +215,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
     }
   }
   
-  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
   
   ###############################################################
   vsd <- DESeq2::vst(dds, blind=FALSE)
@@ -248,13 +250,14 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param GSEAplots Whether to produce standard GSEA plots.
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
 #' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' @param optimized_run Run in optimized mode for time-saving.
 #' @keywords Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
 #' dripARF_predict_heterogenity(samples_df,  "rRNAs.fa", rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
 dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                          compare="group", organism=NULL, QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
-                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL) {
+                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F) {
   # # Check organism first
   # if (!ARF_check_organism(organism))
   #   return(NA)
@@ -286,10 +289,12 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     comparisons <- list()
     for (i in 1:(s_l-1)) {
       for (j in (i+1):s_l) {
-        message(paste("Comparing",s_n[i],"vs",s_n[j],"\n"))
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
-        res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
-        print(DESeq2::summary(res))
+        if(optimized_run==F){
+          message(paste("Comparing",s_n[i],"vs",s_n[j],"\n"))
+          res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
+          print(DESeq2::summary(res))
+        }
       }
     }
   }
@@ -335,7 +340,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       return(NULL)
     }
   }
-  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
   
   ########## Overrepresentation Analysis ############
   RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
@@ -388,7 +393,8 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
                                                pvalueCutoff = 2, scoreType = "pos")
     egmt_used_measure@result$NES_rand_zscore <- NA
     for (RP in RPs_toreport){
-      tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
+      # Change This, make it more accurate, like removing Rand_ and then check equality
+      tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP) 
       egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
     }
     
@@ -397,7 +403,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
                          universe = rownames(res), minSize = 10)
     
     GSEA_result_df <- data.frame(Description = or_df$pathway,
-                                 ORA.overlap=or_df$overlap, ORA.setSize=or_df$size, ORA.padj=or_df$padj, ORA.p=or_df$pval,
+                                 ORA.overlap = or_df$overlap, ORA.setSize = or_df$size, ORA.padj = or_df$padj, ORA.p = or_df$pval,
                                  RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.q=NA)
     GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
     GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
@@ -687,7 +693,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=
     }
   }
   
-  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
   
   rownames(all_results) <- 1:(dim(all_results)[1])
   return(all_results)
@@ -727,7 +733,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
     }
   }
   
-  RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
   
   prox_col = circlize::colorRamp2(c(0,26.9999,27, 50,200,300),c("black","black","grey30","grey60","grey99","white"))
   
@@ -1062,7 +1068,7 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
     ######### Gene set enrichment Analysis ############
     dripARF_results <- NULL
     ###################################################
-    RPs_toreport <- unique(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])
+    RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
     ########## Overrepresentation Analysis ############
     RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
     
@@ -1162,4 +1168,27 @@ visualize_geneset <- function(organism, chain_file, RP) {
     message(paste(c("Organism", organism, "Not possible structure!\n"), collapse = " "))
     return(NULL)
   }
+}
+
+
+#' Add random-edited replicates to single replicate groups
+#' @description Add random-edited replicates to single replicate groups
+#' @param samples Samples dataframe created by read_ARF_samples_file() function.
+#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function
+#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
+#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' @keywords Reader rRNA fragment alignment
+#' @export
+#' @examples
+#' dripARF_add_replicates(samples_df)
+#' dripARF_add_replicates(samples_df, QCplot=TRUE, targetDir="./")
+dripARF_add_replicates <- function(samples, rRNA_counts, QCplot=FALSE, targetDir=NA) {
+  group_counts <- table(samples$group)
+  for (sample in samples$sampleName[samples$group%in%names(group_counts)[group_counts==1]]){
+    new_sampleName <- paste0(sample,"_ADDED")
+    samples[new_sampleName,] <- data.frame(sampleName=new_sampleName, samples[samples$sampleName==sample,-1])
+    samples[new_sampleName,2] <- NA
+    rRNA_counts[,new_sampleName] <- round(rRNA_counts[,sample] * runif(dim(rRNA_counts)[1], min = 0.9, max = 1.1),0)
+  }
+  return(list(samples=samples,rRNA_counts=rRNA_counts))
 }
