@@ -251,13 +251,14 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
 #' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
 #' @param optimized_run Run in optimized mode for time-saving.
+#' @param measureID Alternative options for rRNA position ranking before RPSEA.
 #' @keywords Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
 #' dripARF_predict_heterogenity(samples_df,  "rRNAs.fa", rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
 dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                          compare="group", organism=NULL, QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
-                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F) {
+                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F, measureID="abs_GSEA_measure") {
   # # Check organism first
   # if (!ARF_check_organism(organism))
   #   return(NA)
@@ -292,7 +293,8 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
         comparisons[[(length(comparisons) +1)]] <- c(s_n[i],s_n[j])
         if(optimized_run==F){
           message(paste("Comparing",s_n[i],"vs",s_n[j],"\n"))
-          res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
+          # res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), lfcThreshold = 0.5, alpha = 0.05, cooksCutoff = FALSE)
+          res <- DESeq2::results(dds, contrast=c("DESEQcondition",s_n[i],s_n[j]), cooksCutoff = FALSE)
           print(DESeq2::summary(res))
         }
       }
@@ -356,6 +358,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
   #library(enrichplot)
   #library(gprofiler2)
   
+  counts <- DESeq2::counts(dds, normalized=TRUE)
   all_GSEA_results <- NULL
   
   # Separate for each DESEQcondition
@@ -368,29 +371,71 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     temp_df <- res
     temp_df$weight <- scales::rescale(log10(temp_df$baseMean), to = c(0, 5))
     temp_df$padj[temp_df$padj<0.00001] = 0.00001
+    temp_df$pvalue[temp_df$pvalue<0.00001] = 0.00001
     
-    measureID = "abs_GSEA_measure" #)){ #},"GSEA_measure","w_GSEA_m", "abs_w_GSEA_m")){
+    #measureID = "abs_GSEA_measure" #)){ #},"GSEA_measure","w_GSEA_m", "abs_w_GSEA_m")){
     
+    scoreType = "pos" # for the clusterProfiler::GSEA function : "pos" "neg" one-tailed or "std" two-tailed
     used_measure <- NULL
     if (measureID=="GSEA_measure"){
-      used_measure <- res$log2FoldChange*(-log10(temp_df$padj))
+      used_measure <- temp_df$log2FoldChange*(-log10(temp_df$padj))
+      names(used_measure)<-rownames(temp_df)
+      scoreType = "std"
     } else if (measureID=="abs_GSEA_measure"){
-      used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))
+      used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))
+      names(used_measure)<-rownames(temp_df)
     } else if (measureID=="w_GSEA_m"){
-      used_measure <- res$log2FoldChange*(-log10(temp_df$padj))*temp_df$weight
+      used_measure <- temp_df$log2FoldChange*(-log10(temp_df$padj))*temp_df$weight
+      names(used_measure)<-rownames(temp_df)
+      scoreType = "std"
     } else if (measureID=="abs_w_GSEA_m"){
-      used_measure <- abs(res$log2FoldChange)*(-log10(temp_df$padj))*temp_df$weight
+      used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))*temp_df$weight
+      names(used_measure)<-rownames(temp_df)
+    }else if (measureID=="abs_GSEA_measure_with_p"){
+      used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$pvalue))
+      names(used_measure)<-rownames(temp_df)
+    }else if (measureID=="S2N"){
+      # used_measure <- sapply(1:(dim(counts)[1]), FUN = function(x){
+      #   a = counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]
+      #   b = counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]
+      #   return()})
+      used_measure <- (matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]) -
+                matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]])) /
+        (matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]])+
+           matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]))
+      names(used_measure) <- rownames(counts)
+    }else if (measureID=="abs_GSEA_measure_with_dynamic_p"){
+      used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))
+      if (sum(duplicated(temp_df$padj))>2000) {
+        used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$pvalue))
+      }
+      names(used_measure)<-rownames(temp_df)
+    }else if (measureID=="GSEA_measure_with_p"){
+      used_measure <- temp_df$log2FoldChange*(-log10(temp_df$pvalue))
+      names(used_measure)<-rownames(temp_df)
+      scoreType = "std"
+    }else if (measureID=="GSEA_measure_with_dynamic_p"){
+      used_measure <- temp_df$log2FoldChange*(-log10(temp_df$padj))
+      if (sum(duplicated(temp_df$padj))>2000) {
+        used_measure <- temp_df$log2FoldChange*(-log10(temp_df$pvalue))
+      }
+      names(used_measure)<-rownames(temp_df)
+      scoreType = "std"
+    }else{ # same as abs_GSEA_measure
+      used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))
+      names(used_measure)<-rownames(temp_df)
     }
     
-    
-    names(used_measure)<-rownames(res)
+    used_measure <- used_measure[rowSums(DESeq2::counts(dds)[,samples$sampleName[samples$DESEQcondition%in%comp]])!=0]
     used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
+
     used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
     used_geneList_abs <- abs(used_measure)[order(abs(used_measure), decreasing = TRUE)]
     
+      
     egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE,
                                                minGSSize = 10, maxGSSize = 10000,
-                                               pvalueCutoff = 2, scoreType = "pos")
+                                               pvalueCutoff = 2, scoreType = scoreType)
     egmt_used_measure@result$NES_rand_zscore <- NA
     for (RP in RPs_toreport){
       # Change This, make it more accurate, like removing Rand_ and then check equality
@@ -399,8 +444,13 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     }
     
     ### Overrepresentation hook ####
-    or_df <- fgsea::fora(pathways = RP_pathways, genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)],
+    if(measureID=="abs_GSEA_measure_with_p"){
+      or_df <- fgsea::fora(pathways = RP_pathways, genes = rownames(res)[which(res$pvalue<.05 & abs(res$log2FoldChange)>0.5)],
                          universe = rownames(res), minSize = 10)
+    } else{
+      or_df <- fgsea::fora(pathways = RP_pathways, genes = rownames(res)[which(res$padj<.05 & abs(res$log2FoldChange)>0.5)],
+                           universe = rownames(res), minSize = 10)
+    }
     
     GSEA_result_df <- data.frame(Description = or_df$pathway,
                                  ORA.overlap = or_df$overlap, ORA.setSize = or_df$size, ORA.padj = or_df$padj, ORA.p = or_df$pval,
@@ -414,8 +464,14 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
         pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
         for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
           if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = paste(egmt_used_measure$Description[i],"NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                                                                                        "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)),"; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))))
+            plotTitle <- paste(egmt_used_measure$Description[i], "NES=",as.character(round(egmt_used_measure$NES[i],2)),
+                  "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)))
+            if("qvalue" %in% colnames(temp)){
+              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalue[i],4)))
+            } else if("qvalues" %in% colnames(temp)){
+              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))
+            } 
+            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = plotTitle))
         }
         dev.off()
       }
@@ -425,13 +481,24 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
         GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
         GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
         GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-        GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        if("qvalue" %in% colnames(temp)){
+          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
+        } else if("qvalues" %in% colnames(temp)){
+          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        } else{
+          print("qvalue is not part of egmt_result!!")
+          GSEA_result_df[RP,"RPSEA.q"] <- NULL
+        }
       }
     }
     
     if (!is.null(gsea_sets_RP))
-      write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_results.csv",sep = ""), row.names = FALSE)
-    
+      if(measureID=="abs_GSEA_measure") {
+        write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_dripARF_default_results.csv",sep = ""), row.names = FALSE)
+      } else {
+        write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_dripARF_",measureID,"_results.csv",sep = ""), row.names = FALSE)
+      }
     colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q",
                                   "C1.avg.read.c","C2.avg.read.c")
     all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
@@ -707,6 +774,7 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param targetDir Directory to save the plots in.
 #' @param abs_lFC_thr Differential abundance abs(logFC) threshold.
 #' @param adjP_thr Differential abundance adjusted P-value threshold.
+#' @param pval_thr Differential abundance P-value threshold.
 #' @param title Default is "rRNA_pos_spec_heatmap"
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
 #' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
@@ -715,7 +783,8 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @examples
 #' dripARF_rRNApos_heatmaps(dripARF_results, "mm", c("eL1","uS25"), "/Folder/to/save/in/")
 dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, 
-                                     abs_lFC_thr=0.5, adjP_thr=0.05, title="rRNA_pos_spec_heatmap", 
+                                     abs_lFC_thr=0.5, adjP_thr=0.05, pval_thr=0.05,
+                                     title="rRNA_pos_spec_heatmap", 
                                      gsea_sets_RP=NULL, RP_proximity_df=NULL){
   if(is.null(RP_proximity_df)){
     if (organism=="hs"){
@@ -738,8 +807,8 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
   prox_col = circlize::colorRamp2(c(0,26.9999,27, 50,200,300),c("black","black","grey30","grey60","grey99","white"))
   
   profileplot <- dripARF_DRF
-  profileplot$sig <- (abs(profileplot$log2FoldChange)>abs_lFC_thr) & (profileplot$padj<adjP_thr)
-  profileplot$rrna <- gsub(pattern = "_[0-9]*$",replacement = "", x =)
+  profileplot$sig <- (abs(profileplot$log2FoldChange)>abs_lFC_thr) & (profileplot$padj<adjP_thr) & (profileplot$pvalue<pval_thr) 
+  profileplot$rrna <- gsub(pattern = "_[0-9]*$",replacement = "", x =profileplot$pos)
   profileplot$ipos <- as.numeric(gsub(pattern = ".*_([0-9]*$)",replacement = "\\1", x = profileplot$pos))
   profileplot$tomatrix <- abs(profileplot$log2FoldChange)*profileplot$sig
   profileplot$signedmatrix <- profileplot$log2FoldChange*profileplot$sig
@@ -908,12 +977,13 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 #' @param additional_RPcols If you have added your own columns to RP_proximity_df, please provide their column indexes.
 #' @param rRNAs_fasta Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).
 #' @param thresholds Thresholds for creating the RP-specific rRNA proximity sets.
+#' @param cap_added_RPcols Should we cap the number of positions in additional RP_cols? (Default=F)
 #' @keywords RPSEA RP RRNA proximity set
 #' @export
 #' @examples
 #' dripARF_get_RP_proximity_sets(RP_proximities_dataframe, rRNAs_fasta="rRNAs.fa")
 #' dripARF_get_RP_proximity_sets(RP_proximities_dataframe, additional_RPcols=80:95, rRNAs_fasta="rRNAs.fa")
-dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c(), rRNAs_fasta=NULL, thresholds=NULL){
+dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c(), rRNAs_fasta=NULL, thresholds=NULL, cap_added_RPcols=F){
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
 
@@ -933,12 +1003,11 @@ dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c()
     thresholds <- c(dist_thr,RPset_size_thr)
   }
   
-  # Additional sets is alist of row numbers 
+  # Additional sets is a list of row numbers 
   RP_proxpos <- list()
   for (RP in RPfocus){
     proxpos <- which(RP_proximity_df[,RP]<thresholds[1])
-    
-    if (length(proxpos)>thresholds[2]){
+    if (length(proxpos)>thresholds[2] && ((RP %in% (colnames(RP_proximity_df)[excludedCols])) || cap_added_RPcols) ){
       RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:thresholds[2]]])
     } else if (length(proxpos)>0){
       RP_proxpos[[RP]] <- proxpos
@@ -1129,7 +1198,15 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
           GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
           GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
           GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+          #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+          if("qvalue" %in% colnames(temp)){
+            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
+          } else if("qvalues" %in% colnames(temp)){
+            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+          } else{
+            print("qvalue is not part of egmt_result!!")
+            GSEA_result_df[RP,"RPSEA.q"] <- NULL
+          }
         }
       }
       

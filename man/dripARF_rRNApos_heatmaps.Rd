@@ -11,6 +11,7 @@ dripARF_rRNApos_heatmaps(
   targetDir,
   abs_lFC_thr = 0.5,
   adjP_thr = 0.05,
+  pval_thr = 0.05,
   title = "rRNA_pos_spec_heatmap",
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL
@@ -28,6 +29,8 @@ dripARF_rRNApos_heatmaps(
 \item{abs_lFC_thr}{Differential abundance abs(logFC) threshold.}
 
 \item{adjP_thr}{Differential abundance adjusted P-value threshold.}
+
+\item{pval_thr}{Differential abundance P-value threshold.}
 
 \item{title}{Default is "rRNA_pos_spec_heatmap"}
 

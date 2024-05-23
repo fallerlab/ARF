@@ -8,7 +8,8 @@ dripARF_get_RP_proximity_sets(
   RP_proximity_df,
   additional_RPcols = c(),
   rRNAs_fasta = NULL,
-  thresholds = NULL
+  thresholds = NULL,
+  cap_added_RPcols = F
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ dripARF_get_RP_proximity_sets(
 \item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).}
 
 \item{thresholds}{Thresholds for creating the RP-specific rRNA proximity sets.}
+
+\item{cap_added_RPcols}{Should we cap the number of positions in additional RP_cols? (Default=F)}
 }
 \description{
 This function allows you to run the whole dripARF pipeline with varying proximity thresholds
