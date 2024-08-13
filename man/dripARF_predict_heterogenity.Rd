@@ -19,7 +19,8 @@ dripARF_predict_heterogenity(
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL,
   optimized_run = F,
-  measureID = "abs_GSEA_measure"
+  measureID = "abs_GSEA_measure_with_dynamic_p",
+  runID = "dripARF"
 )
 }
 \arguments{
@@ -33,7 +34,7 @@ dripARF_predict_heterogenity(
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 
@@ -51,7 +52,9 @@ dripARF_predict_heterogenity(
 
 \item{optimized_run}{Run in optimized mode for time-saving.}
 
-\item{measureID}{Alternative options for rRNA position ranking before RPSEA.}
+\item{measureID}{Alternative options for rRNA position ranking before RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)}
+
+\item{runID}{runID for output labeling, default: dripARF. (alt. example: dricARF).}
 }
 \description{
 Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.

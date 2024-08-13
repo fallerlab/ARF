@@ -1,5 +1,5 @@
 
-# Copyright (C) 2021  Ferhat Alkan
+# Copyright (C) 2024  Ferhat Alkan
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -44,40 +44,6 @@ for (specie in c("human","mouse")){
                                                        return(x)
                                                    }))))
   
-  # gsea_sets_RP <- NULL
-  # RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
-  # RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast"))]
-  # 
-  # 
-  # RP_proxpos <- list()
-  # for (RP in RPfocus){
-  #   proxpos <- which(RP_proximity_df[,RP]<25)
-  # 
-  #   if (length(proxpos)>250 & !(startsWith(RP,"ES"))){
-  #     RP_proxpos[[RP]] <- sort(proxpos[order(RP_proximity_df[proxpos,RP])[1:250]])
-  #   } else if (length(proxpos)>0){
-  #     RP_proxpos[[RP]] <- proxpos
-  #   }
-  # }
-  # 
-  # for (RP in names(RP_proxpos)){
-  #   print(paste(RP,specie))
-  #   proxpos <- RP_proxpos[[RP]]
-  # 
-  #   if(length(proxpos)>0) {
-  #     gsea_sets_RP <- rbind(gsea_sets_RP,
-  #                                 data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_")))
-  # 
-  #     rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
-  #     for (i in 1:99) {
-  #       randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
-  #       gsea_sets_RP <- rbind(gsea_sets_RP, data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
-  #                                                                  gene=paste(RP_proximity_df$rRNA[randset],
-  #                                                                             RP_proximity_df$resno[randset], sep = "_")))
-  #     }
-  #   }
-  # }
-  
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
   RPfocus <- RPfocus[-1*which(startsWith(x = RPfocus,"ES") | startsWith(x = RPfocus,"yeast") | startsWith(x = RPfocus,"YCI"))]
@@ -115,7 +81,13 @@ for (specie in c("human","mouse")){
   assign(paste(specie,"_gsea_sets_RP",sep = ""), gsea_sets_RP)
 }
 
-####################
+usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, 
+                  mouse_gsea_sets_RP, human_gsea_sets_RP, 
+                  internal = TRUE, overwrite = TRUE)
+
+### Above is old (before dricARF) ###
+#####################################
+
 ribosome_PDBs <- list(tomato=c("7QIZ"), wheat=c("4V7E"),
                       Staphylococcus_aureus=c("6S0X","6S13"),
                       Bacillus_subtilis=c("3J9W"),
@@ -158,10 +130,85 @@ RP_nomenclature_map$chainID <- sapply(RP_nomenclature_map$chain_info,
               return(paste(split_out,collapse = ","))
 })
 
-#################################
 
-usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df,  #RP_proximity_yeast_df, #RP_proximity_chicken_df, RP_proximity_opossum_df, RP_proximity_rhesus_df,
-                  mouse_gsea_sets_RP, human_gsea_sets_RP, #yeast_gsea_sets_RP, #chicken_gsea_sets_RP, opossum_gsea_sets_RP, rhesus_gsea_sets_RP,
+############################################################
+RP_proximity_human_df<-(ARF:::RP_proximity_human_df)
+RP_proximity_mouse_df<-(ARF:::RP_proximity_mouse_df)
+human_gsea_sets_RP<-(ARF:::human_gsea_sets_RP)
+mouse_gsea_sets_RP<-(ARF:::mouse_gsea_sets_RP)
+
+human_ARF_ribo <- read.table("data-raw/Ribosome.3D.4V6X.ARF.minDist_matrix.csv",
+                             sep = ",",stringsAsFactors = F,header = 1)
+mouse_ARF_ribo <- read.table("data-raw/Ribosome.3D.4V6X.ARF.minDist_matrix.mm.converted.csv",
+                             sep = ",",stringsAsFactors = F,header = 1)
+yeast_ARF_prox_df <- ARF_parse_PDB_ribosome(species = "sc",PDBid = "6T7I",download_directory="data-raw/",
+                                            PDB_file = "data-raw/6T7I.cif",out_prefix = "data-raw/Ribosome.3D")
+yeast_ARF_ribo <- read.table("data-raw/Ribosome.3D.6T7I.ARF.minDist_matrix.csv",
+                             sep = ",",stringsAsFactors = F,header = 1)
+
+row.names(human_ARF_ribo) <- paste(human_ARF_ribo$rRNA,human_ARF_ribo$resno,sep="_")
+row.names(mouse_ARF_ribo) <- paste(mouse_ARF_ribo$rRNA,mouse_ARF_ribo$resno,sep="_")
+row.names(yeast_ARF_ribo) <- paste(yeast_ARF_ribo$rRNA,yeast_ARF_ribo$resno,sep="_")
+
+selected_col_sets <- c("human_7qvp_disome_noSAS_DistanceThr05_ext.1", "yeast_6i7o_disome_noSAS_DistanceThr05_ext.1", 
+                       "yeast_6t83_disome_noSAS_DistanceThr05_ext.1", "both_4struct_isome_noSAS_DistanceThr05_ext.1",
+                       "human_7qvp_disome_SAS_10_maxmin5_ext.1", "both_4struct_isome_SAS_10_maxmin5_ext.1",
+                       "yeast_6i7o_disome_SAS_10_maxmin5_ext.1","yeast_6t83_disome_SAS_10_maxmin5_ext.1","yeast_6sv4_trisome_SAS_10_maxmin5_ext.1")
+names(selected_col_sets) <- c("hs_7QVP_Col.Int.","sc_6I7O_Col.Int.", "sc_6T83_Col.Int.","Col.Int.", "hs_7QVP_SAS", "Rib.Col.", "sc_6I7O_SAS", "sc_6T83_SAS", "sc_6SV4_SAS")
+
+human_collision_sets <- read.table("/home/ferro/GITspace/rRNA_distances/human.SASA.collision.sets.csv",
+                                   sep="\t", header = 1,stringsAsFactors = F)
+for (col_set in names(selected_col_sets)){
+  human_ARF_ribo[,col_set] <- 100
+  human_ARF_ribo[human_collision_sets$gene[human_collision_sets$ont==selected_col_sets[col_set]], col_set] <- 0
+}
+
+mouse_collision_sets <- read.table("/home/ferro/GITspace/rRNA_distances/mouse.SASA.collision.sets.csv",
+                                   sep="\t", header = 1,stringsAsFactors = F)
+for (col_set in names(selected_col_sets)){
+  mouse_ARF_ribo[,col_set] <- 100
+  mouse_ARF_ribo[mouse_collision_sets$gene[mouse_collision_sets$ont==selected_col_sets[col_set]], col_set] <- 0
+}
+
+yeast_collision_sets <- read.table("/home/ferro/GITspace/rRNA_distances/yeast.SASA.collision.sets.csv", 
+                                   sep="\t", header = 1,stringsAsFactors = F)
+for (col_set in names(selected_col_sets)){
+  yeast_ARF_ribo[,col_set] <- 100
+  yeast_ARF_ribo[yeast_collision_sets$gene[yeast_collision_sets$ont==selected_col_sets[col_set]], col_set] <- 0
+}
+
+human_RP_sets <- dripARF_get_RP_proximity_sets(RP_proximity_df = human_ARF_ribo, additional_RPcols = 85:(dim(human_ARF_ribo)[2]),
+                                               rRNAs_fasta = "/home/ferro/GITspace/rRNA_distances/PDB/4V6X.rRNAs.fasta")
+mouse_RP_sets <- dripARF_get_RP_proximity_sets(RP_proximity_df = mouse_ARF_ribo, additional_RPcols = 85:(dim(mouse_ARF_ribo)[2]),
+                                               rRNAs_fasta = "/home/projects/ribosomal_heterogeneity/data/public/mouse_rRNAs.wU.fa")
+yeast_RP_sets <- dripARF_get_RP_proximity_sets(RP_proximity_df = yeast_ARF_ribo, additional_RPcols = 55:(dim(yeast_ARF_ribo)[2]),
+                                               rRNAs_fasta = "data-raw/6T7I.rRNAs.fasta")
+
+RP_proximity_yeast_df <- yeast_ARF_ribo[,-76:-84]
+RP_proximity_mouse_df <- mouse_ARF_ribo[,-85:-93]
+RP_proximity_human_df <- human_ARF_ribo[,-85:-93]
+rownames(RP_proximity_human_df) <- gsub(pattern = "rRNA",replacement = "human",rownames(RP_proximity_human_df))
+human_RP_sets$gene <- gsub(pattern = "rRNA",replacement = "human",human_RP_sets$gene)
+
+human_gsea_sets_Collision <- human_RP_sets[grepl("SAS|Rib.Col.|Col.Int.",human_RP_sets$ont),]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(human_gsea_sets_Collision$ont)))
+mouse_gsea_sets_Collision <- mouse_RP_sets[grepl("SAS|Rib.Col.|Col.Int.",mouse_RP_sets$ont),]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(mouse_gsea_sets_Collision$ont)))
+yeast_gsea_sets_Collision <- yeast_RP_sets[grepl("SAS|Rib.Col.|Col.Int.",yeast_RP_sets$ont),]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(yeast_gsea_sets_Collision$ont)))
+
+human_gsea_sets_RP <- human_RP_sets[!human_RP_sets$ont%in%human_gsea_sets_Collision$ont,]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(human_gsea_sets_RP$ont)))
+mouse_gsea_sets_RP <- mouse_RP_sets[!mouse_RP_sets$ont%in%mouse_gsea_sets_Collision$ont,]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(mouse_gsea_sets_RP$ont)))
+yeast_gsea_sets_RP <- yeast_RP_sets[!yeast_RP_sets$ont%in%yeast_gsea_sets_Collision$ont,]
+unique(gsub(pattern = "Rand[0-9]*_", replacement = "",unique(yeast_gsea_sets_RP$ont)))
+
+###########
+
+usethis::use_data(RP_proximity_mouse_df, RP_proximity_human_df, RP_proximity_yeast_df, 
+                  mouse_gsea_sets_RP, human_gsea_sets_RP, yeast_gsea_sets_RP,
+                  human_gsea_sets_Collision, mouse_gsea_sets_Collision, yeast_gsea_sets_Collision,
                   RP_nomenclature_map,
                   internal = TRUE, overwrite = TRUE)
 

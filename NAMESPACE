@@ -3,6 +3,8 @@
 export(ARF_check_organism)
 export(ARF_convert_Ribo3D_pos)
 export(ARF_parse_PDB_ribosome)
+export(dricARF)
+export(dricARF_result_scatterplot)
 export(dripARF)
 export(dripARF_add_replicates)
 export(dripARF_get_DESEQ_dds)

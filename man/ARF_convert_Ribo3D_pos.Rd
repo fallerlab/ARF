@@ -27,7 +27,7 @@ ARF_convert_Ribo3D_pos(
 
 \item{source_positions}{List of position vectors to convert (Alternative input)}
 
-\item{type}{Which conversion to perform (Currently distances or positionset only)}
+\item{type}{Which conversion to perform (Currently 'distances' or 'positionset' only)}
 }
 \description{
 Align rRNAs from source and target organism, then, convert source species 3D ribosome data accordingly

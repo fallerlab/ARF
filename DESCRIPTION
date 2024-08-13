@@ -1,24 +1,29 @@
-Package: ARFcollide
-Title: ARF - R platform for the Analysis of rRNA Fragments originating from Ribo-seq experiments
-Version: 1.1.0
+Package: ARF
+Title: ARF - Analysis of rRNA Fragments originating from Ribo-seq experiments
+Version: 2.0.0
 Authors@R: c(
     person(given = "Ferhat",
            family = "Alkan",
            role = c("aut", "cre"),
            email = "feralkan@gmail.com",
            comment = c(ORCID = "0000-0001-6709-9605")),
+    person(given = c("Edwin","S"),
+           family = "Kwei-Baffour",
+           role = c("aut"),
+           email = "e.kyei@nki.nl",
+           comment = c(ORCID = "0000-0002-2370-0451")),
     person(given = c("William","J"),
            family = "Faller",
            role = c("aut"),
            email = "w.faller@nki.nl",
            comment = c(ORCID = "0000-0002-0738-2254"))
            )
-Description: ARF is a platform that consists multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity across samples by overlapping rRNA fragment data with the 3D structure of the ribosome
+Description: ARF is a platform that consists multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF, dricARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity, whereas dricARF predicts abundance change in ribosome collisions, across samples by overlapping rRNA fragment data with the 3D structure of different ribosomes.
 License: use_gpl3_license()
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Imports:
 	DESeq2 (>= 1.30.1),
 	bedr,
@@ -38,4 +43,4 @@ Imports:
 	Biostrings,
 	msa
 Depends: 
-    R (>= 3.0)
+    R (>= 4.0)

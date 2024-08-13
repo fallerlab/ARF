@@ -27,13 +27,13 @@ ARF_parse_PDB_ribosome(
 
 \item{PDB_chains_2_RP_nomenclature}{Alternative data.frame that maps chain IDs to RP names and new nomenclature. Required columns are ID, RP_name, RP_new, chainID.}
 
-\item{download_directory}{Directory for downloads}
+\item{download_directory}{Directory for downloads, default=getwd()}
 
-\item{method}{Which analysis to perform , default:"dripARF_minDistances" which calculates rRNA-RP min distances}
+\item{method}{Which analysis to perform , default:"dripARF_minDistances" which calculates rRNA-RP min distances. (No other option yet)}
 
 \item{duplication_resolve}{How do we resolve duplicated chains (Default take the min distance)}
 
-\item{outprefix}{Prefix for the file to save results within}
+\item{outprefix}{Prefix for the file to save results within, default: "Ribosome.3D"}
 }
 \description{
 Parse 3D ribosome data
