@@ -1,3 +1,9 @@
+##v 2.0
+- Integrating 3D ribosome structure analysis to ARF
+- All relevant functions now require the rRNA fasta file that is used for mapping.
+- First release of dricARF Differential Ribosome Collision Prediction pipeline
+- Bug fixes (closing issues until now)
+
 ##v 1.0
 - Publication release
 - A few bug fixes

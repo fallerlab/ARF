@@ -1,0 +1,8 @@
+sampleName	bedGraphFile	group
+Ctrl_1	test_data/SRR1363412.vs.4V7R.rRNAs_accepted_hits.bedGraph	CTRL
+Ctrl_2	test_data/SRR1363413.vs.4V7R.rRNAs_accepted_hits.bedGraph	CTRL
+Ctrl_3	test_data/SRR1363414.vs.4V7R.rRNAs_accepted_hits.bedGraph	CTRL
+M10_3AT_1	test_data/SRR1363420.vs.4V7R.rRNAs_accepted_hits.bedGraph	M10_3AT
+M10_3AT_2	test_data/SRR1363421.vs.4V7R.rRNAs_accepted_hits.bedGraph	M10_3AT
+M60_3AT_1	test_data/SRR1363422.vs.4V7R.rRNAs_accepted_hits.bedGraph	M60_3AT
+M60_3AT_2	test_data/SRR1363423.vs.4V7R.rRNAs_accepted_hits.bedGraph	M60_3AT
