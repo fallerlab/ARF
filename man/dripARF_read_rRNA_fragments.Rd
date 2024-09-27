@@ -22,8 +22,6 @@ dripARF_read_rRNA_fragments(
 \item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
 
 \item{targetDir}{Directory to save the QC plots in. (Default: working directory, getwd() output)}
-
-\item{add_random_replicates}{For sample gorups with a single replicate, add a second one that is "randomly" altered (Default: F)}
 }
 \description{
 Read bedgraph/bam files to create the rRNA count data.

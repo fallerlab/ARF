@@ -222,14 +222,15 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
 #' @param target_rRNAs_fasta Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.
 #' @param rRNA_pairs List of rRNA ID pairs matching source and target rRNAs i.e. list(c("human_28S","mouse_28S"), etc. ).
 #' @param source_positions List of position vectors to convert (Alternative input)
-#' @param type Which conversion to perform (Currently 'distances' or 'positionset' only)
+#' @param source_sets GSEA sets dataframe to convert (with "ont" & "gene" columns) (Alternative input)
+#' @param type Which conversion to perform (Currently 'distances', positionset' only)
 #' @keywords 3D ribosome analysis using PDB file
 #' @export
 #' @examples
 #' ARF_convert_ribosome3D_rRNA_pos()
 ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta, 
                                    target_species, target_rRNAs_fasta, rRNA_pairs=list(), 
-                                   source_positions=NULL, type="distances") {
+                                   source_positions=NULL, source_sets=NULL, type="distances") {
   # dplyr hack for %>%
   `%>%` <- magrittr::`%>%`
   
@@ -264,69 +265,79 @@ ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
       }
     }
   }
-  
-  if (type=="distances") {
-    source_distance_df <- read.csv2(source_distance_file,header = TRUE,sep = ",",stringsAsFactors = FALSE)
-    target_distance_df <- NULL
 
-    for (pair in rRNA_pairs) {
-      source_temp_df <- source_distance_df%>%dplyr::filter(RNA_molecule==pair[1])%>%dplyr::mutate(distance=as.numeric(distance))
-      source_residues <- unique(source_temp_df$RNA_residue)
-      target_residues <- s_2_t[[pair[1]]][source_residues]
-      
-      # take all source positions and transform using s2t vector
-      target_temp_df <- source_temp_df%>%dplyr::filter(RNA_residue%in%source_residues[!is.na(target_residues)])%>%
-        dplyr::mutate(RNA_residue=s_2_t[[pair[1]]][RNA_residue], RNA_molecule=pair[2])
-      
-      # find source noVal intervals
-      vec <- which(!(1:max(source_temp_df$RNA_residue))%in%source_temp_df$RNA_residue)  
-      x <- replace(NA, vec, vec)
-      l <- split(x, with(rle(is.na(x)), rep(seq.int(length(lengths)), lengths)))
-      source_noVal_intervals <- Filter(Negate(anyNA), l)
-      
-      # find target noVal intervals
-      vec <- which(!(1:max(target_temp_df$RNA_residue))%in%target_temp_df$RNA_residue)
-      x <- replace(NA, vec, vec)
-      l <- split(x, with(rle(is.na(x)), rep(seq.int(length(lengths)), lengths)))
-      target_noVal_intervals <- Filter(Negate(anyNA), l)
-      
-      rm(x,l,vec)
-      lengths(source_noVal_intervals)
-      lengths(target_noVal_intervals[lengths(target_noVal_intervals)>=5])
-      
-      # For each target noVal interval less than 5, create values with linear change
-      for (noVal_interval in target_noVal_intervals[lengths(target_noVal_intervals)<5]){
-        min_temp_df <- target_temp_df%>%dplyr::filter(RNA_residue==min(noVal_interval)-1)%>%
-          dplyr::arrange(RP)
-        max_temp_df <- target_temp_df%>%dplyr::filter(RNA_residue==max(noVal_interval)+1)%>%
-          dplyr::arrange(RP)
-        step <- (max_temp_df$distance - min_temp_df$distance) / length(noVal_interval+1)
-        for (i in 1:length(noVal_interval+1)){
-          temp_df <- min_temp_df%>%dplyr::mutate(RNA_residue=RNA_residue+i)
-          temp_df$distance <- temp_df$distance + (i*step)
-          target_temp_df <- rbind(target_temp_df, temp_df)
-        }
+  # Create the target distance data frame by liftovering the source below
+  source_distance_df <- read.csv2(source_distance_file,header = TRUE,sep = ",",stringsAsFactors = FALSE)
+  target_distance_df <- NULL
+
+  for (pair in rRNA_pairs) {
+    source_temp_df <- source_distance_df%>%dplyr::filter(RNA_molecule==pair[1])%>%dplyr::mutate(distance=as.numeric(distance))
+    source_residues <- unique(source_temp_df$RNA_residue)
+    target_residues <- s_2_t[[pair[1]]][source_residues]
+    
+    # take all source positions and transform using s2t vector
+    target_temp_df <- source_temp_df%>%dplyr::filter(RNA_residue%in%source_residues[!is.na(target_residues)])%>%
+      dplyr::mutate(RNA_residue=s_2_t[[pair[1]]][RNA_residue], RNA_molecule=pair[2])
+    
+    # find source noVal intervals
+    vec <- which(!(1:max(source_temp_df$RNA_residue))%in%source_temp_df$RNA_residue)  
+    x <- replace(NA, vec, vec)
+    l <- split(x, with(rle(is.na(x)), rep(seq.int(length(lengths)), lengths)))
+    source_noVal_intervals <- Filter(Negate(anyNA), l)
+    
+    # find target noVal intervals
+    vec <- which(!(1:max(target_temp_df$RNA_residue))%in%target_temp_df$RNA_residue)
+    x <- replace(NA, vec, vec)
+    l <- split(x, with(rle(is.na(x)), rep(seq.int(length(lengths)), lengths)))
+    target_noVal_intervals <- Filter(Negate(anyNA), l)
+    
+    rm(x,l,vec)
+    lengths(source_noVal_intervals)
+    lengths(target_noVal_intervals[lengths(target_noVal_intervals)>=5])
+    
+    # For each target noVal interval less than 5, create values with linear change
+    for (noVal_interval in target_noVal_intervals[lengths(target_noVal_intervals)<5]){
+      min_temp_df <- target_temp_df%>%dplyr::filter(RNA_residue==min(noVal_interval)-1)%>%
+        dplyr::arrange(RP)
+      max_temp_df <- target_temp_df%>%dplyr::filter(RNA_residue==max(noVal_interval)+1)%>%
+        dplyr::arrange(RP)
+      step <- (max_temp_df$distance - min_temp_df$distance) / length(noVal_interval+1)
+      for (i in 1:length(noVal_interval+1)){
+        temp_df <- min_temp_df%>%dplyr::mutate(RNA_residue=RNA_residue+i)
+        temp_df$distance <- temp_df$distance + (i*step)
+        target_temp_df <- rbind(target_temp_df, temp_df)
       }
-      target_distance_df <- rbind(target_distance_df, target_temp_df)
     }
-    
-    target_distance_df <- target_distance_df%>%dplyr::arrange(RP,RNA_molecule,RNA_residue)
-    readr::write_csv(target_distance_df, paste(gsub(pattern = ".csv$",replacement = "",source_distance_file),
+    target_distance_df <- rbind(target_distance_df, target_temp_df)
+  }
+  target_distance_df <- target_distance_df%>%dplyr::arrange(RP,RNA_molecule,RNA_residue)
+  
+  readr::write_csv(target_distance_df, paste(gsub(pattern = ".csv$",replacement = "",source_distance_file),
                                                target_species,"converted.csv",sep="."))
-    
-    RP_proximity_df <- reshape2::dcast(target_distance_df, RNA_molecule+RNA_residue~RP, 
-                                       value.var="distance",fun.aggregate = min)
-    colnames(RP_proximity_df)[1:2] <- c("rRNA","resno")
-    RP_proximity_df[RP_proximity_df == -Inf] <- NA
-    RP_proximity_df[RP_proximity_df == Inf] <- NA
-    rownames(RP_proximity_df) = paste(RP_proximity_df$rRNA, RP_proximity_df$resno, sep = "_")
-    
-    readr::write_csv(RP_proximity_df,paste(gsub(pattern = ".ARF.minimum_distances.csv$",
+  
+  RP_proximity_df <- reshape2::dcast(target_distance_df, RNA_molecule+RNA_residue~RP, 
+                                     value.var="distance",fun.aggregate = min)
+  colnames(RP_proximity_df)[1:2] <- c("rRNA","resno")
+  RP_proximity_df[RP_proximity_df == -Inf] <- NA
+  RP_proximity_df[RP_proximity_df == Inf] <- NA
+  rownames(RP_proximity_df) = paste(RP_proximity_df$rRNA, RP_proximity_df$resno, sep = "_")
+  
+  readr::write_csv(RP_proximity_df,paste(gsub(pattern = ".ARF.minimum_distances.csv$",
                                                 replacement = ".ARF.minDist_matrix",source_distance_file),
                                            target_species,"converted.csv",sep="."))
+  
+  if (type=="distances") { 
     return(RP_proximity_df)
-  } else if(type=="positionset") {
+  } else if(type%in%c("positionset")) { #,"collisionsets")) {
+    # Difference in collisionsets is it does not liftover the random sets, instead it creates them after liftovering and add them in,
+    # It also returns a data.frame for gsea_sets
+    
     target_positions <- list()
+    # if (type=="collisionsets") {
+    #   source_positions <- sapply(unique(source_sets$ont[!grepl(pattern = "Rand[0-9]*_",source_sets$ont)]),
+    #                              function(x)(return(source_sets$gene[source_sets$ont==x]))) 
+    # }
+    
     for (setid in names(source_positions)){
       posset <- source_positions[[setid]]
       target_positions[[setid]] <- c()
@@ -343,7 +354,27 @@ ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
         }
       }
     }
-    return(target_positions)
+    
+    # if (type=="collisionsets") {
+    #   # borrowed from dripARF_get_RP_proximity_sets for adding the random sets
+    #   gsea_sets_RP <- do.call("rbind", lapply(names(target_positions), FUN = function(RP){
+    #     tmp_df<-NULL
+    #     proxpos <- target_positions[[RP]]
+    #     
+    #     tmp_df <- data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
+    #     rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
+    #     
+    #     tmp_df <- rbind(tmp_df, as.data.frame(do.call("rbind", lapply(1:99, FUN = function(i){
+    #       randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
+    #       return(data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
+    #                         gene=paste(RP_proximity_df$rRNA[randset], RP_proximity_df$resno[randset], sep = "_")))
+    #     }))))
+    #     return(tmp_df)
+    #   }))
+    #   return(gsea_sets_RP) # type is collisionsets
+    # } 
+    return(target_positions) # type is still positionset
   }
+  return(NULL) # type is invalid
 }
 

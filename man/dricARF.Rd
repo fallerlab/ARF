@@ -14,7 +14,10 @@ dricARF(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE
+  GSEAplots = FALSE,
+  gsea_sets_RP = NULL,
+  RP_proximity_df = NULL,
+  gsea_sets_Collision = NULL
 )
 }
 \arguments{
@@ -36,11 +39,13 @@ dricARF(
 
 \item{GSEAplots}{Whether to produce and save the standard GSEA plots.}
 
+\item{gsea_sets_RP}{RP-rRNA contact point sets to perform dripARF enrichments on. (preset for hs, mm, and sc predictions)}
+
+\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF. (preset for hs, mm, and sc predictions)}
+
+\item{gsea_sets_Collision}{Ribosome collision sets to perform dricARF enrichments on. (preset for hs, mm, and sc predictions)}
+
 \item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
-
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
-
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
 }
 \description{
 This function allows you to run the whole dricARF pipeline

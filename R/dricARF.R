@@ -75,53 +75,84 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @param comparisons List of comparisons to be included.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param GSEAplots Whether to produce and save the standard GSEA plots.
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' @param gsea_sets_RP RP-rRNA contact point sets to perform dripARF enrichments on. (preset for hs, mm, and sc predictions)
+#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF. (preset for hs, mm, and sc predictions)
+#' @param gsea_sets_Collision Ribosome collision sets to perform dricARF enrichments on. (preset for hs, mm, and sc predictions)
 #' @keywords dricARF pipeline
 #' @export
 #' @examples
 #' dricARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
 dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE){
+                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
   
-  # Check organism first
-  if (!ARF_check_organism(organism))
-    return(NA)
-  
-  # ADD the collision related stuff in
-  if (organism=="hs"){
-    RP_proximity_df <- ARF:::RP_proximity_human_df
-    added_sets <- unique(ARF:::human_gsea_sets_Collision$ont)
-    added_sets <- added_sets[!grepl("Rand",added_sets)]
-    for (colset in added_sets){
-      RP_proximity_df[,colset] <- 100
-      RP_proximity_df[ARF:::human_gsea_sets_Collision$gene[ARF:::human_gsea_sets_Collision$ont==colset], colset] <- 1
+  if(is.null(RP_proximity_df)){
+    # Check organism first
+    if (!ARF_check_organism(organism))
+      return(NA)
+    # preset organisms
+    if (organism=="hs"){
+      RP_proximity_df <- ARF:::RP_proximity_human_df
+    } else if (organism=="mm") {
+      RP_proximity_df <- ARF:::RP_proximity_mouse_df
+    } else if (organism=="sc") {
+      RP_proximity_df <- ARF:::RP_proximity_yeast_df
+    } else {
+      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
+                    collapse = " "))
+      return(NULL)
     }
-    gsea_sets_RP <- rbind(ARF:::human_gsea_sets_RP, ARF:::human_gsea_sets_Collision)
-  } else if (organism=="mm") {
-    RP_proximity_df <- ARF:::RP_proximity_mouse_df
-    added_sets <- unique(ARF:::mouse_gsea_sets_Collision$ont)
-    added_sets <- added_sets[!grepl("Rand",added_sets)]
-    for (colset in added_sets){
-      RP_proximity_df[,colset] <- 100
-      RP_proximity_df[ARF:::mouse_gsea_sets_Collision$gene[ARF:::mouse_gsea_sets_Collision$ont==colset], colset] <- 1
-    }
-    gsea_sets_RP <- rbind(ARF:::mouse_gsea_sets_RP, ARF:::mouse_gsea_sets_Collision)
-  } else if (organism=="sc") {
-    RP_proximity_df <- ARF:::RP_proximity_yeast_df
-    added_sets <- unique(ARF:::yeast_gsea_sets_Collision$ont)
-    added_sets <- added_sets[!grepl("Rand",added_sets)]
-    for (colset in added_sets){
-      RP_proximity_df[,colset] <- 100
-      RP_proximity_df[ARF:::yeast_gsea_sets_Collision$gene[ARF:::yeast_gsea_sets_Collision$ont==colset], colset] <- 1
-    }
-    gsea_sets_RP <- rbind(ARF:::yeast_gsea_sets_RP, ARF:::yeast_gsea_sets_Collision)
-  } else {
-    message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"), 
-                  collapse = " "))
-    return(NULL)
   }
   
+  if(is.null(gsea_sets_RP)){
+    # Check organism first
+    if (!ARF_check_organism(organism))
+      return(NA)
+    # preset organisms
+    if (organism=="hs"){
+      gsea_sets_RP <- ARF:::human_gsea_sets_RP
+    } else if (organism=="mm") {
+      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
+    } else if (organism=="sc") {
+      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
+    } else {
+      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
+                    collapse = " "))
+      return(NULL)
+    }
+  }
+  
+  if(is.null(gsea_sets_Collision)){
+    # Check organism first
+    if (!ARF_check_organism(organism))
+      return(NA)
+    # preset organisms
+    if (organism=="hs"){
+      gsea_sets_Collision <- ARF:::human_gsea_sets_Collision
+    } else if (organism=="mm") {
+      gsea_sets_Collision <- ARF:::mouse_gsea_sets_Collision
+    } else if (organism=="sc") {
+      gsea_sets_Collision <- ARF:::yeast_gsea_sets_Collision
+    } else {
+      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
+                    collapse = " "))
+      return(NULL)
+    }
+  } else{ # Add random sets for randZ the input gsea_sets_Collision
+    
+  }
+  
+  # Maybe check for coherence of rRNA ids ??
+  ## TODOwork
+  
+  ## Lets integrate it all 
+  added_sets <- unique(gsea_sets_Collision$ont)
+  added_sets <- added_sets[!grepl("Rand",added_sets)]
+  for (colset in added_sets){
+    RP_proximity_df[,colset] <- 100
+    RP_proximity_df[gsea_sets_Collision$gene[gsea_sets_Collision$ont==colset], colset] <- 1
+  }
+  gsea_sets_RP <- rbind(gsea_sets_RP, gsea_sets_Collision)
+
   # Assign target directory
   if (is.na(targetDir)){
     targetDir=getwd()
@@ -147,4 +178,152 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   #                        randZscore_thr = c(1), ORA_adjP_thr = c(0.05), RPSEA_adjP_thr = c(0.05), ORA_sig_n = 1)
   
   return(results)
+}
+
+
+#' Convert 3D Ribosome distance file to target organism through rRNA alignments!
+#' @description Align rRNAs from hs/sc and target organism, then, convert the collision sets into target organism coordinates.
+#' @param target_species ID for the target species, i.e. mm, sc, etc. 
+#' @param target_rRNAs_fasta Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.
+#' @param rRNA_pairs List of rRNA ID pairs matching source and target rRNAs. (Use 28S, 18S, 5.8S, 5S as source ids) i.e. list(c("28S","species_28S"), c("18S","species_18S") etc.).
+#' @keywords 3D ribosome analysis using PDB file
+#' @export
+#' @examples
+#' ARF_convert_ribosome3D_rRNA_pos()
+dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, rRNA_pairs=list()) {
+  # dplyr hack for %>%
+  `%>%` <- magrittr::`%>%`
+  
+  yeast_rRNAs <- Biostrings::readBStringSet(file = system.file("extdata", "6T7I_yeast_rRNAs.fa", package = "ARF"), use.names = T)
+  human_rRNAs <- Biostrings::readBStringSet(file = system.file("extdata", "4V6X_human_rRNAs.fa", package = "ARF"), use.names = T)
+  names(yeast_rRNAs) <- sapply(sapply(names(yeast_rRNAs),strsplit,split=" ",fixed=T),"[",1)
+  names(human_rRNAs) <- sapply(sapply(names(human_rRNAs),strsplit,split=" ",fixed=T),"[",1)
+  
+  target_rRNAs <- Biostrings::readBStringSet(file = target_rRNAs_fasta, use.names = T)
+  names(target_rRNAs) <- sapply(sapply(names(target_rRNAs), strsplit, split=" ", fixed=T),"[",1)
+  
+  # Create rRNA pairs list
+  yeast_rRNA_pairs=list()
+  human_rRNA_pairs=list()
+  for (rRNAs in rRNA_pairs){
+    if (rRNAs[1]=="28S") {
+      yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_25S",rRNA)))
+      human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_28S",rRNA)))
+    } else if (rRNAs[1]=="18S") {
+      yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_18S",rRNA)))
+      human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_18S",rRNA)))
+    } else if (rRNAs[1]=="5.8S") {
+      yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_5.8S",rRNA)))
+      human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_5.8S",rRNA)))
+    } else if (rRNAs[1]=="5S") {
+      yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_5S",rRNA)))
+      human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_5S",rRNA)))
+    }
+  }
+  rRNA_yeast2t <- sapply(yeast_rRNA_pairs,"[",2)
+  names(rRNA_yeast2t) <- sapply(yeast_rRNA_pairs,"[",1)
+  rRNA_human2t <- sapply(human_rRNA_pairs,"[",2)
+  names(rRNA_human2t) <- sapply(human_rRNA_pairs,"[",1)
+  
+  # list of yeast transformation vectors
+  yeast_2_t <- list()
+  for (pair in yeast_rRNA_pairs) {
+    rRNAs <- yeast_rRNAs[pair[1]]
+    alignment <- strsplit(as.character(msa::msaClustalW(Biostrings::RNAStringSet(append(rRNAs,target_rRNAs[pair[2]])))@unmasked),
+                          split="")
+    # Read the alignment into S2T vector 
+    yeast_2_t[[pair[1]]] <- rep(NA,length(alignment[[1]])) 
+    spos <- 0
+    tpos <- 0
+    for (i in 1:length(alignment[[1]])){
+      if (alignment[[2]][i]!="-") {tpos=tpos+1}
+      if (alignment[[1]][i]!="-") {
+        spos = spos+1
+        if (alignment[[2]][i]!="-") {yeast_2_t[[pair[1]]][spos] <- tpos }
+      }
+    }
+  }
+  
+  # list of human transformation vectors
+  human_2_t <- list()
+  for (pair in human_rRNA_pairs) {
+    rRNAs <- human_rRNAs[pair[1]]
+    alignment <- strsplit(as.character(msa::msaClustalW(Biostrings::RNAStringSet(append(rRNAs,target_rRNAs[pair[2]])))@unmasked),
+                          split="")
+    # Read the alignment into S2T vector 
+    human_2_t[[pair[1]]] <- rep(NA,length(alignment[[1]])) 
+    spos <- 0
+    tpos <- 0
+    for (i in 1:length(alignment[[1]])){
+      if (alignment[[2]][i]!="-") {tpos=tpos+1}
+      if (alignment[[1]][i]!="-") {
+        spos = spos+1
+        if (alignment[[2]][i]!="-") {human_2_t[[pair[1]]][spos] <- tpos }
+      }
+    }
+  }
+  
+  # This is the target ribosome collision set positions
+  target_positions <- list()
+  
+  # These are the source collision sets
+  yeast_source_positions <- sapply(c("sc_6I7O_Col.Int.", "sc_6I7O_SAS", "sc_6T83_Col.Int.", "sc_6T83_SAS", "sc_6SV4_SAS"),
+                               function(x)(return(ARF:::yeast_gsea_sets_Collision$gene[ARF:::yeast_gsea_sets_Collision$ont==x]))) 
+  for (setid in names(yeast_source_positions)){
+    posset <- yeast_source_positions[[setid]]
+    target_positions[[setid]] <- c()
+    
+    rRNAs_in_set <- sapply(strsplit(posset,split = "_[0-9]*$"),"[[",1)
+    pos_in_set <- unname(sapply(posset, FUN=function(x){l <- strsplit(x, split = "_",fixed = T)[[1]]; return(as.numeric(l[length(l)]))}))
+    
+    for(rRNA in unique(rRNAs_in_set)){
+      source_residues <- pos_in_set[rRNAs_in_set==rRNA]
+      target_residues <- yeast_2_t[[rRNA]][source_residues]
+      target_residues <- target_residues[!is.na(target_residues)]
+      if (length(target_residues)>0){
+        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_s2t[rRNA],target_residues,sep = "_"))
+      }
+    }
+  }
+  
+  human_source_positions <- sapply(c("hs_7QVP_Col.Int.", "hs_7QVP_SAS"),
+                                   function(x)(return(ARF:::human_gsea_sets_Collision$gene[ARF:::human_gsea_sets_Collision$ont==x]))) 
+  for (setid in names(human_source_positions)){
+    posset <- human_source_positions[[setid]]
+    target_positions[[setid]] <- c()
+    
+    rRNAs_in_set <- sapply(strsplit(posset,split = "_[0-9]*$"),"[[",1)
+    pos_in_set <- unname(sapply(posset, FUN=function(x){l <- strsplit(x, split = "_",fixed = T)[[1]]; return(as.numeric(l[length(l)]))}))
+    
+    for(rRNA in unique(rRNAs_in_set)){
+      source_residues <- pos_in_set[rRNAs_in_set==rRNA]
+      target_residues <- human_2_t[[rRNA]][source_residues]
+      target_residues <- target_residues[!is.na(target_residues)]
+      if (length(target_residues)>0){
+        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_s2t[rRNA],target_residues,sep = "_"))
+      }
+    }
+  }
+  
+  target_positions[["Col.Int."]] <- unique(c(target_positions[["sc_6I7O_Col.Int."]], target_positions[["sc_6T83_Col.Int."]], target_positions[["hs_7QVP_Col.Int."]]))
+  target_positions[["Rib.Col."]] <- unique(c(target_positions[["sc_6I7O_SAS"]], target_positions[["sc_6T83_SAS"]], target_positions[["sc_6SV4_SAS"]],
+                                             target_positions[["hs_7QVP_SAS"]]))
+  
+  # borrowed from dripARF_get_RP_proximity_sets for adding the random sets
+  gsea_sets_RP <- do.call("rbind", lapply(names(target_positions), FUN = function(RP){
+    tmp_df<-NULL
+    proxpos <- target_positions[[RP]]
+    
+    tmp_df <- data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
+    rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
+    
+    tmp_df <- rbind(tmp_df, as.data.frame(do.call("rbind", lapply(1:99, FUN = function(i){
+      randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
+      return(data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
+                        gene=paste(RP_proximity_df$rRNA[randset], RP_proximity_df$resno[randset], sep = "_")))
+    }))))
+    return(tmp_df)
+  }))
+  
+  return(gsea_sets_RP) # all collision sets including randoms
 }

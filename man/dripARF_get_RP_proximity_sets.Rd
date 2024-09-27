@@ -15,7 +15,7 @@ dripARF_get_RP_proximity_sets(
 \arguments{
 \item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
 
-\item{additional_RPcols}{If you have added your own columns to RP_proximity_df, please provide their column indexes.}
+\item{additional_RPcols}{If you have added your own columns to RP_proximity_df, please provide their column indexes. (needed for proper threshold & set generation)}
 
 \item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).}
 

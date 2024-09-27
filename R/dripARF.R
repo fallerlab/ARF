@@ -136,7 +136,7 @@ dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compar
   dds <- DESeq2::DESeq(dds) # normalize with dds
   
   if (QCplot) {
-    vsd <- DESeq2::vst(dds, blind=FALSE)
+    vsd <- DESeq2::varianceStabilizingTransformation(dds, blind=FALSE)
     sampleDists <- dist(t(SummarizedExperiment::assay(vsd)))
     sampleDistMatrix <- as.matrix(sampleDists)
     rownames(sampleDistMatrix) <- vsd$sampleName
@@ -221,7 +221,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
   RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
   
   ###############################################################
-  vsd <- DESeq2::vst(dds, blind=FALSE)
+  vsd <- DESeq2::varianceStabilizingTransformation(dds, blind=FALSE)
   counts <- DESeq2::counts(dds,normalized=TRUE)
   
   results <- NULL
@@ -307,7 +307,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
   }
   
   # Read count transformations
-  vsd <- DESeq2::vst(dds, blind=FALSE)
+  vsd <- DESeq2::varianceStabilizingTransformation(dds, blind=FALSE)
   
   if (QCplot) {
     g1 <- ggplot2::ggplot(reshape2::melt(SummarizedExperiment::assay(vsd)), ggplot2::aes(x=Var2, y=value)) +
@@ -997,7 +997,7 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 #' dripARF threshold_test wrapper
 #' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
 #' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
-#' @param additional_RPcols If you have added your own columns to RP_proximity_df, please provide their column indexes.
+#' @param additional_RPcols If you have added your own columns to RP_proximity_df, please provide their column indexes. (needed for proper threshold & set generation)
 #' @param rRNAs_fasta Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).
 #' @param thresholds Thresholds for creating the RP-specific rRNA proximity sets.
 #' @param cap_added_RPcols Should we cap the number of positions in additional RP_cols? (Default=F)
@@ -1105,7 +1105,7 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
   samples$DESEQcondition <- samples[,compare]
   
   # Read count transformations
-  vsd <- DESeq2::vst(dds, blind=FALSE)
+  vsd <- DESeq2::varianceStabilizingTransformation(dds, blind=FALSE)
   
   if(is.null(comparisons) || length(comparisons)==0) {
     comparisons <- list()

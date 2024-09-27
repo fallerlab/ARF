@@ -11,6 +11,7 @@ ARF_convert_Ribo3D_pos(
   target_rRNAs_fasta,
   rRNA_pairs = list(),
   source_positions = NULL,
+  source_sets = NULL,
   type = "distances"
 )
 }
@@ -27,7 +28,9 @@ ARF_convert_Ribo3D_pos(
 
 \item{source_positions}{List of position vectors to convert (Alternative input)}
 
-\item{type}{Which conversion to perform (Currently 'distances' or 'positionset' only)}
+\item{source_sets}{GSEA sets dataframe to convert (with "ont" & "gene" columns) (Alternative input)}
+
+\item{type}{Which conversion to perform (Currently 'distances', positionset' only)}
 }
 \description{
 Align rRNAs from source and target organism, then, convert source species 3D ribosome data accordingly
