@@ -227,8 +227,10 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
   results <- NULL
   for (RP in RPs_toreport){
     for (group in unique(samples$DESEQcondition)){
-      results<-rbind(results, data.frame(RP=RP, group=group,
-                                         AvgCount=mean(rowMeans(counts[,samples[,1][samples$DESEQcondition==group]],na.rm = TRUE)[gsea_sets_RP$gene[gsea_sets_RP$ont==RP]],na.rm = TRUE)))
+      if(sum(samples$DESEQcondition==group)>1){
+        results<-rbind(results, data.frame(RP=RP, group=group,
+          AvgCount=mean(rowMeans(counts[,samples[,1][samples$DESEQcondition==group]],na.rm = TRUE)[gsea_sets_RP$gene[gsea_sets_RP$ont==RP]],na.rm = TRUE)))
+      }
     }
   }
   
