@@ -466,7 +466,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     
     GSEA_result_df <- data.frame(Description = or_df$pathway,
                                  ORA.overlap = or_df$overlap, ORA.setSize = or_df$size, ORA.padj = or_df$padj, ORA.p = or_df$pval,
-                                 RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.q=NA)
+                                 RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.pval=NA, RPSEA.q=NA)
     GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
     GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
     rownames(GSEA_result_df) <- GSEA_result_df$Description
@@ -488,20 +488,20 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
         dev.off()
       }
       
-      for (RP in (egmt_used_measure@result$Description[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran")])){
-        temp<-egmt_used_measure@result[RP,]
-        GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
-        GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
-        GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-        #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
-        if("qvalue" %in% colnames(temp)){
-          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
-        } else if("qvalues" %in% colnames(temp)){
-          GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
-        } else{
-          print("qvalue is not part of egmt_result!!")
-          GSEA_result_df[RP,"RPSEA.q"] <- NULL
-        }
+      # Assign RPSEA scores, padjust for only valid reported sets
+      GSEA_result_df$RPSEA.NES <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES"]
+      GSEA_result_df$RPSEA.NES_randZ <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES_rand_zscore"]
+      GSEA_result_df$RPSEA.padj <- p.adjust(p = (egmt_used_measure@result[as.character(GSEA_result_df$Description),"pvalue"]))
+      GSEA_result_df$RPSEA.pval <- (egmt_used_measure@result[as.character(GSEA_result_df$Description),"pvalue"])
+      
+      #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+      if("qvalue" %in% colnames(egmt_used_measure@result)){
+        GSEA_result_df$RPSEA.q <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"qvalue"]
+      } else if("qvalues" %in% colnames(egmt_used_measure@result)){
+        GSEA_result_df$RPSEA.q <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"qvalues"]
+      } else{
+        print("qvalue is not part of the egmt_result!!")
+        GSEA_result_df[RP,"RPSEA.q"] <- NULL
       }
     }
     
@@ -512,8 +512,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_",runID,"_",measureID,"_results.csv",sep = ""), row.names = FALSE)
       # }
     }
-    colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q",
-                                  "C1.avg.read.c","C2.avg.read.c")
+    colnames(GSEA_result_df)[(length(colnames(GSEA_result_df))-1) : length(colnames(GSEA_result_df))] <- c("C1.avg.read.c","C2.avg.read.c")
     all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
                                                            GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
   }
@@ -541,12 +540,13 @@ dripARF_simplify_results <- function(dripARF_results, randZscore_thr=1, ORA_adjP
   temp$ES1.pass <- (dripARF_results$RPSEA.padj<RPSEA_adjP_thr)
   temp$ES2 <- dripARF_results$RPSEA.NES_randZ
   temp$ES2.pass <- (dripARF_results$RPSEA.NES_randZ >= randZscore_thr)
+  temp$RPSEA.padj <- dripARF_results$RPSEA.padj
   temp$ORA <- (dripARF_results$ORA.padj < ORA_adjP_thr)
   temp$ORA.sigN <- (dripARF_results$ORA.overlap >= ORA_sig_n)
   temp$top <- (dripARF_results$RPSEA.padj <= RPSEA_adjP_thr & dripARF_results$RPSEA.NES_randZ >= randZscore_thr &
                  dripARF_results$ORA.padj <= ORA_adjP_thr & dripARF_results$ORA.overlap >= ORA_sig_n)
   
-  return(temp[,c(c("comp", "Description", "top", "ES1", "ES2", "ORA", "ES1.pass", "ES2.pass", "ORA.sigN", "C1.avg.read.c", "C2.avg.read.c"))])
+  return(temp[,c(c("comp", "Description", "top", "ES1", "ES2", "ORA", "RPSEA.padj", "ES1.pass", "ES2.pass", "ORA.sigN", "C1.avg.read.c", "C2.avg.read.c"))])
 }
 
 
@@ -1216,28 +1216,28 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
       
       GSEA_result_df <- data.frame(Description = or_df$pathway,
                                    ORA.overlap=or_df$overlap, ORA.setSize=or_df$size, ORA.padj=or_df$padj, ORA.p=or_df$pval,
-                                   RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.q=NA)
+                                   RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.pval=NA, RPSEA.q=NA)
       rownames(GSEA_result_df) <- GSEA_result_df$Description
       
+      
       if(dim(egmt_used_measure@result)[1]>0){
-        for (RP in (egmt_used_measure@result$Description[!substring(egmt_used_measure@result$Description,1,3)%in%c("MRf","FDf","Ran")])){
-          temp<-egmt_used_measure@result[RP,]
-          GSEA_result_df[RP,"RPSEA.NES"] <- temp$NES
-          GSEA_result_df[RP,"RPSEA.NES_randZ"] <- temp$NES_rand_zscore
-          GSEA_result_df[RP,"RPSEA.padj"] <- temp$p.adjust
-          #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
-          if("qvalue" %in% colnames(temp)){
-            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalue
-          } else if("qvalues" %in% colnames(temp)){
-            GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
-          } else{
-            print("qvalue is not part of egmt_result!!")
-            GSEA_result_df[RP,"RPSEA.q"] <- NULL
-          }
+        # Assign RPSEA scores, padjust for only valid reported sets
+        GSEA_result_df$RPSEA.NES <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES"]
+        GSEA_result_df$RPSEA.NES_randZ <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES_rand_zscore"]
+        GSEA_result_df$RPSEA.padj <- p.adjust(p = (egmt_used_measure@result[as.character(GSEA_result_df$Description),"pvalue"]))
+        GSEA_result_df$RPSEA.pval <- (egmt_used_measure@result[as.character(GSEA_result_df$Description),"pvalue"])
+        
+        #GSEA_result_df[RP,"RPSEA.q"] <- temp$qvalues
+        if("qvalue" %in% colnames(egmt_used_measure@result)){
+          GSEA_result_df$RPSEA.q <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"qvalue"]
+        } else if("qvalues" %in% colnames(egmt_used_measure@result)){
+          GSEA_result_df$RPSEA.q <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"qvalues"]
+        } else{
+          print("qvalue is not part of the egmt_result!!")
+          GSEA_result_df[RP,"RPSEA.q"] <- NULL
         }
       }
       
-      colnames(GSEA_result_df) <- c("Description","ORA.overlap","ORA.setSize","ORA.padj","ORA.p","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","RPSEA.q")
       dripARF_results <- rbind(dripARF_results, data.frame(comp=paste(comp, collapse = "_vs_"),
                                                            GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
     }

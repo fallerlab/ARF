@@ -58,8 +58,33 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
      ggplot2::ylab("Enrichment Score 1 (RPSEA NES)"))
   
   print(g1)
-  ggplot2::ggsave(plot = g1, filename = paste(targetDir, "/", title, ".pdf",sep=""),
-                  width = 5, height = 3+(ceiling(length(unique(dricARF_results$comp)))*2),limitsize = FALSE)
+  
+  g2 <- (ggplot2::ggplot(NULL, ggplot2::aes(x=RPSEA.NES_randZ, y=-log10(RPSEA.padj)))+
+           ggplot2::geom_hline(yintercept = c(-log10(RPSEA_adjP_thr)), linetype="dashed", col=cols[5]) + 
+           #ggplot2::geom_vline(xintercept = 0, col=cols[5])+
+           ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
+           ggplot2::facet_grid(comp~.)+
+           ggplot2::geom_point(data=RP_results, ggplot2::aes(shape=RPSEA.padj<RPSEA_adjP_thr), col=cols[4], size=1)+
+           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=3)+
+           ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj<RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=10)+
+           ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj>=RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=8)+
+           ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
+                                     inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
+           ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
+                                       breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
+           ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
+           ggplot2::theme_bw()+
+           ggplot2::labs(col="Collision Prediction", shape=paste0("RPSEA padj<",as.character(RPSEA_adjP_thr)))+
+           ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
+           ggplot2::ylab("-log10(RPSEA.padj)"))
+  
+  print(g2)
+  
+  gcombine <- cowplot::plot_grid(g1+ggplot2::theme(legend.position = "none"),g2,ncol=2,nrow=1,rel_widths = c(2,3))
+  
+  ggplot2::ggsave(plot = gcombine, filename = paste(targetDir, "/", title, ".pdf",sep=""),
+                  width = 8, height = 3+(ceiling(length(unique(dricARF_results$comp)))*2),limitsize = FALSE)
+  
   return(g1)
 }
 
