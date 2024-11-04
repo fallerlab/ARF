@@ -31,7 +31,7 @@ read_ARF_samples_file <- function(samplesFile){
 #' Organism Check
 #' @description Check if the organism is valid for analysis in ARF.
 #' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @keywords ARF Organism dripARF
+#' @keywords ARF Organism dripARF dricARF
 #' @export
 #' @examples
 #' ARF_check_organism("hs")
@@ -220,11 +220,11 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
 #' @param source_rRNAs_fasta Fasta file for the rRNAs of the source organism.
 #' @param target_species ID for the target species, i.e. mm, sc, etc. 
 #' @param target_rRNAs_fasta Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.
-#' @param rRNA_pairs List of rRNA ID pairs matching source and target rRNAs i.e. list(c("human_28S","mouse_28S"), etc. ).
+#' @param rRNA_pairs List of rRNA ID pairs matching source and target rRNAs (ncessary for lift-overing), i.e. list(c("source_28S","target_28S"), etc. ).
 #' @param source_positions List of position vectors to convert (Alternative input)
 #' @param source_sets GSEA sets dataframe to convert (with "ont" & "gene" columns) (Alternative input)
 #' @param type Which conversion to perform (Currently 'distances', positionset' only)
-#' @keywords 3D ribosome analysis using PDB file
+#' @keywords 3D rRNA coordinates conversion liftover
 #' @export
 #' @examples
 #' ARF_convert_ribosome3D_rRNA_pos()

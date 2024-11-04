@@ -66,5 +66,6 @@ dripARF_predict_heterogenity(samples_df,  "rRNAs.fa", rRNA_counts=rRNA_counts_df
 \keyword{Heterogeneity}
 \keyword{RP}
 \keyword{Ribosome}
+\keyword{dripARF}
 \keyword{rRNA}
 \keyword{ribosome}

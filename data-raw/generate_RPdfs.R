@@ -219,6 +219,5 @@ results <- ARF::dripARF(samplesFile = "test_data/Rpl10aRps25Rpl22_samples_mouse.
              comparisons = list(c("uL1_FLAG","eL22_HA"),c("eS25_FLAG","eL22_HA"),c("uL1_FLAG","uL1_Total"),c("eS25_FLAG","eS25_Total")))
 results2 <- ARF::dricARF(samplesFile = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv", rRNAs_fasta = "rRNAs/mouse_rRNAs.fa", organism = "mm", QCplot = F, targetDir = "test/",
                         comparisons = list(c("uL1_FLAG","eL22_HA"),c("eS25_FLAG","eL22_HA"),c("uL1_FLAG","uL1_Total"),c("eS25_FLAG","eS25_Total")))
-
 results3 <- ARF::dricARF(samplesFile = "test_data/SRP043036_Lareau_Brown_2014.tsv", rRNAs_fasta = "rRNAs/6T7I_yeast_rRNAs.fa", organism = "sc", QCplot = F, targetDir = "test/")
 

@@ -29,11 +29,11 @@ dripARF_report_RPset_group_counts(
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{List of sample names to be excluded from the analysis. (optional)}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on. (optional)}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix that is determined by ARF. (optional)}
 }
 \description{
 Calculate the average read count of RP proximity sets

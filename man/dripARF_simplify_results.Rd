@@ -31,4 +31,4 @@ dripARF_simplify_results(dripARF_results)
 }
 \keyword{dripARF}
 \keyword{results}
-\keyword{simple}
+\keyword{simplify}

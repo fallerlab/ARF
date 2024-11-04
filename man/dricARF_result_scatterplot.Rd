@@ -11,8 +11,8 @@ dricARF_result_scatterplot(
   addedRPs = NULL,
   highlightRPs = NULL,
   randZscore_thr = 1,
-  ORA_adjP_thr = 0.05,
-  RPSEA_adjP_thr = 0.05,
+  ORA_adjP_thr = 0.1,
+  RPSEA_adjP_thr = 0.1,
   ORA_sig_n = 1
 )
 }
@@ -41,7 +41,8 @@ Draw scatterplot for GSEA and ORA analyses
 \examples{
 dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
 }
+\keyword{Collisions}
 \keyword{Differential}
-\keyword{Heatmap}
-\keyword{Heterogeneity}
 \keyword{Ribosome}
+\keyword{dricARF}
+\keyword{scatterplot}

@@ -41,6 +41,7 @@ Imports:
 	tidyverse, 
 	bio3d,
 	Biostrings,
-	msa
+	msa,
+	cowplot
 Depends: 
     R (>= 4.0)

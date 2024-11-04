@@ -22,7 +22,7 @@ Add random-edited replicates to single replicate groups
 dripARF_add_replicates(samples_df)
 dripARF_add_replicates(samples_df, QCplot=TRUE, targetDir="./")
 }
-\keyword{Reader}
-\keyword{alignment}
-\keyword{fragment}
-\keyword{rRNA}
+\keyword{creation}
+\keyword{replicate}
+\keyword{sample}
+\keyword{single}

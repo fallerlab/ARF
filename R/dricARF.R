@@ -26,19 +26,21 @@
 #' @param ORA_adjP_thr Default=0.05
 #' @param RPSEA_adjP_thr Default=0.05
 #' @param ORA_sig_n Default=1
-#' @keywords Differential Ribosome Heterogeneity Heatmap
+#' @keywords dricARF Differential Ribosome Collisions scatterplot
 #' @export
 #' @examples
 #' dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
 dricARF_result_scatterplot <- function(dricARF_results, targetDir,
                                        title="dricARF (highlighted) & dripARF predictions", addedRPs=NULL, highlightRPs=NULL,
-                                       randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
+                                       randZscore_thr=1, ORA_adjP_thr=0.1, RPSEA_adjP_thr=0.1, ORA_sig_n=1){
   `%>%` <- magrittr::`%>%`
   
   RP_results <- dricARF_results %>% dplyr::filter(!(Description %in% unique(ARF:::human_gsea_sets_Collision$ont)))
   final_coll <- dricARF_results %>% dplyr::filter(Description %in% unique(ARF:::human_gsea_sets_Collision$ont))
+
   #Exclude Col Int details
   final_coll <- final_coll %>% dplyr::filter(!Description%in%c( "sc_6I7O_Col.Int.", "sc_6T83_Col.Int.", "hs_7QVP_Col.Int."))
+  
   cols <- c("#ECCBAE", "#046C9A", "#D69C4E", "#ABDDDE", "#000000")
   g1 <- (ggplot2::ggplot(NULL, ggplot2::aes(x=RPSEA.NES_randZ, y=RPSEA.NES))+
      ggplot2::geom_hline(yintercept = 0) + ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
@@ -53,28 +55,32 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
                                  breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
      ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
      ggplot2::theme_bw()+
-     ggplot2::labs(col="Collision Prediction", shape=paste0("RPSEA padj<",as.character(RPSEA_adjP_thr)))+
+     ggplot2::labs(col="Collision Prediction", shape=paste0("RPSEA.padj < ",as.character(RPSEA_adjP_thr)))+
      ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
      ggplot2::ylab("Enrichment Score 1 (RPSEA NES)"))
   
   print(g1)
   
-  g2 <- (ggplot2::ggplot(NULL, ggplot2::aes(x=RPSEA.NES_randZ, y=-log10(RPSEA.padj)))+
+  g2 <- (ggplot2::ggplot(RP_results, ggplot2::aes(x=RPSEA.NES_randZ, y=-log10(RPSEA.padj)))+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=1,ymax=Inf), alpha=0.1, fill="green")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=1,ymax=Inf), alpha=0.1, fill="red")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=-Inf,ymax=1), alpha=0.3, fill="firebrick")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-Inf,ymax=1), alpha=0.3, fill="darkolivegreen3")+
            ggplot2::geom_hline(yintercept = c(-log10(RPSEA_adjP_thr)), linetype="dashed", col=cols[5]) + 
            #ggplot2::geom_vline(xintercept = 0, col=cols[5])+
            ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
            ggplot2::facet_grid(comp~.)+
-           ggplot2::geom_point(data=RP_results, ggplot2::aes(shape=RPSEA.padj<RPSEA_adjP_thr), col=cols[4], size=1)+
-           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=3)+
-           ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj<RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=10)+
-           ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj>=RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=8)+
+           ggplot2::geom_point(ggplot2::aes(shape=ORA.padj<ORA_adjP_thr), col=cols[2], size=1)+
+           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=3)+
+           ggplot2::geom_point(data=final_coll%>%dplyr::filter(ORA.padj<ORA_adjP_thr), ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=10)+
+           ggplot2::geom_point(data=final_coll%>%dplyr::filter(ORA.padj>=ORA_adjP_thr), ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=8)+
            ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
-                                     inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
+                                     inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
            ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                        breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
            ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
            ggplot2::theme_bw()+
-           ggplot2::labs(col="Collision Prediction", shape=paste0("RPSEA padj<",as.character(RPSEA_adjP_thr)))+
+           ggplot2::labs(col="Collision Prediction", shape=paste0("ES3 (ORA.padj) < ",as.character(ORA_adjP_thr)))+
            ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
            ggplot2::ylab("-log10(RPSEA.padj)"))
   
@@ -92,7 +98,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @description This function allows you to run the whole dricARF pipeline
 #' @param samplesFile File that describes file locations and sample groupings
 #' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
+#' @param samples_df Samples dataframe created by read_ARF_samples_file() function.
 #' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.

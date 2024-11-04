@@ -17,4 +17,5 @@ ARF_check_organism("hs")
 }
 \keyword{ARF}
 \keyword{Organism}
+\keyword{dricARF}
 \keyword{dripARF}

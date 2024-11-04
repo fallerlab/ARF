@@ -41,4 +41,8 @@ A function that normalizes rRNA counts with DESEQ2
 \examples{
 dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa")
 }
-\keyword{Normalization}
+\keyword{DESeq}
+\keyword{abundance}
+\keyword{fragment}
+\keyword{normalization}
+\keyword{rRNA}

@@ -44,8 +44,9 @@ Fish out the Differential values for RP proximity sets
 \examples{
 dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="mm")
 }
-\keyword{RP}
-\keyword{lFCprofile}
-\keyword{proximity}
+\keyword{dripARF}
+\keyword{for}
+\keyword{logFC}
+\keyword{profiles}
 \keyword{rRNA}
-\keyword{sets}
+\keyword{rRNAs}

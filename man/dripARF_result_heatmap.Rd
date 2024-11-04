@@ -35,3 +35,4 @@ dripARF_result_heatmap(dripARF_results, "Title", "/Folder/to/save/in/", randZsco
 \keyword{Heatmap}
 \keyword{Heterogeneity}
 \keyword{Ribosome}
+\keyword{dripARF}

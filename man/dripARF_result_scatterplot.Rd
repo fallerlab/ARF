@@ -45,3 +45,4 @@ dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
 \keyword{Heatmap}
 \keyword{Heterogeneity}
 \keyword{Ribosome}
+\keyword{dripARF}

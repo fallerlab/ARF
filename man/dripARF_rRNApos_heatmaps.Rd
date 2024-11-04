@@ -48,3 +48,4 @@ dripARF_rRNApos_heatmaps(dripARF_results, "mm", c("eL1","uS25"), "/Folder/to/sav
 \keyword{Heatmap}
 \keyword{Heterogeneity}
 \keyword{Ribosome}
+\keyword{dripARF}

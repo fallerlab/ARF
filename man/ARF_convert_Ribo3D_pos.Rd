@@ -24,7 +24,7 @@ ARF_convert_Ribo3D_pos(
 
 \item{target_rRNAs_fasta}{Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.}
 
-\item{rRNA_pairs}{List of rRNA ID pairs matching source and target rRNAs i.e. list(c("human_28S","mouse_28S"), etc. ).}
+\item{rRNA_pairs}{List of rRNA ID pairs matching source and target rRNAs (ncessary for lift-overing), i.e. list(c("source_28S","target_28S"), etc. ).}
 
 \item{source_positions}{List of position vectors to convert (Alternative input)}
 
@@ -39,8 +39,7 @@ Align rRNAs from source and target organism, then, convert source species 3D rib
 ARF_convert_ribosome3D_rRNA_pos()
 }
 \keyword{3D}
-\keyword{PDB}
-\keyword{analysis}
-\keyword{file}
-\keyword{ribosome}
-\keyword{using}
+\keyword{conversion}
+\keyword{coordinates}
+\keyword{liftover}
+\keyword{rRNA}

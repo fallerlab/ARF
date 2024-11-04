@@ -33,5 +33,6 @@ dripARF_get_RP_proximity_sets(RP_proximities_dataframe, additional_RPcols=80:95,
 \keyword{RP}
 \keyword{RPSEA}
 \keyword{RRNA}
+\keyword{generation}
 \keyword{proximity}
 \keyword{set}

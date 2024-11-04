@@ -38,5 +38,6 @@ This function allows you to run the whole dripARF pipeline with varying proximit
 \examples{
 dripARF_threshold_test("samples.txt", "rRNAs.fa", organism="mm", thresholds=list(c(20,150),c(15,100)))
 }
+\keyword{alternative}
 \keyword{dripARF}
-\keyword{pipeline}
+\keyword{threshold}
