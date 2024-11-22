@@ -32,7 +32,7 @@
 #' dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
 dricARF_result_scatterplot <- function(dricARF_results, targetDir,
                                        title="dricARF (highlighted) & dripARF predictions", addedRPs=NULL, highlightRPs=NULL,
-                                       randZscore_thr=1, ORA_adjP_thr=0.1, RPSEA_adjP_thr=0.1, ORA_sig_n=1){
+                                       randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
   `%>%` <- magrittr::`%>%`
   
   RP_results <- dricARF_results %>% dplyr::filter(!(Description %in% unique(ARF:::human_gsea_sets_Collision$ont)))
@@ -62,25 +62,22 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
   print(g1)
   
   g2 <- (ggplot2::ggplot(RP_results, ggplot2::aes(x=RPSEA.NES_randZ, y=-log10(RPSEA.padj)))+
-           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=1,ymax=Inf), alpha=0.1, fill="green")+
-           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=1,ymax=Inf), alpha=0.1, fill="red")+
-           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=-Inf,ymax=1), alpha=0.3, fill="firebrick")+
-           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-Inf,ymax=1), alpha=0.3, fill="darkolivegreen3")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-log10(RPSEA_adjP_thr),ymax=Inf), alpha=0.1, fill="green")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=-log10(RPSEA_adjP_thr),ymax=Inf), alpha=0.1, fill="red")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=-Inf,ymax=-log10(RPSEA_adjP_thr)), alpha=0.3, fill="firebrick")+
+           ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-Inf,ymax=-log10(RPSEA_adjP_thr)), alpha=0.3, fill="darkolivegreen3")+
            ggplot2::geom_hline(yintercept = c(-log10(RPSEA_adjP_thr)), linetype="dashed", col=cols[5]) + 
-           #ggplot2::geom_vline(xintercept = 0, col=cols[5])+
            ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
            ggplot2::facet_grid(comp~.)+
-           ggplot2::geom_point(ggplot2::aes(shape=ORA.padj<ORA_adjP_thr), col=cols[2], size=1)+
-           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=3)+
-           ggplot2::geom_point(data=final_coll%>%dplyr::filter(ORA.padj<ORA_adjP_thr), ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=10)+
-           ggplot2::geom_point(data=final_coll%>%dplyr::filter(ORA.padj>=ORA_adjP_thr), ggplot2::aes(color=Description), alpha=.6, size=2.5, shape=8)+
+           ggplot2::geom_point(col=cols[2], size=1.5, alpha=.5, shape=18)+
+           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.5,size=1.5, shape=20)+
+           ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), size=2.5, shape=10)+
            ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
                                      inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
            ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                        breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
-           ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
            ggplot2::theme_bw()+
-           ggplot2::labs(col="Collision Prediction", shape=paste0("ES3 (ORA.padj) < ",as.character(ORA_adjP_thr)))+
+           ggplot2::labs(col="Collision Prediction")+
            ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
            ggplot2::ylab("-log10(RPSEA.padj)"))
   
@@ -91,7 +88,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
   ggplot2::ggsave(plot = gcombine, filename = paste(targetDir, "/", title, ".pdf",sep=""),
                   width = 8, height = 3+(ceiling(length(unique(dricARF_results$comp)))*2),limitsize = FALSE)
   
-  return(g1)
+  return(gcombine)
 }
 
 #' dricARF wrapper
@@ -112,7 +109,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @keywords dricARF pipeline
 #' @export
 #' @examples
-#' dricARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
+#' dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
 dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
                     comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
   
@@ -220,7 +217,7 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 #' @keywords 3D ribosome analysis using PDB file
 #' @export
 #' @examples
-#' ARF_convert_ribosome3D_rRNA_pos()
+#' dricARF_liftover_collision_sets("dm","drosophila_rRNAs.fa",rRNA_pairs=list(c("28S","dm_rRNA_28S"),c("18S","dm_rRNA_18S"),c("5.8S","dm_rRNA_5.8S"),c("5S","dm_rRNA_5S")))
 dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, rRNA_pairs=list()) {
   # dplyr hack for %>%
   `%>%` <- magrittr::`%>%`
@@ -237,10 +234,11 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
   yeast_rRNA_pairs=list()
   human_rRNA_pairs=list()
   for (rRNAs in rRNA_pairs){
-    if (rRNAs[1]=="28S") {
+    rRNA=rRNAs[2]
+    if (rRNAs[1]%in%c("28S","25S")) {
       yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_25S",rRNA)))
       human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_28S",rRNA)))
-    } else if (rRNAs[1]=="18S") {
+    } else if (rRNAs[1]%in%c("18S","16S")) {
       yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_18S",rRNA)))
       human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_18S",rRNA)))
     } else if (rRNAs[1]=="5.8S") {
@@ -249,6 +247,9 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
     } else if (rRNAs[1]=="5S") {
       yeast_rRNA_pairs <- append(yeast_rRNA_pairs, list(c("rRNA_5S",rRNA)))
       human_rRNA_pairs <- append(human_rRNA_pairs, list(c("human_5S",rRNA)))
+    } else{
+      message('Problem with passed rRNA pairs list. Please use 28S, 18S, 5.8S, 5S as source ids, i.e. list(c("28S","species_25S"), c("18S","species_18S"), etc.)\n')
+        
     }
   }
   rRNA_yeast2t <- sapply(yeast_rRNA_pairs,"[",2)

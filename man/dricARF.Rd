@@ -25,6 +25,8 @@ dricARF(
 
 \item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
 
+\item{samples_df}{Samples dataframe created by read_ARF_samples_file() function.}
+
 \item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
@@ -44,14 +46,12 @@ dricARF(
 \item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF. (preset for hs, mm, and sc predictions)}
 
 \item{gsea_sets_Collision}{Ribosome collision sets to perform dricARF enrichments on. (preset for hs, mm, and sc predictions)}
-
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
 }
 \description{
 This function allows you to run the whole dricARF pipeline
 }
 \examples{
-dricARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
+dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
 }
 \keyword{dricARF}
 \keyword{pipeline}

@@ -42,7 +42,7 @@ dripARF_report_RPspec_pos_results(
 Fish out the Differential values for RP proximity sets
 }
 \examples{
-dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="mm")
+dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="hs")
 }
 \keyword{dripARF}
 \keyword{for}

@@ -38,9 +38,6 @@ ARF_parse_PDB_ribosome(
 \description{
 Parse 3D ribosome data
 }
-\examples{
-ARF_parse_PDB_ribosome("4V6X")
-}
 \keyword{3D}
 \keyword{PDB}
 \keyword{analysis}

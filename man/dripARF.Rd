@@ -24,6 +24,8 @@ dripARF(
 
 \item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
 
+\item{samples_df}{Samples dataframe created by read_ARF_samples_file() function.}
+
 \item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
@@ -40,9 +42,7 @@ dripARF(
 
 \item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
-
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix that is created by ARF.}
 }
 \description{
 This function allows you to run the whole dripARF pipeline

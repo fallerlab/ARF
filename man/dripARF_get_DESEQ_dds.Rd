@@ -25,7 +25,7 @@ dripARF_get_DESEQ_dds(
 
 \item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
 
 \item{exclude}{List of sample names to be excluded from the analysis.}
 
@@ -39,9 +39,9 @@ dripARF_get_DESEQ_dds(
 A function that normalizes rRNA counts with DESEQ2
 }
 \examples{
-dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa")
+dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa", organism="hs")
 }
-\keyword{DESeq}
+\keyword{DESeq2}
 \keyword{abundance}
 \keyword{fragment}
 \keyword{normalization}

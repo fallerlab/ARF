@@ -36,7 +36,7 @@ ARF_convert_Ribo3D_pos(
 Align rRNAs from source and target organism, then, convert source species 3D ribosome data accordingly
 }
 \examples{
-ARF_convert_ribosome3D_rRNA_pos()
+ARF_convert_ribosome3D_rRNA_pos("Ribosome.3D.4V6X.ARF.minimum_distances.csv", "4V6X.rRNAs.fasta", "dm", "drosophila_rRNAs.fa",rRNA_pairs=list(c("rRNA_28S","dm_rRNA_28S"),c("rRNA_18S","dm_rRNA_18S"),c("rRNA_5.8S","dm_rRNA_5.8S"),c("rRNA_5S","dm_rRNA_5S")))
 }
 \keyword{3D}
 \keyword{conversion}

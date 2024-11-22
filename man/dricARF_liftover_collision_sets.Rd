@@ -21,7 +21,7 @@ dricARF_liftover_collision_sets(
 Align rRNAs from hs/sc and target organism, then, convert the collision sets into target organism coordinates.
 }
 \examples{
-ARF_convert_ribosome3D_rRNA_pos()
+dricARF_liftover_collision_sets("dm","drosophila_rRNAs.fa",rRNA_pairs=list(c("28S","dm_rRNA_28S"),c("18S","dm_rRNA_18S"),c("5.8S","dm_rRNA_5.8S"),c("5S","dm_rRNA_5S")))
 }
 \keyword{3D}
 \keyword{PDB}

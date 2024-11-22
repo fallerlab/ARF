@@ -11,8 +11,8 @@ dricARF_result_scatterplot(
   addedRPs = NULL,
   highlightRPs = NULL,
   randZscore_thr = 1,
-  ORA_adjP_thr = 0.1,
-  RPSEA_adjP_thr = 0.1,
+  ORA_adjP_thr = 0.05,
+  RPSEA_adjP_thr = 0.05,
   ORA_sig_n = 1
 )
 }

@@ -74,7 +74,7 @@ ARF_check_organism <- function(organism) {
 #' @keywords 3D ribosome analysis using PDB file
 #' @export
 #' @examples
-#' ARF_parse_PDB_ribosome("4V6X")
+#' ARF_parse_PDB_ribosome("hs",4V6X")
 ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NULL, PDB_chains_2_RP_nomenclature=NULL,
                                    download_directory=getwd(), method="dripARF_minDistances", out_prefix="Ribosome.3D",
                                    duplication_resolve=min) {
@@ -227,7 +227,7 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
 #' @keywords 3D rRNA coordinates conversion liftover
 #' @export
 #' @examples
-#' ARF_convert_ribosome3D_rRNA_pos()
+#' ARF_convert_ribosome3D_rRNA_pos("Ribosome.3D.4V6X.ARF.minimum_distances.csv", "4V6X.rRNAs.fasta", "dm", "drosophila_rRNAs.fa",rRNA_pairs=list(c("rRNA_28S","dm_rRNA_28S"),c("rRNA_18S","dm_rRNA_18S"),c("rRNA_5.8S","dm_rRNA_5.8S"),c("rRNA_5S","dm_rRNA_5S")))
 ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta, 
                                    target_species, target_rRNAs_fasta, rRNA_pairs=list(), 
                                    source_positions=NULL, source_sets=NULL, type="distances") {

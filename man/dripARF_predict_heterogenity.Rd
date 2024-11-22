@@ -52,7 +52,7 @@ dripARF_predict_heterogenity(
 
 \item{optimized_run}{Run in optimized mode for time-saving.}
 
-\item{measureID}{Alternative options for rRNA position ranking before RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)}
+\item{measureID}{Alternative options for rRNA position ranking for RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)}
 
 \item{runID}{runID for output labeling, default: dripARF. (alt. example: dricARF).}
 }

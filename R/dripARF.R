@@ -99,14 +99,14 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
 #' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
 #' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)
 #' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
+#' @param organism Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param count_threshold Exclude the positions with reads less than this threshold on average. (Default: 1000)
 #' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
 #' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
-#' @keywords DESeq normalization rRNA fragment abundance
+#' @keywords DESeq2 normalization rRNA fragment abundance
 #' @examples
-#' dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa")
+#' dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa", organism="hs")
 #' @export
 dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compare="group", organism=NULL, exclude=NULL, count_threshold=100, 
                                   QCplot=FALSE, targetDir=paste0(getwd(),"/")){
@@ -256,7 +256,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
 #' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
 #' @param optimized_run Run in optimized mode for time-saving.
-#' @param measureID Alternative options for rRNA position ranking before RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)
+#' @param measureID Alternative options for rRNA position ranking for RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)
 #' @param runID runID for output labeling, default: dripARF. (alt. example: dricARF). 
 #' @keywords dripARF Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
@@ -712,7 +712,7 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
 #' @keywords dripARF rRNA logFC profiles for rRNAs
 #' @export
 #' @examples
-#' dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="mm")
+#' dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="hs")
 dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                               organism=NULL, compare="group", comparisons=NULL, exclude=NULL, 
                                               gsea_sets_RP=NULL, RP_proximity_df=NULL){
@@ -915,7 +915,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' @param exclude List of sample names to be excluded from the analysis.
 #' @param GSEAplots Whether to produce and save the standard GSEA plots.
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' @param RP_proximity_df RP-rRNA proximity matrix that is created by ARF.
 #' @keywords dripARF pipeline
 #' @export
 #' @examples
@@ -975,7 +975,7 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 
 #' dripARF threshold_test wrapper
 #' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' @param RP_proximity_df RP-rRNA proximity matrix that is created by ARF.
 #' @param additional_RPcols If you have added your own columns to RP_proximity_df, please provide their column indexes. (needed for proper threshold & set generation)
 #' @param rRNAs_fasta Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).
 #' @param thresholds Thresholds for creating the RP-specific rRNA proximity sets.
