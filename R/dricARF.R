@@ -147,7 +147,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
 #' }
 dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
+                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
   
   if(is.null(RP_proximity_df)){
     # Check organism first
@@ -232,8 +232,8 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
                                                 QCplot = QCplot, targetDir = targetDir)
   
   results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
-                               compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir,
-                               comparisons = comparisons, GSEAplots=GSEAplots, 
+                               compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
+                               comparisons = comparisons, GSEAplots=GSEAplots, ssRPSEAplots=ssRPSEAplots, 
                                gsea_sets_RP = gsea_sets_RP, RP_proximity_df = RP_proximity_df,
                                measureID = "abs_GSEA_measure_with_dynamic_p", runID="dricARF")
   

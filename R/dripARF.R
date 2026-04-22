@@ -326,7 +326,8 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #'   rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
 #' }
 dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
-                                         compare="group", organism=NULL, QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
+                                         compare="group", organism=NULL, QCplot=FALSE, targetDir=NA,
+                                         comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
                                          GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F, 
                                          measureID="abs_GSEA_measure_with_dynamic_p", runID='dripARF') {
   # # Check organism first
@@ -347,7 +348,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     if (is.null(rRNA_counts)) {
       rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, rRNAs_fasta=rRNAs_fasta, organism=organism, QCplot = QCplot, targetDir=targetDir)
     }
-    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dds <- ARF::dripARF_get_DESEQ_dds(samples = samples, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
   } else {
     dds <- dripARF_dds
   }
@@ -427,15 +428,35 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
                                                 rRNA_counts = rRNA_counts,dripARF_dds = dds,
                                                 organism = organism, compare = compare, exclude = exclude, 
                                                 gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
+
+  ### ssRPSEA hook ####
+  # normalization for ssRPSEA
+  cat("\nRunning ssRPSEA normalization...\n")
+  counts <- DESeq2::counts(dds, normalized=TRUE)
+  run_DESeq2_norm_list <- run_DESeq2_norm(counts, gsea_sets_RP)
   
+  # computing ssRPSEA weights
+  ssgsea_scores = run_DESeq2_norm_list$ssgsea_scores
+  # geneSets = run_DESeq2_norm_list$geneSets
+
+  # limma analysis on ssRPSEA scores
+  lm_ssRPSEA_weights_df <- run_limma_DE_analysis(
+    ssgsea_scores = ssgsea_scores,
+    samples = samples,
+    comparisons = comparisons
+  )
+
+  cat("\nssRPSEA weights computed.\n")
+  ####
+
   ######### Gene set enrichment Analysis ############
   #library(clusterProfiler)
   #library(enrichplot)
   #library(gprofiler2)
   
-  counts <- DESeq2::counts(dds, normalized=TRUE)
+  # counts <- DESeq2::counts(dds, normalized=TRUE)
   all_GSEA_results <- NULL
-  
+
   # Separate for each DESEQcondition
   for (comp in comparisons) {
     message(paste("Running predictions for",comp[1],"vs",comp[2],"\n"))
@@ -530,8 +551,6 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     GSEA_result_df <- data.frame(Description = or_df$pathway,
                                  ORA.overlap = or_df$overlap, ORA.setSize = or_df$size, ORA.padj = or_df$padj, ORA.p = or_df$pval,
                                  RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.pval=NA, RPSEA.q=NA)
-    GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
-    GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
     rownames(GSEA_result_df) <- GSEA_result_df$Description
     
     if(dim(egmt_used_measure@result)[1]>0){
@@ -568,6 +587,50 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       }
     }
     
+    ### Add ssRPSEA weights to the GSEA result df for comparison
+    ## Check for NA values in limma weights before join
+    tryCatch(
+      {stopifnot(!any(is.na(lm_ssRPSEA_weights_df$weight)))},
+      error = function(e) print(
+        "NA values found in limma weights! Check limma output.")
+    )
+
+    GSEA_result_df <- dplyr::left_join(
+        GSEA_result_df |>
+          dplyr::mutate(comparison = paste(comp, collapse = "_vs_")),
+        lm_ssRPSEA_weights_df |>
+          dplyr::select(RP, comparison, ssRPSEA.weight) |> 
+          dplyr::filter(comparison == paste(comp, collapse = "_vs_")),
+        by = c("Description"="RP", "comparison"="comparison")
+      ) |>
+      dplyr::mutate(weighted.RPSEA.NES_randZ = RPSEA.NES_randZ * ssRPSEA.weight) |>
+      dplyr::arrange(desc(weighted.RPSEA.NES_randZ))
+
+    tryCatch(
+      # {!any(is.na(GSEA_result_df$weight))},
+      {stopifnot(dim(GSEA_result_df)[1] >= 1)},
+      error = function(e) print(
+        "NA values found in GSEA result weights after join! Check limma output and GSEA result.")
+    )
+
+    ## making the interaction plot
+    if (ssRPSEAplots){
+      pdf(paste(targetDir,"/",
+          paste(comp,collapse = "_vs_"),"_", measureID,"_ssRPSEA_vs_RPSEA.NES_randZ.pdf",sep = ""
+        ),height = 5,width = 5
+      )
+
+      print(interaction_plotter(GSEA_result_df))
+      dev.off()
+    }
+    ###
+
+    GSEA_result_df <- GSEA_result_df |>
+      dplyr::select(-comparison)
+    ## shifted to the end to add the ssRPSEA weights to the output csvs as well
+    GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
+    GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
+
     if (!is.null(gsea_sets_RP)){
       # if(measureID=="abs_GSEA_measure") {
       #   write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_dripARF_default_results.csv",sep = ""), row.names = FALSE)
@@ -579,7 +642,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
                                                            GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
   }
-  
+
   rownames(all_GSEA_results) <- 1:(dim(all_GSEA_results)[1])
   return(all_GSEA_results)
 }
@@ -1069,7 +1132,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' dripARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
 #' }
 dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
   
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -1108,8 +1171,8 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, rRNAs_fasta=rRNAs_fasta, organism = organism, 
                                                 QCplot = QCplot, targetDir = targetDir)
   dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
-                                                  compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir,
-                                                  comparisons = comparisons, GSEAplots=GSEAplots, 
+                                                  compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
+                                                  comparisons = comparisons, GSEAplots=GSEAplots, ssRPSEAplots=ssRPSEAplots,
                                                   gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
   
   dripARF_result_scatterplot(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions")
