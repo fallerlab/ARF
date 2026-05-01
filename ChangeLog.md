@@ -1,21 +1,35 @@
-## v2.2 — 2026-03-31
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+## v2.2 — 2026-05-01
+
 ### Added
-  - `ARF-package.R` with `@importFrom` declarations for `grDevices`, `stats`, and `utils`
-    functions, resolving `R CMD check` undefined-global warnings.
-  - `.Rbuildignore` to exclude non-package directories (`docs`, `data-raw`,`rRNAs`, 
-    `test_data`) from the build.
+  - `ssRPSEA.R`: internal ssGSEA-based weighting of RPSEA scores. Per-sample RP activity
+    is estimated with `GSVA::gsva` (ssGSEA mode), differential activity between conditions
+    is modelled with `limma`, and the resulting weight is applied to ES2 (NES_randZ) to
+    produce `weighted.RPSEA.NES_randZ` in all output CSVs. Optional interaction scatter
+    plot saved when `ssRPSEAplots = TRUE`.
   - `docs/dricARF_use_cases_documentation.md`
-  - ssGSEA-based correction of ES2 (NES_randZ) scores.
+  - `DESCRIPTION`: `GSVA`, `limma`, and `tidyr` added to `Imports` (required by ssRPSEA);
+    `dplyr`, `magrittr`, `readr`, `RColorBrewer`, `circlize`, `wesanderson` added to
+    replace removed blanket dependencies.
 
 ### Changed
   - `DESCRIPTION`: licence field corrected from `use_gpl3_license()` to `GPL (>= 3)`;
-    `bedr` and `tidyverse` removed from `Imports` and replaced with specific packages
-    (`dplyr`, `magrittr`, `readr`, `RColorBrewer`, `circlize`, `wesanderson`);
-    `HelloRanges` moved to `Suggests`.
-  - All roxygen2 documentation overhauled: many fixes across `ARF_platform.R`, `dripARF.R`,
-    and `dricARF.R`, including corrected `@param` names, completed `@return` tags,
-    fixed `@examples`, resolved typos, and corrected wrong titles/keywords.
+    `bedr` and `tidyverse` removed from `Imports`; `HelloRanges` moved to `Suggests`.
+  - `dricARF_result_scatterplot`: `highlightRPs` argument now functional — labels chosen
+    RP points in both panels of the combined plot.
+  - All roxygen2 documentation overhauled across `ARF_platform.R`, `dripARF.R`, and
+    `dricARF.R`: corrected `@param` names, completed `@return` tags, fixed `@examples`,
+    resolved typos, and corrected wrong titles/keywords.
   - `README.md` comprehensively updated.
+
+### Removed
+  - `GSEAplots` parameter removed from `dripARF_predict_heterogenity`, `dripARF`, and
+    `dricARF`; the `enrichplot::gseaplot2` per-RP GSEA plot block has been dropped.
+  - `enrichplot` removed from `Imports`.
 
 ## v2.1
   - All species support for both dricARF and dripARF.

@@ -376,7 +376,9 @@ ribosome collision abundance alongside RP heterogeneity.</li>
 <p>Both methods use DESeq2 for normalisation, GSEA-based enrichment
 testing (RPSEA), and overrepresentation analysis (ORA), with enrichment
 scores z-scored against 99 circularly-shifted random controls to remove
-positional rRNA fragmentation bias.</p>
+positional rRNA fragmentation bias. An additional ssGSEA-based layer
+(ssRPSEA) weights these scores per-sample using limma, producing
+<code>weighted.RPSEA.NES_randZ</code> in the output.</p>
 <div id="further-reading" class="section level2">
 <h2>Further reading</h2>
 <p>For detailed worked examples including non-model organisms, see:</p>
@@ -394,16 +396,15 @@ devtools::install_github(&quot;fallerlab/ARF@main&quot;)</code></pre>
 <ul>
 <li>DESeq2 (&gt;= 1.30.1)</li>
 <li>SummarizedExperiment</li>
+<li>matrixStats</li>
 <li>clusterProfiler</li>
-<li>enrichplot</li>
 <li>fgsea</li>
 <li>ComplexHeatmap</li>
 <li>grid</li>
 <li>ggplot2</li>
 <li>ggrepel</li>
-<li>matrixStats</li>
-<li>reshape2</li>
 <li>scales</li>
+<li>reshape2</li>
 <li>bio3d</li>
 <li>Biostrings</li>
 <li>msa</li>
@@ -414,6 +415,9 @@ devtools::install_github(&quot;fallerlab/ARF@main&quot;)</code></pre>
 <li>RColorBrewer</li>
 <li>circlize</li>
 <li>wesanderson</li>
+<li>GSVA</li>
+<li>limma</li>
+<li>tidyr</li>
 </ul>
 </div>
 <div id="installing-all-dependencies" class="section level3">
@@ -425,16 +429,16 @@ renv::init()
 
 ## Install CRAN packages
 install.packages(
-  c(&#39;remotes&#39;, &#39;targets&#39;, &#39;curl&#39;, &#39;ggrepel&#39;, &#39;reshape2&#39;,
+  c(&#39;remotes&#39;, &#39;curl&#39;, &#39;ggrepel&#39;, &#39;reshape2&#39;, &#39;scales&#39;,
     &#39;dplyr&#39;, &#39;magrittr&#39;, &#39;readr&#39;, &#39;RColorBrewer&#39;,
-    &#39;circlize&#39;, &#39;wesanderson&#39;, &#39;bio3d&#39;, &#39;cowplot&#39;),
+    &#39;circlize&#39;, &#39;wesanderson&#39;, &#39;bio3d&#39;, &#39;cowplot&#39;, &#39;tidyr&#39;),
   dependencies = TRUE)
 
 ## Install Bioconductor packages
 remotes::install_bioc(
   c(&#39;DESeq2&#39;, &#39;SummarizedExperiment&#39;, &#39;matrixStats&#39;,
-    &#39;clusterProfiler&#39;, &#39;enrichplot&#39;, &#39;fgsea&#39;,
-    &#39;ComplexHeatmap&#39;, &#39;msa&#39;, &#39;Biostrings&#39;),
+    &#39;clusterProfiler&#39;, &#39;fgsea&#39;, &#39;ComplexHeatmap&#39;,
+    &#39;msa&#39;, &#39;Biostrings&#39;, &#39;GSVA&#39;, &#39;limma&#39;),
   dependencies = TRUE)
 
 renv::install(&quot;fallerlab/ARF@main&quot;)</code></pre>
@@ -543,7 +547,10 @@ dricARF_results &lt;- ARF::dricARF(
 )</code></pre>
 <p>Both functions return a data frame of predictions for all pairwise
 comparisons between groups, and write comparison-specific CSV files plus
-scatterplot and heatmap PDFs to <code>targetDir</code>.</p>
+scatterplot and heatmap PDFs to <code>targetDir</code>. Set
+<code>ssRPSEAplots = TRUE</code> to additionally save per-comparison
+scatter plots of <code>weighted.RPSEA.NES_randZ</code> vs
+<code>RPSEA.NES_randZ</code>.</p>
 <hr />
 </div>
 </div>
@@ -584,6 +591,17 @@ change</td>
 <td>Z-score of NES relative to 99 circularly-shifted random control
 sets. Corrects for positional rRNA fragmentation bias. Values &gt; 1–2
 indicate a signal unlikely to arise from positional artefacts</td>
+</tr>
+<tr class="odd">
+<td><code>ssRPSEA.weight</code></td>
+<td>Per-RP, per-comparison weight derived from ssGSEA sample-level
+activity scores modelled with limma:
+<code>(1 − adj.P.Val) / (1 + \|logFC\|)</code></td>
+</tr>
+<tr class="even">
+<td><code>weighted.RPSEA.NES_randZ</code></td>
+<td><code>RPSEA.NES_randZ</code> scaled by <code>ssRPSEA.weight</code> —
+combines positional enrichment with sample-level RP activity</td>
 </tr>
 <tr class="odd">
 <td><code>RPSEA.padj</code></td>
@@ -890,14 +908,22 @@ vs 3-aminotriazole stress conditions. Use with the plant rRNA FASTA
 </div>
 <div id="citations" class="section level2">
 <h2>Citations</h2>
-<p>If you use ARF, please cite:</p>
+<p>If you use ARF in your research, please cite the relevant
+publication(s) below:</p>
 <p>Ferhat Alkan, Oscar Wilkins, Santiago Hernandez-Perez, Sofia Ramalho,
 Joana Silva, Jernej Ule, William J Faller; Identifying ribosome
 heterogeneity using ribosome profiling data, <em>Nucleic Acids
 Research</em>, 2022; gkac484, <a href="https://doi.org/10.1093/nar/gkac484">https://doi.org/10.1093/nar/gkac484</a></p>
 <p>Edwin Sakyi Kyei-Baffour, Jitske Bak, Joana Silva, William J Faller,
 Ferhat Alkan; Detecting ribosome collisions with differential rRNA
-fragment analysis in ribosome profiling data, 2024 (Under Review).</p>
+fragment analysis in ribosome profiling data, <em>NAR Genomics and
+Bioinformatics</em>, Volume 7, Issue 2, June 2025; lqaf045, <a href="https://doi.org/10.1093/nargab/lqaf045">https://doi.org/10.1093/nargab/lqaf045</a></p>
+<p>Edwin Sakyi Kyei-Baffour, William J Faller, Ferhat Alkan;
+Multi-species support for ribosome collision and heterogeneity
+predictions with ARF, 2026, (Under Review).</p>
+<p>Edwin Sakyi Kyei-Baffour, William J Faller, Ferhat Alkan; Ribo-Seq
+rRNA reads as a base for predicting ribosomal protein and collisions
+changes, 2026, (Under Review).</p>
 <hr />
 </div>
 <div id="copyright" class="section level2">

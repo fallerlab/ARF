@@ -33,7 +33,6 @@ Imports:
 	scales,
 	reshape2,
 	clusterProfiler,
-	enrichplot,
 	fgsea,
 	ComplexHeatmap,
 	grid,
@@ -46,7 +45,10 @@ Imports:
 	readr,
 	RColorBrewer,
 	circlize,
-	wesanderson
+	wesanderson,
+	GSVA,
+	limma,
+	tidyr
 Suggests:
 	HelloRanges
 Depends: 

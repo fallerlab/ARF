@@ -297,8 +297,6 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param comparisons Named list of comparisons to include (each element a 2-element character
 #'   vector \code{c("condition1", "condition2")}). If \code{NULL}, all pairwise comparisons are run.
 #' @param exclude Character vector of sample names to exclude from the analysis.
-#' @param GSEAplots \code{TRUE} or \code{FALSE}, whether to produce per-RP standard GSEA enrichment
-#'   plots (saved as PDFs in \code{targetDir}, default: \code{FALSE}).
 #' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on (preset for \code{hs},
 #'   \code{mm}, and \code{sc}; provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).
 #' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
@@ -328,7 +326,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                          compare="group", organism=NULL, QCplot=FALSE, targetDir=NA,
                                          comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
-                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F, 
+                                         gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F,
                                          measureID="abs_GSEA_measure_with_dynamic_p", runID='dripARF') {
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -554,22 +552,6 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     rownames(GSEA_result_df) <- GSEA_result_df$Description
     
     if(dim(egmt_used_measure@result)[1]>0){
-      if (GSEAplots){
-        pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
-        for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
-          if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-            plotTitle <- paste(egmt_used_measure$Description[i], "NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                  "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)))
-            if("qvalue" %in% colnames(temp)){
-              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalue[i],4)))
-            } else if("qvalues" %in% colnames(temp)){
-              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))
-            } 
-            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = plotTitle))
-        }
-        dev.off()
-      }
-      
       # Assign RPSEA scores, padjust for only valid reported sets
       GSEA_result_df$RPSEA.NES <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES"]
       GSEA_result_df$RPSEA.NES_randZ <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES_rand_zscore"]
@@ -1115,8 +1097,6 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
 #'   comparisons are run.
 #' @param exclude Character vector of sample names to exclude from the analysis.
-#' @param GSEAplots \code{TRUE} or \code{FALSE}, whether to produce per-RP GSEA enrichment plots
-#'   (default: \code{FALSE}).
 #' @param gsea_sets_RP RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc};
 #'   provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).
 #' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
@@ -1132,7 +1112,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' dripARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
 #' }
 dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
   
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -1172,7 +1152,7 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
                                                 QCplot = QCplot, targetDir = targetDir)
   dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
                                                   compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
-                                                  comparisons = comparisons, GSEAplots=GSEAplots, ssRPSEAplots=ssRPSEAplots,
+                                                  comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
                                                   gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
   
   dripARF_result_scatterplot(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions")

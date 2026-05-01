@@ -14,7 +14,7 @@ dricARF(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE,
+  ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL,
   gsea_sets_Collision = NULL
@@ -42,9 +42,6 @@ dricARF(
 comparisons are run.}
 
 \item{exclude}{Character vector of sample names to exclude from the analysis.}
-
-\item{GSEAplots}{\code{TRUE} or \code{FALSE}, whether to produce per-RP GSEA enrichment plots
-(default: \code{FALSE}).}
 
 \item{gsea_sets_RP}{RP-rRNA contact point sets for dripARF enrichments (preset for \code{hs},
 \code{mm}, and \code{sc}; provide for custom organisms via

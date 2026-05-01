@@ -21,9 +21,8 @@
 #' and computes single-sample Gene Set Enrichment Analysis (ssGSEA) scores using
 #' the GSVA package.
 #'
-#' @param norm_counts A matrix of raw or normalized counts. Note: this argument is
-#'   currently overwritten internally by \code{DESeq2::counts(dds, normalized = TRUE)},
-#'   so it is not used unless the function is modified.
+#' @param norm_counts A numeric matrix of normalized counts (e.g. from
+#'   \code{DESeq2::counts(dds, normalized = TRUE)}).
 #' @param gsea_sets_RP A data frame containing gene set definitions. Must include
 #'   at least two columns:
 #'   \describe{
@@ -54,11 +53,10 @@
 #' head(res$ssgsea_scores)
 #' }
 #'
-#' @importFrom DESeq2 counts
 #' @importFrom GSVA gsva
 #' @importFrom dplyr filter
 #'
-#' @export
+#' @keywords internal
 run_DESeq2_norm <- function(norm_counts, gsea_sets_RP) {
   stopifnot(
     is.matrix(norm_counts) || is.data.frame(norm_counts),
@@ -158,7 +156,7 @@ run_DESeq2_norm <- function(norm_counts, gsea_sets_RP) {
 #' @importFrom limma lmFit makeContrasts contrasts.fit eBayes topTable
 #' @importFrom tidyr separate
 #'
-#' @export
+#' @keywords internal
 run_limma_DE_analysis <- function(
   ssgsea_scores,
   samples,
@@ -245,7 +243,7 @@ run_limma_DE_analysis <- function(
 #'   \describe{
 #'     \item{comparison}{Comparison labels used for faceting}
 #'     \item{norm_type}{Normalization type (used for grouping)}
-#'     \item{weighted.NES_randZ}{Weighted normalized enrichment scores (numeric)}
+#'     \item{weighted.RPSEA.NES_randZ}{Weighted normalized enrichment scores (numeric)}
 #'     \item{RPSEA.NES_randZ}{RPSEA normalized enrichment scores (numeric)}
 #'     \item{RP}{(Optional but recommended) Gene set identifiers used for labeling}
 #'   }
@@ -276,7 +274,7 @@ run_limma_DE_analysis <- function(
 #' @importFrom dplyr group_by
 #' @importFrom ggrepel geom_text_repel
 #'
-#' @export
+#' @keywords internal
 interaction_plotter <- function(GSEA_result_df) {
     if(
       !(all(c("Description", "weighted.RPSEA.NES_randZ", "RPSEA.NES_randZ", "comparison"

@@ -1,6 +1,6 @@
 # Analysis of Ribosomal rRNA Fragments (ARF)
 
-This is a notebook that provides extensive documentation of the **ARF** pipeline. This documentation is divided in to:
+This is a notebook that provides extensive documentation of the **ARF** pipeline. This documentation is divided into:
 -	[Installation instructions](#Installation instructions)
 -	[Pipeline examples](#Pipeline examples)
 
@@ -18,23 +18,30 @@ devtools::install_github("fallerlab/ARF@main")
 
 Please make sure that you have the following packages installed as dripARF requires them:
 
--   bedr
 -   DESeq2 (>= 1.30.1)
--   clusterProfiler
--   ComplexHeatmap
--   enrichplot
--   fgsea
--   grid
+-   SummarizedExperiment
+-   matrixStats
 -   ggplot2
 -   ggrepel
--   matrixStats
--   reshape2
 -   scales
--   SummarizedExperiment
--   tidyverse
+-   reshape2
+-   clusterProfiler
+-   fgsea
+-   ComplexHeatmap
+-   grid
 -   bio3d
 -   Biostrings
 -   msa
+-   cowplot
+-   dplyr
+-   magrittr
+-   readr
+-   RColorBrewer
+-   circlize
+-   wesanderson
+-   GSVA
+-   limma
+-   tidyr
 
 ### Package installation in R
 ```R
@@ -42,19 +49,20 @@ install.packages('renv',
 	dependencies = TRUE)
 
 ## initiate renv to manage R environment
-renv.init()
+renv::init()
 
 ## install packages in R environment
 install.packages(
-	'renv','remotes', 'targets', 'bedr', 'curl', 'ggrepel',
-	'reshape2', 'tidyverse', 'bio3d', dependencies = TRUE)
-	
+	c('renv', 'remotes', 'curl', 'ggplot2', 'ggrepel', 'scales',
+	  'reshape2', 'bio3d', 'cowplot', 'dplyr', 'magrittr', 'readr',
+	  'RColorBrewer', 'circlize', 'wesanderson', 'tidyr'),
+	dependencies = TRUE)
+
 remotes::install_bioc(
-	c('DESeq2', 'matrixStats',
-        'clusterProfiler', 'enrichplot', 'fgsea',
-        'ComplexHeatmap',
-        'msa', 'SummarizedExperiment'),
-    dependencies = TRUE)
+	c('DESeq2', 'SummarizedExperiment', 'matrixStats',
+	  'clusterProfiler', 'fgsea', 'ComplexHeatmap',
+	  'msa', 'Biostrings', 'GSVA', 'limma'),
+	dependencies = TRUE)
 
 renv::install("fallerlab/ARF@main")
 ```
@@ -78,7 +86,7 @@ To use ARF for any organism apart from those in the ARF structure database, the 
 
 1.**Ribosome profiling reveals the fine-tuned response of *Escherichia coli* to mild and severe acid stress**
 
-*The response to acidity is crucial for neutralophilic bacteria.  Escherichia coli has a well characterized regulatory network to induce  multiple defense mechanisms against excess of protons. Nevertheless,  systemic studies of the transcriptional and translational reprogramming  of E. coli to different acidic strengths have not yet been performed.  Here, we used ribosome profiling and mRNA sequencing to determine the  response of E.[ more...](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022)*
+*The response to acidity is crucial for neutralophilic bacteria.  Escherichia coli has a well characterized regulatory network to induce  multiple defense mechanisms against excess of protons. Nevertheless,  systemic studies of the transcriptional and translational reprogramming  of E. coli to different acidic strengths have not yet been performed.  Here, we used ribosome profiling and mRNA sequencing to determine the  response of E. [more...](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022)*
 
 *Organism: 	Escherichia coli str. K-12 substr. MG1655*
 
@@ -86,7 +94,7 @@ To use ARF for any organism apart from those in the ARF structure database, the 
 
 For an organism that is already in the structural database of dripARF, the PDB ID can be provided to ARF for downstream geneset generation.
 
-**NB:** Get the fasta file of the structure from PDB and use it for the alignment of the reads. 
+> **Note:** Get the fasta file of the structure from PDB and use it for the alignment of the reads.
 
 
 
@@ -148,7 +156,7 @@ rRNA_16S_6 rRNA_16S     6 123.8482 83.87247 159.3839 156.0171 146.2595 126.0625 
 
 In obtaining the final genesets, the structural fasta and the rRNA sequence pairs (the same for both source and target) are provided to **ARF_convert_Ribo3D_pos**, **dripARF_get_RP_proximity_sets** and **dricARF_liftover_collision_sets** functions
 
-**NB:** Check for atypical (N,X, etc) characters that may occur in the rRNA fasta file. This can generate an error in the ARF pipeline
+> **Note:** Check for atypical (N, X, etc.) characters that may occur in the rRNA fasta file. These can generate an error in the ARF pipeline.
 
 ```R
 ########### ARF_convert_Ribo3D_pos
@@ -227,7 +235,7 @@ In determining rRNA positions changes and enrichment tests to predict likely cha
 
 
 
-#### Run dripARF
+#### Run dricARF
 
 ```R
 ########## Run dricARF
@@ -241,7 +249,6 @@ dricARF_results <- ARF::dricARF(
   targetDir = "./Escherichia/ARF_results/dricARF",
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision
@@ -288,7 +295,6 @@ Where the user wants to use ribosomes in the ARF ribosome database, the PDB ID i
 
 ```R
 ############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-# NB: ARF::: collide error
 RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(species = "ps", PDBid = "3J9W",
                             download_directory = "./Pseudomonas/ARF_results/")
 
@@ -329,9 +335,9 @@ ps_rRNA_16S_11 ps_rRNA_16S    11 110.4894 74.40479 136.4506 132.1372  89.05201 1
 
 ###### 2. Providing a ribosome structure for your organism 
 
-**NB:** This is **not** automated in ARF so it has to be done manually due to inconsistencies in the PDB files. Chain names and ID tend to differ from structure to structure making it difficult to automate.
+> **Note:** This is **not** automated in ARF and must be done manually due to inconsistencies in PDB files. Chain names and IDs tend to differ from structure to structure, making automation difficult.
 
-Using ARF with structures that are not inherent to it requires that the different chains in the ribosome structure (from PDB) are properly associated with their standard names. This can be done parsing the ribosome structure and the old names mapped to the new ones using a conversion of table which maps old names to the standard ones. The conversion table (**PDB_chains_2_RP_nomenclature**) should have columns **ID**, **RP_name**. **RP_new**, and **chainID**.
+Using ARF with structures not in its database requires that the different chains in the ribosome structure (from PDB) are properly associated with their standard names. This can be done by parsing the ribosome structure and mapping old names to the new ones using a conversion table that maps old names to standard ones. The conversion table (**PDB_chains_2_RP_nomenclature**) should have columns **ID**, **RP_name**, **RP_new**, and **chainID**.
 
 ```R
 ############ Generating a conversion table for RPs with structural chain IDs from ARF structural database
@@ -392,7 +398,7 @@ final_conversion_df <- conversion_table_generator(rRNAs_file = "./Pseudomonas/pd
 6 7UNW_38     L16   uL16       O
 ```
 
-**NB:** If there is a mapping table between RP_names (**ID, RP_name, RP_new**) and chainIDs, downstream functions work fine especially for the **ARF::ARF_parse_PDB_ribosome** function.
+> **Note:** If there is a mapping table between RP names (**ID, RP_name, RP_new**) and chainIDs, downstream functions work correctly, especially **ARF::ARF_parse_PDB_ribosome**.
 
 
 
@@ -400,14 +406,13 @@ After parsing the ribosome structure, the distances between the ribosomal protei
 
 ```R          
 ############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-# NB: ARF::: collide error
 RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(species = "ps", PDBid = "7UNW",
                             download_directory = "./Pseudomonas/ARF_results/",
                             PDB_chains_2_RP_nomenclature = filter(final_conversion_df, !grepl("RNA", RP_name))
 )
 ```
 
-The computed distances for the rRNA positions are lifted over the organism of interest using the **ARF_convert_Ribo3D_pos** function to produce the **LO.RP_proximity_df **.
+The computed distances for the rRNA positions are lifted over the organism of interest using the **ARF_convert_Ribo3D_pos** function to produce the **LO.RP_proximity_df**.
 ```R
 ########### ARF_convert_Ribo3D_pos
 LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
@@ -429,7 +434,7 @@ LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
 
 rRNA position sets for RPs used in GSEA are finally generated with the **dripARF_get_RP_proximity_sets** function to generate the **gsea_sets_RP** dataframe.
 
-**NB:** The sequences in the rRNA fasta file must have headers that correspond to the that in the gsea_sets_RP gene column. Therefore, in this case, the rRNA fasta should be ***>ps_rRNA_23S*** , ***>ps_rRNA_16S*** or ***>ps_rRNA_5S***.
+> **Note:** The sequences in the rRNA fasta file must have headers that match the entries in the `gsea_sets_RP` gene column. In this case the rRNA fasta headers should be ***>ps_rRNA_23S***, ***>ps_rRNA_16S***, or ***>ps_rRNA_5S***.
 
 ```R
 ########### dripARF_get_RP_proximity_sets
@@ -457,7 +462,7 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 
 rRNA position sets for RPs used in GSEA are finally generated with the **dripARF_get_RP_proximity_sets** function to generate the **gsea_sets_RP** dataframe.
 
-**NB:** Tweak rRNA sequence IDs in the fasta file (if they are different from the what is in the *rRNA pairs*) before mapping to so that IDs correspond with the rRNA pairs used here. **"18S", "28S", and "5S"** should not change in the pair list.
+> **Note:** Tweak rRNA sequence IDs in the fasta file (if they are different from what is in the *rRNA pairs*) before mapping, so that IDs correspond with the rRNA pairs used here. **"18S", "28S", and "5S"** should not change in the pair list.
 
 ```R
 ###########  dricARF_liftover_collision_sets
@@ -503,7 +508,6 @@ dripARF_results <- ARF::dripARF(
   targetDir = "./Pseudomonas/ARF_results/dripARF",
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df
 )
@@ -532,7 +536,6 @@ dricARF_results <- ARF::dricARF(
   targetDir = "./Pseudomonas/ARF_results/dricARF",
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision

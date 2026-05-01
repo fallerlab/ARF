@@ -65,6 +65,8 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
      ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj>=RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=8)+
      ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
                                inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
+     ggrepel::geom_label_repel(data = RP_results%>%dplyr::filter(Description%in%highlightRPs), alpha=.8, size=2,
+                               inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
      ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                  breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
      ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
@@ -87,6 +89,8 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
            ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.5,size=1.5, shape=20)+
            ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), size=2.5, shape=10)+
            ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
+                                     inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
+           ggrepel::geom_label_repel(data = RP_results%>%dplyr::filter(Description%in%highlightRPs), alpha=.8, size=2,
                                      inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
            ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                        breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
@@ -125,8 +129,6 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
 #'   comparisons are run.
 #' @param exclude Character vector of sample names to exclude from the analysis.
-#' @param GSEAplots \code{TRUE} or \code{FALSE}, whether to produce per-RP GSEA enrichment plots
-#'   (default: \code{FALSE}).
 #' @param gsea_sets_RP RP-rRNA contact point sets for dripARF enrichments (preset for \code{hs},
 #'   \code{mm}, and \code{sc}; provide for custom organisms via
 #'   \code{dripARF_get_RP_proximity_sets()}).
@@ -147,7 +149,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
 #' }
 dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
   
   if(is.null(RP_proximity_df)){
     # Check organism first
@@ -233,7 +235,7 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   
   results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
                                compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
-                               comparisons = comparisons, GSEAplots=GSEAplots, ssRPSEAplots=ssRPSEAplots, 
+                               comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
                                gsea_sets_RP = gsea_sets_RP, RP_proximity_df = RP_proximity_df,
                                measureID = "abs_GSEA_measure_with_dynamic_p", runID="dricARF")
   
