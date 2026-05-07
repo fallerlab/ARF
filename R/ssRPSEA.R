@@ -53,7 +53,6 @@
 #' head(res$ssgsea_scores)
 #' }
 #'
-#' @importFrom GSVA gsva
 #' @importFrom dplyr filter
 #'
 #' @keywords internal
@@ -84,12 +83,18 @@ run_DESeq2_norm <- function(norm_counts, gsea_sets_RP) {
       dplyr::filter(!grepl('^Rand', ont))
   geneSets <- split(geneSets_df$gene, geneSets_df$ont)
 
-  ## compute ssGSEA scores
-  ssgsea_scores <- GSVA::gsva(
-      expr = logcounts, gset.idx.list = geneSets,
-      min.sz=10,
-      max.sz=Inf,
-      method = "ssgsea", ssgsea.norm = FALSE)
+  ## compute ssGSEA scores (API differs between GSVA < 1.50 and >= 1.50)
+  if (utils::packageVersion("GSVA") >= "1.50") {
+    ssgsea_param <- GSVA::ssgseaParam(
+        exprData = logcounts, geneSets = geneSets,
+        minSize = 10, maxSize = Inf, normalize = FALSE)
+    ssgsea_scores <- GSVA::gsva(ssgsea_param)
+  } else {
+    ssgsea_scores <- GSVA::gsva(
+        expr = logcounts, gset.idx.list = geneSets,
+        min.sz = 10, max.sz = Inf,
+        method = "ssgsea", ssgsea.norm = FALSE)
+  }
   
   return(list(
     ssgsea_scores = ssgsea_scores,

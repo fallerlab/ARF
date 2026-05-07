@@ -355,7 +355,7 @@ display: none;
 <div id="analysis-of-ribosomal-rrna-fragments-arf" class="section level1">
 <h1>Analysis of Ribosomal rRNA Fragments (ARF)</h1>
 <p>This is a notebook that provides extensive documentation of the
-<strong>ARF</strong> pipeline. This documentation is divided in to: - <a href="#Installation%20instructions">Installation instructions</a> - <a href="#Pipeline%20examples">Pipeline examples</a></p>
+<strong>ARF</strong> pipeline. This documentation is divided into: - <a href="#Installation%20instructions">Installation instructions</a> - <a href="#Pipeline%20examples">Pipeline examples</a></p>
 </div>
 <div id="installation-instructions" class="section level1">
 <h1>Installation instructions</h1>
@@ -367,23 +367,30 @@ devtools::install_github(&quot;fallerlab/ARF@main&quot;)</code></pre>
 <p>Please make sure that you have the following packages installed as
 dripARF requires them:</p>
 <ul>
-<li>bedr</li>
 <li>DESeq2 (&gt;= 1.30.1)</li>
-<li>clusterProfiler</li>
-<li>ComplexHeatmap</li>
-<li>enrichplot</li>
-<li>fgsea</li>
-<li>grid</li>
+<li>SummarizedExperiment</li>
+<li>matrixStats</li>
 <li>ggplot2</li>
 <li>ggrepel</li>
-<li>matrixStats</li>
-<li>reshape2</li>
 <li>scales</li>
-<li>SummarizedExperiment</li>
-<li>tidyverse</li>
+<li>reshape2</li>
+<li>clusterProfiler</li>
+<li>fgsea</li>
+<li>ComplexHeatmap</li>
+<li>grid</li>
 <li>bio3d</li>
 <li>Biostrings</li>
 <li>msa</li>
+<li>cowplot</li>
+<li>dplyr</li>
+<li>magrittr</li>
+<li>readr</li>
+<li>RColorBrewer</li>
+<li>circlize</li>
+<li>wesanderson</li>
+<li>GSVA</li>
+<li>limma</li>
+<li>tidyr</li>
 </ul>
 </div>
 <div id="package-installation-in-r" class="section level3">
@@ -392,18 +399,19 @@ dripARF requires them:</p>
     dependencies = TRUE)
 
 ## initiate renv to manage R environment
-renv.init()
+renv::init()
 
 ## install packages in R environment
 install.packages(
-    &#39;renv&#39;,&#39;remotes&#39;, &#39;targets&#39;, &#39;bedr&#39;, &#39;curl&#39;, &#39;ggrepel&#39;,
-    &#39;reshape2&#39;, &#39;tidyverse&#39;, &#39;bio3d&#39;, dependencies = TRUE)
-    
+    c(&#39;renv&#39;, &#39;remotes&#39;, &#39;curl&#39;, &#39;ggplot2&#39;, &#39;ggrepel&#39;, &#39;scales&#39;,
+      &#39;reshape2&#39;, &#39;bio3d&#39;, &#39;cowplot&#39;, &#39;dplyr&#39;, &#39;magrittr&#39;, &#39;readr&#39;,
+      &#39;RColorBrewer&#39;, &#39;circlize&#39;, &#39;wesanderson&#39;, &#39;tidyr&#39;),
+    dependencies = TRUE)
+
 remotes::install_bioc(
-    c(&#39;DESeq2&#39;, &#39;matrixStats&#39;,
-        &#39;clusterProfiler&#39;, &#39;enrichplot&#39;, &#39;fgsea&#39;,
-        &#39;ComplexHeatmap&#39;,
-        &#39;msa&#39;, &#39;SummarizedExperiment&#39;),
+    c(&#39;DESeq2&#39;, &#39;SummarizedExperiment&#39;, &#39;matrixStats&#39;,
+      &#39;clusterProfiler&#39;, &#39;fgsea&#39;, &#39;ComplexHeatmap&#39;,
+      &#39;msa&#39;, &#39;Biostrings&#39;, &#39;GSVA&#39;, &#39;limma&#39;),
     dependencies = TRUE)
 
 renv::install(&quot;fallerlab/ARF@main&quot;)</code></pre>
@@ -431,13 +439,15 @@ multiple defense mechanisms against excess of protons. Nevertheless,
 systemic studies of the transcriptional and translational reprogramming
 of E. coli to different acidic strengths have not yet been performed.
 Here, we used ribosome profiling and mRNA sequencing to determine the
-response of E.<a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022">more…</a></em></p>
+response of E. <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022">more…</a></em></p>
 <p><em>Organism: Escherichia coli str. K-12 substr. MG1655</em></p>
 <p>For an organism that is already in the structural database of
 dripARF, the PDB ID can be provided to ARF for downstream geneset
 generation.</p>
-<p><strong>NB:</strong> Get the fasta file of the structure from PDB and
-use it for the alignment of the reads.</p>
+<blockquote>
+<p><strong>Note:</strong> Get the fasta file of the structure from PDB
+and use it for the alignment of the reads.</p>
+</blockquote>
 <p>Where the user wants to use ribosomes in the ARF ribosome database,
 the PDB ID <strong>(6XZA)</strong> is specified in the
 <strong>ARF_parse_PDB_ribosome</strong> function to generate the
@@ -493,9 +503,11 @@ sequence pairs (the same for both source and target) are provided to
 <strong>ARF_convert_Ribo3D_pos</strong>,
 <strong>dripARF_get_RP_proximity_sets</strong> and
 <strong>dricARF_liftover_collision_sets</strong> functions</p>
-<p><strong>NB:</strong> Check for atypical (N,X, etc) characters that
-may occur in the rRNA fasta file. This can generate an error in the ARF
-pipeline</p>
+<blockquote>
+<p><strong>Note:</strong> Check for atypical (N, X, etc.) characters
+that may occur in the rRNA fasta file. These can generate an error in
+the ARF pipeline.</p>
+</blockquote>
 <pre class="r"><code>########### ARF_convert_Ribo3D_pos
 LO.RP_proximity_df &lt;- ARF::ARF_convert_Ribo3D_pos(
   source_distance_file = &quot;./Ribosome.3D.6XZA.ARF.minimum_distances.csv&quot;,
@@ -620,8 +632,8 @@ analysis</p>
 </tbody>
 </table>
 </div>
-<div id="run-driparf" class="section level4">
-<h4>Run dripARF</h4>
+<div id="run-dricarf" class="section level4">
+<h4>Run dricARF</h4>
 <pre class="r"><code>########## Run dricARF
 dricARF_results &lt;- ARF::dricARF(
   samplesFile = &quot;./Escherichia/data/PRJNA906596/riboseq/samples.tsv&quot;,
@@ -633,7 +645,6 @@ dricARF_results &lt;- ARF::dricARF(
   targetDir = &quot;./Escherichia/ARF_results/dricARF&quot;,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision
@@ -674,7 +685,6 @@ database that is evolutionary close to the organism of interest.</p>
 the PDB ID is specified in the <strong>ARF_parse_PDB_ribosome</strong>
 function to generate the distances.</p>
 <pre class="r"><code>############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-# NB: ARF::: collide error
 RP_proximity_df &lt;- ARF::ARF_parse_PDB_ribosome(species = &quot;ps&quot;, PDBid = &quot;3J9W&quot;,
                             download_directory = &quot;./Pseudomonas/ARF_results/&quot;)
 
@@ -709,17 +719,19 @@ ps_rRNA_16S_11 ps_rRNA_16S    11 110.4894 74.40479 136.4506 132.1372  89.05201 1
 </div>
 <div id="providing-a-ribosome-structure-for-your-organism" class="section level6">
 <h6>2. Providing a ribosome structure for your organism</h6>
-<p><strong>NB:</strong> This is <strong>not</strong> automated in ARF so
-it has to be done manually due to inconsistencies in the PDB files.
-Chain names and ID tend to differ from structure to structure making it
-difficult to automate.</p>
-<p>Using ARF with structures that are not inherent to it requires that
-the different chains in the ribosome structure (from PDB) are properly
-associated with their standard names. This can be done parsing the
-ribosome structure and the old names mapped to the new ones using a
-conversion of table which maps old names to the standard ones. The
-conversion table (<strong>PDB_chains_2_RP_nomenclature</strong>) should
-have columns <strong>ID</strong>, <strong>RP_name</strong>.
+<blockquote>
+<p><strong>Note:</strong> This is <strong>not</strong> automated in ARF
+and must be done manually due to inconsistencies in PDB files. Chain
+names and IDs tend to differ from structure to structure, making
+automation difficult.</p>
+</blockquote>
+<p>Using ARF with structures not in its database requires that the
+different chains in the ribosome structure (from PDB) are properly
+associated with their standard names. This can be done by parsing the
+ribosome structure and mapping old names to the new ones using a
+conversion table that maps old names to standard ones. The conversion
+table (<strong>PDB_chains_2_RP_nomenclature</strong>) should have
+columns <strong>ID</strong>, <strong>RP_name</strong>,
 <strong>RP_new</strong>, and <strong>chainID</strong>.</p>
 <pre class="r"><code>############ Generating a conversion table for RPs with structural chain IDs from ARF structural database
 conversion_table_generator &lt;- function(rRNAs_file, organism, ALL_PDB_RPS_edited_file = &quot;./ARF/data-raw/ALL_PDB_RPS_edited.csv&quot;) {
@@ -777,22 +789,23 @@ final_conversion_df &lt;- conversion_table_generator(rRNAs_file = &quot;./Pseudo
 4 7UNW_36     L14   uL14       M
 5 7UNW_37     L15   uL15       N
 6 7UNW_38     L16   uL16       O</code></pre>
-<p><strong>NB:</strong> If there is a mapping table between RP_names
+<blockquote>
+<p><strong>Note:</strong> If there is a mapping table between RP names
 (<strong>ID, RP_name, RP_new</strong>) and chainIDs, downstream
-functions work fine especially for the
-<strong>ARF::ARF_parse_PDB_ribosome</strong> function.</p>
+functions work correctly, especially
+<strong>ARF::ARF_parse_PDB_ribosome</strong>.</p>
+</blockquote>
 <p>After parsing the ribosome structure, the distances between the
 ribosomal proteins and the rRNA positions are computed to generate the
 <strong>RP_proximity_df</strong>.</p>
 <pre class="r"><code>############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-# NB: ARF::: collide error
 RP_proximity_df &lt;- ARF::ARF_parse_PDB_ribosome(species = &quot;ps&quot;, PDBid = &quot;7UNW&quot;,
                             download_directory = &quot;./Pseudomonas/ARF_results/&quot;,
                             PDB_chains_2_RP_nomenclature = filter(final_conversion_df, !grepl(&quot;RNA&quot;, RP_name))
 )</code></pre>
 <p>The computed distances for the rRNA positions are lifted over the
 organism of interest using the <strong>ARF_convert_Ribo3D_pos</strong>
-function to produce the <strong>LO.RP_proximity_df </strong>.</p>
+function to produce the <strong>LO.RP_proximity_df</strong>.</p>
 <pre class="r"><code>########### ARF_convert_Ribo3D_pos
 LO.RP_proximity_df &lt;- ARF::ARF_convert_Ribo3D_pos(
   source_distance_file = &quot;./Ribosome.3D.7UNW.ARF.minimum_distances.csv&quot;,
@@ -812,12 +825,14 @@ LO.RP_proximity_df &lt;- ARF::ARF_convert_Ribo3D_pos(
 <p>rRNA position sets for RPs used in GSEA are finally generated with
 the <strong>dripARF_get_RP_proximity_sets</strong> function to generate
 the <strong>gsea_sets_RP</strong> dataframe.</p>
-<p><strong>NB:</strong> The sequences in the rRNA fasta file must have
-headers that correspond to the that in the gsea_sets_RP gene column.
-Therefore, in this case, the rRNA fasta should be
-<strong><em>&gt;ps_rRNA_23S</em></strong> ,
-<strong><em>&gt;ps_rRNA_16S</em></strong> or
+<blockquote>
+<p><strong>Note:</strong> The sequences in the rRNA fasta file must have
+headers that match the entries in the <code>gsea_sets_RP</code> gene
+column. In this case the rRNA fasta headers should be
+<strong><em>&gt;ps_rRNA_23S</em></strong>,
+<strong><em>&gt;ps_rRNA_16S</em></strong>, or
 <strong><em>&gt;ps_rRNA_5S</em></strong>.</p>
+</blockquote>
 <pre class="r"><code>########### dripARF_get_RP_proximity_sets
 gsea_sets_RP &lt;- ARF::dripARF_get_RP_proximity_sets(
   RP_proximity_df = LO.RP_proximity_df,
@@ -841,11 +856,13 @@ gsea_sets_RP &lt;- ARF::dripARF_get_RP_proximity_sets(
 <p>rRNA position sets for RPs used in GSEA are finally generated with
 the <strong>dripARF_get_RP_proximity_sets</strong> function to generate
 the <strong>gsea_sets_RP</strong> dataframe.</p>
-<p><strong>NB:</strong> Tweak rRNA sequence IDs in the fasta file (if
-they are different from the what is in the <em>rRNA pairs</em>) before
-mapping to so that IDs correspond with the rRNA pairs used here.
+<blockquote>
+<p><strong>Note:</strong> Tweak rRNA sequence IDs in the fasta file (if
+they are different from what is in the <em>rRNA pairs</em>) before
+mapping, so that IDs correspond with the rRNA pairs used here.
 <strong>“18S”, “28S”, and “5S”</strong> should not change in the pair
 list.</p>
+</blockquote>
 <pre class="r"><code>###########  dricARF_liftover_collision_sets
 gsea_sets_Collision &lt;- ARF::dricARF_liftover_collision_sets(
   target_species = &quot;ps&quot;,
@@ -904,7 +921,7 @@ files and the groups used for differential analysis</p>
 </tbody>
 </table>
 </div>
-<div id="run-driparf-1" class="section level4">
+<div id="run-driparf" class="section level4">
 <h4>Run dripARF</h4>
 <pre class="r"><code>########## Run dripARF
 dripARF_results &lt;- ARF::dripARF(
@@ -917,7 +934,6 @@ dripARF_results &lt;- ARF::dripARF(
   targetDir = &quot;./Pseudomonas/ARF_results/dripARF&quot;,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df
 )
@@ -931,7 +947,7 @@ dripARF_results &lt;- ARF::dripARF(
 5 WT-MM_vs_WT-KB        uL23           4         206 1.0000000 0.60626532  1.226569       0.8454657 4.434675e-04 3.620143e-05 1.370837e-04     130670.95     416735.07
 6 WT-MM_vs_WT-KB        uS11           1         178 1.0000000 0.97561035  1.179385       0.6180827 2.402107e-02 2.941356e-03 8.231266e-03      28808.16      29985.51</code></pre>
 </div>
-<div id="run-dricarf" class="section level4">
+<div id="run-dricarf-1" class="section level4">
 <h4>Run dricARF</h4>
 <pre class="r"><code>########## Run dricARF
 dricARF_results &lt;- ARF::dricARF(
@@ -944,7 +960,6 @@ dricARF_results &lt;- ARF::dricARF(
   targetDir = &quot;./Pseudomonas/ARF_results/dricARF&quot;,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision
