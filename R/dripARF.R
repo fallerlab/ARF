@@ -441,7 +441,8 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
   lm_ssRPSEA_weights_df <- run_limma_DE_analysis(
     ssgsea_scores = ssgsea_scores,
     samples = samples,
-    comparisons = comparisons
+    comparisons = comparisons,
+    compare = compare
   )
 
   cat("\nssRPSEA weights computed.\n")
@@ -493,10 +494,11 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       #   a = counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]
       #   b = counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]
       #   return()})
-      used_measure <- (matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]) -
-                matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]])) /
-        (matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]])+
-           matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]))
+      sample_col <- colnames(samples)[1]
+      used_measure <- (matrixStats::rowMeans2(counts[,samples[[sample_col]][samples$DESEQcondition==comp[1]]]) -
+                matrixStats::rowMeans2(counts[,samples[[sample_col]][samples$DESEQcondition==comp[2]]])) /
+        (matrixStats::rowSds(counts[,samples[[sample_col]][samples$DESEQcondition==comp[1]]])+
+           matrixStats::rowSds(counts[,samples[[sample_col]][samples$DESEQcondition==comp[2]]]))
       names(used_measure) <- rownames(counts)
     }else if (measureID=="abs_GSEA_measure_with_dynamic_p"){
       used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))
@@ -520,7 +522,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       names(used_measure)<-rownames(temp_df)
     }
     
-    used_measure <- used_measure[rowSums(DESeq2::counts(dds)[,samples$sampleName[samples$DESEQcondition%in%comp]])!=0]
+    used_measure <- used_measure[rowSums(DESeq2::counts(dds)[,samples[[colnames(samples)[1]]][samples$DESEQcondition%in%comp]])!=0]
     used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
 
     used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
@@ -577,12 +579,13 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
         "NA values found in limma weights! Check limma output.")
     )
 
+    norm_comp_key <- paste(sub("^X", "", make.names(comp)), collapse = "_vs_")
     GSEA_result_df <- dplyr::left_join(
         GSEA_result_df |>
-          dplyr::mutate(comparison = paste(comp, collapse = "_vs_")),
+          dplyr::mutate(comparison = norm_comp_key),
         lm_ssRPSEA_weights_df |>
-          dplyr::select(RP, comparison, ssRPSEA.weight) |> 
-          dplyr::filter(comparison == paste(comp, collapse = "_vs_")),
+          dplyr::select(RP, comparison, ssRPSEA.weight) |>
+          dplyr::filter(comparison == norm_comp_key),
         by = c("Description"="RP", "comparison"="comparison")
       ) |>
       dplyr::mutate(weighted.RPSEA.NES_randZ = RPSEA.NES_randZ * ssRPSEA.weight) |>

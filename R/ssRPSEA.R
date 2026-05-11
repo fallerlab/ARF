@@ -165,29 +165,36 @@ run_DESeq2_norm <- function(norm_counts, gsea_sets_RP) {
 run_limma_DE_analysis <- function(
   ssgsea_scores,
   samples,
-  comparisons
+  comparisons,
+  compare = "group"
 ){
-  if(!(all(c("sampleName", "group") %in% colnames(samples)))) {
-    stop(
-      error = "samples dataframe must contain 'sampleName' and 'group' columns. Please check the dataframe structure."
-    )
+  if(!(colnames(samples)[1] %in% colnames(samples))) {
+    stop("samples dataframe must have at least one column for sample names.")
   }
-  clean_sample_names <- make.names(samples$sampleName)
+  if(!(compare %in% colnames(samples))) {
+    stop(sprintf(
+      "compare column '%s' not found in samples dataframe. Available columns: %s",
+      compare, paste(colnames(samples), collapse = ", ")
+    ))
+  }
+  clean_sample_names <- make.names(samples[[1]])
   missing_samples <- setdiff(colnames(ssgsea_scores), clean_sample_names)
   if (length(missing_samples) > 0) {
     stop(sprintf(
-      "Sample(s) in ssgsea_scores not found in samples$sampleName after name normalisation: %s\nExpected names: %s",
+      "Sample(s) in ssgsea_scores not found in samples name column ('%s') after name normalisation: %s\nExpected names: %s",
+      colnames(samples)[1],
       paste(missing_samples, collapse = ", "),
       paste(clean_sample_names, collapse = ", ")
     ))
   }
 
-  clean_groups <- sub("^X", "", make.names(unique(samples$group)))
+  clean_groups <- sub("^X", "", make.names(unique(samples[[compare]])))
   clean_comparisons <- lapply(comparisons, function(x) sub("^X", "", make.names(x)))
   invalid_groups <- unique(unlist(lapply(clean_comparisons, function(comp) setdiff(comp, clean_groups))))
   if (length(invalid_groups) > 0) {
     stop(sprintf(
-      "Group(s) in comparisons not found in samples$group: %s\nAvailable groups: %s",
+      "Group(s) in comparisons not found in samples$%s: %s\nAvailable groups: %s",
+      compare,
       paste(invalid_groups, collapse = ", "),
       paste(clean_groups, collapse = ", ")
     ))
@@ -195,8 +202,7 @@ run_limma_DE_analysis <- function(
 
   ssgsea_z <- scale(ssgsea_scores)
 
-  samples$sampleName <- make.names(samples$sampleName)
-  samples$condition <- factor(sub('^X', '', make.names(samples$group)))
+  samples$condition <- factor(sub('^X', '', make.names(samples[[compare]])))
 
   design <- model.matrix(~ 0 + condition, data = samples)
   colnames(design) <- levels(samples$condition)
