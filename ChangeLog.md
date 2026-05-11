@@ -1,8 +1,3 @@
----
-output:
-  pdf_document: default
-  html_document: default
----
 ## v2.2 — 2026-05-01
 
 ### Added

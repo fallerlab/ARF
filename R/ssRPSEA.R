@@ -172,12 +172,25 @@ run_limma_DE_analysis <- function(
       error = "samples dataframe must contain 'sampleName' and 'group' columns. Please check the dataframe structure."
     )
   }
-  ## check if samples in ssgsea_scores match those in samples dataframe and the comparisons are valid
-  if(!(all(colnames(ssgsea_scores) %in% make.names(samples$sampleName)) &
-      all(sapply(comparisons, function(comp) all(comp %in% samples$group))))) {
-    stop(
-      error = "Mismatch between sample names in ssgsea_scores and samples dataframe, or invalid comparisons. Please check the dataframe structure and comparisons."
-    )
+  clean_sample_names <- make.names(samples$sampleName)
+  missing_samples <- setdiff(colnames(ssgsea_scores), clean_sample_names)
+  if (length(missing_samples) > 0) {
+    stop(sprintf(
+      "Sample(s) in ssgsea_scores not found in samples$sampleName after name normalisation: %s\nExpected names: %s",
+      paste(missing_samples, collapse = ", "),
+      paste(clean_sample_names, collapse = ", ")
+    ))
+  }
+
+  clean_groups <- sub("^X", "", make.names(unique(samples$group)))
+  clean_comparisons <- lapply(comparisons, function(x) sub("^X", "", make.names(x)))
+  invalid_groups <- unique(unlist(lapply(clean_comparisons, function(comp) setdiff(comp, clean_groups))))
+  if (length(invalid_groups) > 0) {
+    stop(sprintf(
+      "Group(s) in comparisons not found in samples$group: %s\nAvailable groups: %s",
+      paste(invalid_groups, collapse = ", "),
+      paste(clean_groups, collapse = ", ")
+    ))
   }
 
   ssgsea_z <- scale(ssgsea_scores)
@@ -190,7 +203,7 @@ run_limma_DE_analysis <- function(
 
   fit <- limma::lmFit(ssgsea_z, design)
 
-  comparisons <- lapply(comparisons, \(x) make.names(x))
+  comparisons <- lapply(comparisons, \(x) sub("^X", "", make.names(x)))
   contrast_strings <- paste0(
       sapply(comparisons, `[`, 1),
       "_vs_",
