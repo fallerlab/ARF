@@ -14,44 +14,67 @@ dricARF(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE,
+  ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL,
   gsea_sets_Collision = NULL
 )
 }
 \arguments{
-\item{samplesFile}{File that describes file locations and sample groupings}
+\item{samplesFile}{Path to the tab-separated samples file. Required columns: \code{sampleName},
+\code{bedGraphFile} (or BAM path), \code{group}. See \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{samples_df}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples_df}{Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).}
 
-\item{targetDir}{Directory to save the QC plots in.}
+\item{targetDir}{Directory to save all result files (CSVs, PDFs) in.}
 
-\item{comparisons}{List of comparisons to be included.}
+\item{comparisons}{Named list of comparisons to include. If \code{NULL}, all pairwise
+comparisons are run.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{GSEAplots}{Whether to produce and save the standard GSEA plots.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets for dripARF enrichments (preset for \code{hs},
+\code{mm}, and \code{sc}; provide for custom organisms via
+\code{dripARF_get_RP_proximity_sets()}).}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform dripARF enrichments on. (preset for hs, mm, and sc predictions)}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF. (preset for hs, mm, and sc predictions)}
-
-\item{gsea_sets_Collision}{Ribosome collision sets to perform dricARF enrichments on. (preset for hs, mm, and sc predictions)}
+\item{gsea_sets_Collision}{Ribosome collision GSEA sets for dricARF enrichments (preset for
+\code{hs} and \code{sc}; provide for other organisms via
+\code{dricARF_liftover_collision_sets()}).}
+}
+\value{
+A data.frame in the same format as returned by \code{dripARF_predict_heterogenity()},
+with additional rows for the collision set enrichments (SAS, Col.Int., Rib.Col., etc.). A
+scatterplot PDF is also saved to \code{targetDir}.
 }
 \description{
-This function allows you to run the whole dricARF pipeline
+Runs the complete dricARF pipeline, which extends dripARF by additionally
+integrating ribosome collision structural sets derived from cryo-EM collision structures.
+Specifically, it incorporates stalled-adjacent-subunit (SAS) and collision-interface
+(Col.Int.) sets from available human and yeast collision structures into the RPSEA enrichment
+analysis, enabling simultaneous prediction of ribosomal heterogeneity candidates and ribosome
+collision enrichments in a single run.
 }
 \examples{
+\dontrun{
 dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
+}
+}
+\seealso{
+\code{\link{dripARF}}, \code{\link{dricARF_liftover_collision_sets}},
+\code{\link{dricARF_result_scatterplot}}
 }
 \keyword{dricARF}
 \keyword{pipeline}

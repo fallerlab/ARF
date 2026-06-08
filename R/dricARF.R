@@ -1,5 +1,5 @@
 
-# Copyright (C) 2024  Ferhat Alkan
+# Copyright (C) 2026  Ferhat Alkan & Edwin Sakyi Kyei-Baffour
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,20 +16,34 @@
 
 
 #' Draw dricARF result scatterplot for multiple comparisons
-#' @description Draw scatterplot for GSEA and ORA analyses
-#' @param dricARF_results Full dripARF result data.
-#' @param targetDir Directory to save the plots in.
-#' @param title Default is "dricARF (highlighted) & dripARF predictions"
-#' @param addedRPs Add given RPs to the plot no matter if they are significant or not.
-#' @param highlightRPs List of RPs to highlight instead of highlighting the top-predicted RPs.
-#' @param randZscore_thr Default=1
-#' @param ORA_adjP_thr Default=0.05
-#' @param RPSEA_adjP_thr Default=0.05
-#' @param ORA_sig_n Default=1
+#' @description Draws a two-panel scatterplot of RPSEA NES z-score vs NES (panel 1) and vs
+#'   \code{-log10(RPSEA.padj)} (panel 2). Ribosome-collision structural sets (SAS, Col.Int.,
+#'   Rib.Col.) are highlighted with distinct colours, while RP heterogeneity candidates are shown
+#'   in the background.
+#' @param dricARF_results Full dricARF result data.frame as returned by \code{dricARF()}.
+#' @param targetDir Directory to save the PDF plot in.
+#' @param title Title string and base name for the output PDF (default:
+#'   \code{"dricARF (highlighted) & dripARF predictions"}).
+#' @param addedRPs Character vector of RP names to always highlight regardless of significance
+#'   (optional).
+#' @param highlightRPs Character vector of RP names to highlight instead of the top-predicted RPs
+#'   (optional).
+#' @param randZscore_thr Z-score threshold for the RPSEA NES relative to its randomised control
+#'   sets. An RP passes this filter when its NES z-score is >= this value (default: 1).
+#' @param ORA_adjP_thr Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+#'   passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).
+#' @param RPSEA_adjP_thr Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+#'   this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).
+#' @param ORA_sig_n Minimum number of significantly differential rRNA positions (ORA overlap)
+#'   required for an RP to be considered (default: 1).
+#' @return A \code{cowplot} grid object combining two panels. A PDF is also saved to
+#'   \code{targetDir}.
 #' @keywords dricARF Differential Ribosome Collisions scatterplot
 #' @export
 #' @examples
-#' dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
+#' \dontrun{
+#' dricARF_result_scatterplot(dricARF_results, "/Folder/to/save/in/")
+#' }
 dricARF_result_scatterplot <- function(dricARF_results, targetDir,
                                        title="dricARF (highlighted) & dripARF predictions", addedRPs=NULL, highlightRPs=NULL,
                                        randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
@@ -50,6 +64,8 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
      ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj<RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=10)+
      ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj>=RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=8)+
      ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
+                               inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
+     ggrepel::geom_label_repel(data = RP_results%>%dplyr::filter(Description%in%highlightRPs), alpha=.8, size=2,
                                inherit.aes = TRUE, ggplot2::aes(label=Description),color="#000000", show.legend = F)+
      ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                  breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
@@ -74,6 +90,8 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
            ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), size=2.5, shape=10)+
            ggrepel::geom_label_repel(data = final_coll%>%dplyr::filter(Description%in%c("Rib.Col.",addedRPs)), alpha=.8, size=2,
                                      inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
+           ggrepel::geom_label_repel(data = RP_results%>%dplyr::filter(Description%in%highlightRPs), alpha=.8, size=2,
+                                     inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
            ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                        breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
            ggplot2::theme_bw()+
@@ -92,26 +110,46 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 }
 
 #' dricARF wrapper
-#' @description This function allows you to run the whole dricARF pipeline
-#' @param samplesFile File that describes file locations and sample groupings
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param samples_df Samples dataframe created by read_ARF_samples_file() function.
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in.
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param GSEAplots Whether to produce and save the standard GSEA plots.
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform dripARF enrichments on. (preset for hs, mm, and sc predictions)
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF. (preset for hs, mm, and sc predictions)
-#' @param gsea_sets_Collision Ribosome collision sets to perform dricARF enrichments on. (preset for hs, mm, and sc predictions)
+#' @description Runs the complete dricARF pipeline, which extends dripARF by additionally
+#'   integrating ribosome collision structural sets derived from cryo-EM collision structures.
+#'   Specifically, it incorporates stalled-adjacent-subunit (SAS) and collision-interface
+#'   (Col.Int.) sets from available human and yeast collision structures into the RPSEA enrichment
+#'   analysis, enabling simultaneous prediction of ribosomal heterogeneity candidates and ribosome
+#'   collision enrichments in a single run.
+#' @param samplesFile Path to the tab-separated samples file. Required columns: \code{sampleName},
+#'   \code{bedGraphFile} (or BAM path), \code{group}. See \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param samples_df Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).
+#' @param targetDir Directory to save all result files (CSVs, PDFs) in.
+#' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
+#'   comparisons are run.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param gsea_sets_RP RP-rRNA contact point sets for dripARF enrichments (preset for \code{hs},
+#'   \code{mm}, and \code{sc}; provide for custom organisms via
+#'   \code{dripARF_get_RP_proximity_sets()}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+#'   provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @param gsea_sets_Collision Ribosome collision GSEA sets for dricARF enrichments (preset for
+#'   \code{hs} and \code{sc}; provide for other organisms via
+#'   \code{dricARF_liftover_collision_sets()}).
+#' @return A data.frame in the same format as returned by \code{dripARF_predict_heterogenity()},
+#'   with additional rows for the collision set enrichments (SAS, Col.Int., Rib.Col., etc.). A
+#'   scatterplot PDF is also saved to \code{targetDir}.
+#' @seealso \code{\link{dripARF}}, \code{\link{dricARF_liftover_collision_sets}},
+#'   \code{\link{dricARF_result_scatterplot}}
 #' @keywords dricARF pipeline
 #' @export
 #' @examples
+#' \dontrun{
 #' dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
+#' }
 dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
   
   if(is.null(RP_proximity_df)){
     # Check organism first
@@ -196,8 +234,8 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
                                                 QCplot = QCplot, targetDir = targetDir)
   
   results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
-                               compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir,
-                               comparisons = comparisons, GSEAplots=GSEAplots, 
+                               compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
+                               comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
                                gsea_sets_RP = gsea_sets_RP, RP_proximity_df = RP_proximity_df,
                                measureID = "abs_GSEA_measure_with_dynamic_p", runID="dricARF")
   
@@ -209,15 +247,31 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 }
 
 
-#' Convert 3D Ribosome distance file to target organism through rRNA alignments!
-#' @description Align rRNAs from hs/sc and target organism, then, convert the collision sets into target organism coordinates.
-#' @param target_species ID for the target species, i.e. mm, sc, etc. 
-#' @param target_rRNAs_fasta Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.
-#' @param rRNA_pairs List of rRNA ID pairs matching source and target rRNAs. (Use 28S, 18S, 5.8S, 5S as source ids) i.e. list(c("28S","species_28S"), c("18S","species_18S") etc.).
-#' @keywords 3D ribosome analysis using PDB file
+#' Lift over ribosome collision sets to a target organism via rRNA alignment
+#' @description Aligns human (4V6X) and yeast (6T7I) rRNA sequences to the target organism's rRNAs
+#'   via pairwise ClustalW alignment, then converts the built-in collision GSEA sets (SAS, Col.Int.,
+#'   Rib.Col., etc.) to target-organism rRNA coordinates. Also generates 99 circular-shift
+#'   randomised control sets per collision set for use in RPSEA.
+#' @param target_species ID string for the target species, e.g. \code{"dm"} (Drosophila) or any
+#'   custom identifier.
+#' @param target_rRNAs_fasta FASTA file for the rRNAs of the target organism. Should be the same
+#'   file used in rRNA fragment alignment.
+#' @param rRNA_pairs List of 2-element character vectors matching source rRNA IDs to target rRNA
+#'   IDs. Use \code{"28S"}, \code{"18S"}, \code{"5.8S"}, \code{"5S"} as source IDs. Example:
+#'   \code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}.
+#' @return A data.frame with two columns (\code{ont}, \code{gene}) containing lifted-over collision
+#'   sets (e.g. \code{Rib.Col.}, \code{Col.Int.}, \code{sc_6I7O_SAS}, etc.) and their 99
+#'   randomised control sets, ready for use as the \code{gsea_sets_Collision} argument in
+#'   \code{dricARF()}.
+#' @seealso \code{\link{dricARF}}
+#' @keywords dricARF collision liftover rRNA
 #' @export
 #' @examples
-#' dricARF_liftover_collision_sets("dm","drosophila_rRNAs.fa",rRNA_pairs=list(c("28S","dm_rRNA_28S"),c("18S","dm_rRNA_18S"),c("5.8S","dm_rRNA_5.8S"),c("5S","dm_rRNA_5S")))
+#' \dontrun{
+#' dricARF_liftover_collision_sets("dm", "drosophila_rRNAs.fa",
+#'   rRNA_pairs=list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"),
+#'   c("5.8S","dm_rRNA_5.8S"), c("5S","dm_rRNA_5S")))
+#' }
 dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, rRNA_pairs=list()) {
   # dplyr hack for %>%
   `%>%` <- magrittr::`%>%`

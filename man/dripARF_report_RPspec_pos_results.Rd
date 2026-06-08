@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_report_RPspec_pos_results}
 \alias{dripARF_report_RPspec_pos_results}
-\title{Get lFC profiles of RP proximity sets}
+\title{Get per-position DESeq2 differential abundance results for rRNA position heatmaps}
 \usage{
 dripARF_report_RPspec_pos_results(
   samples,
@@ -18,35 +18,49 @@ dripARF_report_RPspec_pos_results(
 )
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)}
+\item{rRNA_counts}{Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+(optional).}
 
-\item{dripARF_dds}{DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)}
+\item{dripARF_dds}{DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{comparisons}{List of comparisons to be included.}
+\item{comparisons}{Named list of comparisons to include. If \code{NULL}, all pairwise
+comparisons are run.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc}).}
+}
+\value{
+A data.frame with per-position DESeq2 results across all comparisons, with columns:
+\code{baseMean}, \code{log2FoldChange}, \code{lfcSE}, \code{stat}, \code{pvalue}, \code{padj},
+\code{pos} (rRNA position ID), \code{comp} (comparison label).
 }
 \description{
-Fish out the Differential values for RP proximity sets
+Extract per-position DESeq2 differential abundance results for use in rRNA
+position-specific heatmaps (\code{dripARF_rRNApos_heatmaps()}). Runs DESeq2 for each pairwise
+comparison and returns log2 fold-change and adjusted p-values at single-nucleotide resolution.
 }
 \examples{
+\dontrun{
 dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="hs")
 }
+}
+\seealso{
+\code{\link{dripARF_rRNApos_heatmaps}}
+}
+\keyword{DESeq2}
 \keyword{dripARF}
-\keyword{for}
 \keyword{logFC}
-\keyword{profiles}
 \keyword{rRNA}
-\keyword{rRNAs}

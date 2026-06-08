@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF}
 \alias{dripARF}
-\title{dripARF wrapper}
+\title{Run the complete dripARF heterogeneity prediction pipeline}
 \usage{
 dripARF(
   samplesFile,
@@ -14,41 +14,60 @@ dripARF(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE,
+  ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL
 )
 }
 \arguments{
-\item{samplesFile}{File that describes file locations and sample groupings}
+\item{samplesFile}{Path to the tab-separated samples file. Required columns: \code{sampleName},
+\code{bedGraphFile} (or BAM path), \code{group}. See \code{read_ARF_samples_file()} for
+details.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{samples_df}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples_df}{Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional;
+read from \code{samplesFile} if \code{NULL}).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).}
 
-\item{targetDir}{Directory to save the QC plots in.}
+\item{targetDir}{Directory to save all result files (CSVs, PDFs) in.}
 
-\item{comparisons}{List of comparisons to be included.}
+\item{comparisons}{Named list of comparisons to include. If \code{NULL}, all pairwise
+comparisons are run.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{GSEAplots}{Whether to produce and save the standard GSEA plots.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc};
+provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
-
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is created by ARF.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
+}
+\value{
+A data.frame -- the same as returned by \code{dripARF_predict_heterogenity()}. Scatter
+plot and heatmap PDFs are also saved to \code{targetDir}.
 }
 \description{
-This function allows you to run the whole dripARF pipeline
+Convenience wrapper that runs the full dripARF pipeline in a single call: reads
+sample metadata, loads rRNA alignments, normalises counts with DESeq2, performs RPSEA and ORA
+enrichment analyses, and saves result CSVs, a scatterplot PDF, and heatmap PDFs to
+\code{targetDir}.
 }
 \examples{
+\dontrun{
 dripARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
+}
+}
+\seealso{
+\code{\link{dricARF}}, \code{\link{read_ARF_samples_file}},
+\code{\link{dripARF_result_scatterplot}}, \code{\link{dripARF_result_heatmap}}
 }
 \keyword{dripARF}
 \keyword{pipeline}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_simplify_results}
 \alias{dripARF_simplify_results}
-\title{Simplify result file}
+\title{Simplify dripARF result file}
 \usage{
 dripARF_simplify_results(
   dripARF_results,
@@ -13,21 +13,39 @@ dripARF_simplify_results(
 )
 }
 \arguments{
-\item{dripARF_results}{dripARF results data frame}
+\item{dripARF_results}{dripARF results data.frame as returned by \code{dripARF_predict_heterogenity()}.}
 
-\item{randZscore_thr}{Default=1}
+\item{randZscore_thr}{Z-score threshold for the RPSEA NES relative to its randomised control
+sets. An RP passes this filter when its NES z-score is >= this value (default: 1).}
 
-\item{ORA_adjP_thr}{Default=0.05}
+\item{ORA_adjP_thr}{Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{RPSEA_adjP_thr}{Default=0.05}
+\item{RPSEA_adjP_thr}{Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{ORA_sig_n}{Default=0 (minimum of rRNA positions with a significant differential result adjP<0.05)}
+\item{ORA_sig_n}{Minimum number of significantly differential rRNA positions (ORA overlap)
+required for an RP to be considered. Default: 0 in \code{dripARF_simplify_results} (i.e. any
+overlap is accepted); default: 1 in plotting functions.}
+}
+\value{
+A simplified data.frame with columns: \code{comp}, \code{Description}, \code{top}
+(logical, \code{TRUE} if all thresholds are passed), \code{ES1} (RPSEA NES), \code{ES2}
+(RPSEA NES z-score), \code{ORA} (logical), \code{RPSEA.padj}, \code{ES1.pass},
+\code{ES2.pass}, \code{ORA.sigN}, \code{C1.avg.read.c}, \code{C2.avg.read.c}.
 }
 \description{
-Simplify results based on thresholds
+Filter dripARF results based on statistical thresholds, producing a condensed
+data.frame with pass/fail columns and a summary \code{top} logical flag.
 }
 \examples{
+\dontrun{
 dripARF_simplify_results(dripARF_results)
+}
+}
+\seealso{
+\code{\link{dripARF_predict_heterogenity}}, \code{\link{dripARF_result_scatterplot}},
+\code{\link{dripARF_result_heatmap}}
 }
 \keyword{dripARF}
 \keyword{results}

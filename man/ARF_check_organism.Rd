@@ -7,13 +7,25 @@
 ARF_check_organism(organism)
 }
 \arguments{
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
+}
+\value{
+Logical. \code{TRUE} if the organism code is valid (\code{'hs'}, \code{'mm'}, or
+\code{'sc'}). \code{FALSE} otherwise, printing a message that lists supported organisms and
+available PDB structures grouped by species.
 }
 \description{
-Check if the organism is valid for analysis in ARF.
+Check if the organism code is valid for built-in ARF analysis. Valid codes are
+\code{'hs'} (Homo sapiens, human), \code{'mm'} (Mus musculus, mouse), and \code{'sc'}
+(Saccharomyces cerevisiae, yeast). When an invalid code is supplied, the function prints a
+message listing these options and also displays available PDB structure IDs grouped by species,
+which can be used as input to \code{ARF_parse_PDB_ribosome()} for custom organism analyses.
 }
 \examples{
+\dontrun{
 ARF_check_organism("hs")
+}
 }
 \keyword{ARF}
 \keyword{Organism}

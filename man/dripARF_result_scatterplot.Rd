@@ -17,32 +17,46 @@ dripARF_result_scatterplot(
 )
 }
 \arguments{
-\item{dripARF_results}{Full dripARF result data.}
+\item{dripARF_results}{Full dripARF result data.frame as returned by
+\code{dripARF_predict_heterogenity()}.}
 
-\item{targetDir}{Directory to save the plots in.}
+\item{targetDir}{Directory to save the PDF plot in.}
 
-\item{title}{Default is "DRH_prediction_volcanos"#'}
+\item{title}{Title string used for the plot and output filename (default:
+\code{"DRH_prediction_volcanos"}).}
 
-\item{addedRPs}{Add given RPs to the plot no matter if they are significant or not.}
+\item{addedRPs}{Character vector of RP names to always highlight regardless of significance
+(optional).}
 
-\item{highlightRPs}{List of RPs to highlight instead of highlighting the top-predicted RPs.}
+\item{highlightRPs}{Character vector of RP names to highlight instead of the top-predicted RPs
+(optional).}
 
-\item{randZscore_thr}{Default=1}
+\item{randZscore_thr}{Z-score threshold for the RPSEA NES relative to its randomised control
+sets. An RP passes this filter when its NES z-score is >= this value (default: 1).}
 
-\item{ORA_adjP_thr}{Default=0.05}
+\item{ORA_adjP_thr}{Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{RPSEA_adjP_thr}{Default=0.05}
+\item{RPSEA_adjP_thr}{Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{ORA_sig_n}{Default=1}
+\item{ORA_sig_n}{Minimum number of significantly differential rRNA positions (ORA overlap)
+required for an RP to be considered (default: 1).}
+}
+\value{
+A \code{ggplot2} object. A PDF is also saved to \code{targetDir}.
 }
 \description{
-Draw scatterplot for GSEA and ORA analyses
+Draw a scatterplot of RPSEA NES z-score vs ORA adjusted p-value for all RPs across
+comparisons, with top-predicted RPs highlighted.
 }
 \examples{
+\dontrun{
 dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
 }
+}
 \keyword{Differential}
-\keyword{Heatmap}
 \keyword{Heterogeneity}
 \keyword{Ribosome}
+\keyword{Scatterplot}
 \keyword{dripARF}

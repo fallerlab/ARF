@@ -2,25 +2,38 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_add_replicates}
 \alias{dripARF_add_replicates}
-\title{Add random-edited replicates to single replicate groups}
+\title{Add pseudo-replicates to single-replicate sample groups}
 \usage{
 dripARF_add_replicates(samples, rRNA_counts, QCplot = FALSE, targetDir = NA)
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}.}
 
-\item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function}
+\item{rRNA_counts}{rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}.}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).}
 
-\item{targetDir}{Directory to save the QC plots in. (Default: working directory, getwd() output)}
+\item{targetDir}{Directory to save QC plots in (default: \code{getwd()}).}
+}
+\value{
+A list with two elements: \code{samples} (the updated samples data.frame with
+pseudo-replicate rows appended) and \code{rRNA_counts} (the updated counts data.frame with
+pseudo-replicate columns appended).
 }
 \description{
-Add random-edited replicates to single replicate groups
+Creates pseudo-replicates for sample groups that contain only a single sample.
+DESeq2 requires at least two replicates per group to estimate dispersion; this function adds a
+pseudo-replicate by multiplying each position's count by a per-position Uniform(0.9, 1.1)
+random factor and rounding to the nearest integer. The new pseudo-replicate is appended to both
+the \code{samples} data.frame (with suffix \code{"_ADDED"}) and the \code{rRNA_counts}
+data.frame. \strong{WARNING}: this is a statistical workaround only. Biological replicates are
+strongly preferred and should always be used when available.
 }
 \examples{
-dripARF_add_replicates(samples_df)
-dripARF_add_replicates(samples_df, QCplot=TRUE, targetDir="./")
+\dontrun{
+dripARF_add_replicates(samples_df, rRNA_counts_df)
+dripARF_add_replicates(samples_df, rRNA_counts_df, QCplot=TRUE, targetDir="./")
+}
 }
 \keyword{creation}
 \keyword{replicate}

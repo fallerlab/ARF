@@ -1,5 +1,5 @@
 
-# Copyright (C) 2024  Ferhat Alkan
+# Copyright (C) 2026  Ferhat Alkan & Edwin Sakyi Kyei-Baffour
 #
 #   This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,16 +16,26 @@
 
 #' Read rRNA quantification from .bedGraph or .bam files
 #' @description Read bedgraph/bam files to create the rRNA count data.
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}. Must contain at minimum
+#'   columns \code{sampleName} (column 1) and the alignment file path (column 2, bedGraph or BAM).
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism (28S, 18S, 5.8S, 5S). Sequence names
+#'   are used as rRNA IDs in the output row names.
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate a per-sample read-count violin plot
+#'   (default: \code{FALSE}).
+#' @param targetDir Directory to save the QC plots in (default: \code{getwd()}).
+#' @return A data.frame with rows = rRNA positions (row names formatted as \code{rRNA_pos}, e.g.
+#'   \code{human_28S_1042}) and columns = sample names, containing integer read counts at each
+#'   position. Positions with any \code{NA} value across samples are removed.
+#' @seealso \code{\link{dripARF_get_DESEQ_dds}}
 #' @keywords Reader rRNA fragment alignment
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_read_rRNA_fragments(samples_df, "rRNAs.fa", organism="hs")
 #' dripARF_read_rRNA_fragments(samples_df, "rRNAs.fa", organism="hs", QCplot=TRUE, targetDir="./")
+#' }
 dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCplot=FALSE, targetDir=NA) {
   
   # # Check organism first
@@ -93,21 +103,36 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
 }
 
 
-#' To normalize the counts with DESEQ
-#' @description A function that normalizes rRNA counts with DESEQ2
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
-#' @param organism Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param count_threshold Exclude the positions with reads less than this threshold on average. (Default: 1000)
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' Normalise rRNA counts with DESeq2
+#' @description Normalizes rRNA counts with DESeq2, estimating size factors and dispersions using a
+#'   \code{~ group} design (or a custom grouping column). Positions with mean counts below
+#'   \code{count_threshold} are filtered out before fitting.
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism. Used to read fragments if
+#'   \code{rRNA_counts} is not supplied.
+#' @param rRNA_counts Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+#'   (optional). If \code{NULL}, counts are read from the files listed in \code{samples}.
+#' @param compare Column name in the samples file to use as the grouping variable for DESeq2
+#'   (default: \code{"group"}).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param count_threshold Exclude positions whose mean read count across all samples is below this
+#'   value (default: 100).
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate a sample-similarity heatmap QC
+#'   plot (default: \code{FALSE}).
+#' @param targetDir Directory to save QC plots and the temporary \code{temp.dds.RData} file in
+#'   (default: \code{getwd()}).
+#' @return A DESeq2 \code{DESeqDataSet} object fitted with the specified design formula. Also saved
+#'   to \code{<targetDir>/temp.dds.RData}. If \code{QCplot=TRUE}, a sample-similarity heatmap is
+#'   saved as PDF and TSV.
+#' @seealso \code{\link{dripARF_read_rRNA_fragments}}, \code{\link{dripARF_predict_heterogenity}}
 #' @keywords DESeq2 normalization rRNA fragment abundance
-#' @examples
-#' dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa", organism="hs")
 #' @export
+#' @examples
+#' \dontrun{
+#' dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa", organism="hs")
+#' }
 dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compare="group", organism=NULL, exclude=NULL, count_threshold=100, 
                                   QCplot=FALSE, targetDir=paste0(getwd(),"/")){
   
@@ -158,20 +183,30 @@ dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compar
 
 
 #' Get average read count of RP proximity sets
-#' @description Calculate the average read count of RP proximity sets
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
-#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param exclude List of sample names to be excluded from the analysis. (optional)
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on. (optional)
-#' @param RP_proximity_df RP-rRNA proximity matrix that is determined by ARF. (optional)
-#' @keywords Average RP-set count of RP proximitty sets
+#' @description Calculate the average DESeq2-normalised read count for each RP proximity set per
+#'   experimental group.
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param rRNA_counts Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+#'   (optional).
+#' @param dripARF_dds DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param exclude Character vector of sample names to exclude from the analysis (optional).
+#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on (optional; preset for
+#'   \code{hs}, \code{mm}, and \code{sc}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (optional; preset for \code{hs}, \code{mm}, and
+#'   \code{sc}; provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @return A data.frame with RP proximity sets as rows and experimental groups as columns,
+#'   containing DESeq2-normalised average read counts per set per group.
+#' @keywords rRNA DESeq2 counts
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_report_RPset_group_counts(samples_df, "rRNAs.fa", organism="hs")
+#' }
 dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                               organism=NULL, compare="group", exclude=NULL, 
                                               gsea_sets_RP=NULL, RP_proximity_df=NULL){
@@ -240,31 +275,58 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 }
 
 
-#' Predict Differential Ribosomal Heterogeneity candidates with rRNA count data
-#' @description Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
-#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).
-#' @param organism Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QCplots in.
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param GSEAplots Whether to produce standard GSEA plots.
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
-#' @param optimized_run Run in optimized mode for time-saving.
-#' @param measureID Alternative options for rRNA position ranking for RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)
-#' @param runID runID for output labeling, default: dripARF. (alt. example: dricARF). 
+#' Predict Differential Ribosomal Heterogeneity candidates
+#' @title Predict Differential Ribosomal Heterogeneity candidates
+#' @description Overlaps differential rRNA count data with 3D ribosome rRNA-RP proximity data and
+#'   predicts ribosomal heterogeneity candidates across groups. For each comparison, rRNA positions
+#'   are ranked by a fold-change-based enrichment measure, then Ribosomal Protein Set Enrichment
+#'   Analysis (RPSEA) and Over-Representation Analysis (ORA) are performed. Note: the function name
+#'   contains a historical spelling typo (\code{heterogenity} instead of \code{heterogeneity}) that
+#'   is preserved for backward compatibility.
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param rRNA_counts Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+#'   (optional).
+#' @param dripARF_dds DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).
+#' @param targetDir Directory to save result CSVs and QC plots in.
+#' @param comparisons Named list of comparisons to include (each element a 2-element character
+#'   vector \code{c("condition1", "condition2")}). If \code{NULL}, all pairwise comparisons are run.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on (preset for \code{hs},
+#'   \code{mm}, and \code{sc}; provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+#'   provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @param optimized_run \code{TRUE} to skip redundant DESeq2 calls and reuse pre-computed objects,
+#'   reducing runtime for large datasets (default: \code{FALSE}).
+#' @param measureID Ranking measure used to score rRNA positions for RPSEA. Options:
+#'   \code{"abs_GSEA_measure_with_dynamic_p"} (default), \code{"abs_GSEA_measure"},
+#'   \code{"abs_GSEA_measure_with_p"}, \code{"S2N"}, \code{"GSEA_measure"},
+#'   \code{"GSEA_measure_with_p"}, \code{"GSEA_measure_with_dynamic_p"},
+#'   \code{"abs_w_GSEA_m"}, \code{"w_GSEA_m"}.
+#' @param runID Label used for output file naming (default: \code{"dripARF"}).
+#' @return A data.frame with one row per (RP, comparison) combination, with columns: \code{comp},
+#'   \code{Description} (RP name), \code{ORA.overlap}, \code{ORA.setSize}, \code{ORA.padj},
+#'   \code{ORA.p}, \code{RPSEA.NES}, \code{RPSEA.NES_randZ}, \code{RPSEA.padj}, \code{RPSEA.pval},
+#'   \code{RPSEA.q}, \code{C1.avg.read.c}, \code{C2.avg.read.c}. One CSV per comparison is also
+#'   written to \code{targetDir}.
+#' @seealso \code{\link{dripARF_simplify_results}}, \code{\link{dripARF_result_scatterplot}},
+#'   \code{\link{dripARF_result_heatmap}}
 #' @keywords dripARF Differential Ribosome Heterogeneity rRNA ribosome RP
 #' @export
 #' @examples
-#' dripARF_predict_heterogenity(samples_df,  "rRNAs.fa", rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
+#' \dontrun{
+#' dripARF_predict_heterogenity(samples_df, "rRNAs.fa",
+#'   rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
+#' }
 dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
-                                         compare="group", organism=NULL, QCplot=FALSE, targetDir=NA, comparisons=NULL, exclude=NULL,
-                                         GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F, 
+                                         compare="group", organism=NULL, QCplot=FALSE, targetDir=NA,
+                                         comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
+                                         gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F,
                                          measureID="abs_GSEA_measure_with_dynamic_p", runID='dripARF') {
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -284,7 +346,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     if (is.null(rRNA_counts)) {
       rRNA_counts <- dripARF_read_rRNA_fragments(samples = samples, rRNAs_fasta=rRNAs_fasta, organism=organism, QCplot = QCplot, targetDir=targetDir)
     }
-    dds <- dripARF_get_DESEQ_dds(samples = samples, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
+    dds <- ARF::dripARF_get_DESEQ_dds(samples = samples, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts, compare=compare, organism=organism, exclude=exclude)
   } else {
     dds <- dripARF_dds
   }
@@ -364,15 +426,36 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
                                                 rRNA_counts = rRNA_counts,dripARF_dds = dds,
                                                 organism = organism, compare = compare, exclude = exclude, 
                                                 gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
+
+  ### ssRPSEA hook ####
+  # normalization for ssRPSEA
+  cat("\nRunning ssRPSEA normalization...\n")
+  counts <- DESeq2::counts(dds, normalized=TRUE)
+  run_DESeq2_norm_list <- run_DESeq2_norm(counts, gsea_sets_RP)
   
+  # computing ssRPSEA weights
+  ssgsea_scores = run_DESeq2_norm_list$ssgsea_scores
+  # geneSets = run_DESeq2_norm_list$geneSets
+
+  # limma analysis on ssRPSEA scores
+  lm_ssRPSEA_weights_df <- run_limma_DE_analysis(
+    ssgsea_scores = ssgsea_scores,
+    samples = samples,
+    comparisons = comparisons,
+    compare = compare
+  )
+
+  cat("\nssRPSEA weights computed.\n")
+  ####
+
   ######### Gene set enrichment Analysis ############
   #library(clusterProfiler)
   #library(enrichplot)
   #library(gprofiler2)
   
-  counts <- DESeq2::counts(dds, normalized=TRUE)
+  # counts <- DESeq2::counts(dds, normalized=TRUE)
   all_GSEA_results <- NULL
-  
+
   # Separate for each DESEQcondition
   for (comp in comparisons) {
     message(paste("Running predictions for",comp[1],"vs",comp[2],"\n"))
@@ -411,10 +494,11 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       #   a = counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]
       #   b = counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]
       #   return()})
-      used_measure <- (matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]]) -
-                matrixStats::rowMeans2(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]])) /
-        (matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[1]]])+
-           matrixStats::rowSds(counts[,samples$sampleName[samples$DESEQcondition==comp[2]]]))
+      sample_col <- colnames(samples)[1]
+      used_measure <- (matrixStats::rowMeans2(counts[,samples[[sample_col]][samples$DESEQcondition==comp[1]]]) -
+                matrixStats::rowMeans2(counts[,samples[[sample_col]][samples$DESEQcondition==comp[2]]])) /
+        (matrixStats::rowSds(counts[,samples[[sample_col]][samples$DESEQcondition==comp[1]]])+
+           matrixStats::rowSds(counts[,samples[[sample_col]][samples$DESEQcondition==comp[2]]]))
       names(used_measure) <- rownames(counts)
     }else if (measureID=="abs_GSEA_measure_with_dynamic_p"){
       used_measure <- abs(temp_df$log2FoldChange)*(-log10(temp_df$padj))
@@ -438,7 +522,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       names(used_measure)<-rownames(temp_df)
     }
     
-    used_measure <- used_measure[rowSums(DESeq2::counts(dds)[,samples$sampleName[samples$DESEQcondition%in%comp]])!=0]
+    used_measure <- used_measure[rowSums(DESeq2::counts(dds)[,samples[[colnames(samples)[1]]][samples$DESEQcondition%in%comp]])!=0]
     used_measure <- used_measure[!sapply(used_measure, function(x) is.na(x))]
 
     used_geneList <- used_measure[order(used_measure, decreasing = TRUE)]
@@ -467,27 +551,9 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     GSEA_result_df <- data.frame(Description = or_df$pathway,
                                  ORA.overlap = or_df$overlap, ORA.setSize = or_df$size, ORA.padj = or_df$padj, ORA.p = or_df$pval,
                                  RPSEA.NES=NA, RPSEA.NES_randZ=NA, RPSEA.padj=NA, RPSEA.pval=NA, RPSEA.q=NA)
-    GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
-    GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
     rownames(GSEA_result_df) <- GSEA_result_df$Description
     
     if(dim(egmt_used_measure@result)[1]>0){
-      if (GSEAplots){
-        pdf(paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_", measureID,".pdf",sep = ""),height = 5,width = 5)
-        for (i in which(egmt_used_measure@result$Description%in%RPs_toreport)){
-          if(egmt_used_measure@result$NES_rand_zscore[i]>1 & egmt_used_measure@result$p.adjust[i]<0.01)
-            plotTitle <- paste(egmt_used_measure$Description[i], "NES=",as.character(round(egmt_used_measure$NES[i],2)),
-                  "; adjP=",as.character(round(egmt_used_measure$p.adjust[i],4)))
-            if("qvalue" %in% colnames(temp)){
-              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalue[i],4)))
-            } else if("qvalues" %in% colnames(temp)){
-              plotTitle <- paste(plotTitle, "; FDR=",as.character(round(egmt_used_measure$qvalues[i],4)))
-            } 
-            print(enrichplot::gseaplot2(egmt_used_measure, geneSetID = i, title = plotTitle))
-        }
-        dev.off()
-      }
-      
       # Assign RPSEA scores, padjust for only valid reported sets
       GSEA_result_df$RPSEA.NES <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES"]
       GSEA_result_df$RPSEA.NES_randZ <- egmt_used_measure@result[as.character(GSEA_result_df$Description),"NES_rand_zscore"]
@@ -505,6 +571,51 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       }
     }
     
+    ### Add ssRPSEA weights to the GSEA result df for comparison
+    ## Check for NA values in limma weights before join
+    tryCatch(
+      {stopifnot(!any(is.na(lm_ssRPSEA_weights_df$weight)))},
+      error = function(e) print(
+        "NA values found in limma weights! Check limma output.")
+    )
+
+    norm_comp_key <- paste(sub("^X", "", make.names(comp)), collapse = "_vs_")
+    GSEA_result_df <- dplyr::left_join(
+        GSEA_result_df |>
+          dplyr::mutate(comparison = norm_comp_key),
+        lm_ssRPSEA_weights_df |>
+          dplyr::select(RP, comparison, ssRPSEA.weight) |>
+          dplyr::filter(comparison == norm_comp_key),
+        by = c("Description"="RP", "comparison"="comparison")
+      ) |>
+      dplyr::mutate(weighted.RPSEA.NES_randZ = RPSEA.NES_randZ * ssRPSEA.weight) |>
+      dplyr::arrange(desc(weighted.RPSEA.NES_randZ))
+
+    tryCatch(
+      # {!any(is.na(GSEA_result_df$weight))},
+      {stopifnot(dim(GSEA_result_df)[1] >= 1)},
+      error = function(e) print(
+        "NA values found in GSEA result weights after join! Check limma output and GSEA result.")
+    )
+
+    ## making the interaction plot
+    if (ssRPSEAplots){
+      pdf(paste(targetDir,"/",
+          paste(comp,collapse = "_vs_"),"_", measureID,"_ssRPSEA_vs_RPSEA.NES_randZ.pdf",sep = ""
+        ),height = 5,width = 5
+      )
+
+      print(interaction_plotter(GSEA_result_df))
+      dev.off()
+    }
+    ###
+
+    GSEA_result_df <- GSEA_result_df |>
+      dplyr::select(-comparison)
+    ## shifted to the end to add the ssRPSEA weights to the output csvs as well
+    GSEA_result_df[,paste0(comp[1],".avg.read.c")] <- RP_means[or_df$pathway,comp[1]]
+    GSEA_result_df[,paste0(comp[2],".avg.read.c")] <- RP_means[or_df$pathway,comp[2]]
+
     if (!is.null(gsea_sets_RP)){
       # if(measureID=="abs_GSEA_measure") {
       #   write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_dripARF_default_results.csv",sep = ""), row.names = FALSE)
@@ -516,24 +627,38 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     all_GSEA_results <- rbind(all_GSEA_results, data.frame(comp=paste(comp,collapse = "_vs_"),
                                                            GSEA_result_df[order(GSEA_result_df$RPSEA.NES,decreasing = TRUE),]))
   }
-  
+
   rownames(all_GSEA_results) <- 1:(dim(all_GSEA_results)[1])
   return(all_GSEA_results)
 }
 
 
 
-#' Simplify result file
-#' @description Simplify results based on thresholds
-#' @param dripARF_results dripARF results data frame
-#' @param randZscore_thr Default=1
-#' @param ORA_adjP_thr Default=0.05
-#' @param RPSEA_adjP_thr Default=0.05
-#' @param ORA_sig_n Default=0 (minimum of rRNA positions with a significant differential result adjP<0.05)
+#' Simplify dripARF result file
+#' @description Filter dripARF results based on statistical thresholds, producing a condensed
+#'   data.frame with pass/fail columns and a summary \code{top} logical flag.
+#' @param dripARF_results dripARF results data.frame as returned by \code{dripARF_predict_heterogenity()}.
+#' @param randZscore_thr Z-score threshold for the RPSEA NES relative to its randomised control
+#'   sets. An RP passes this filter when its NES z-score is >= this value (default: 1).
+#' @param ORA_adjP_thr Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+#'   passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).
+#' @param RPSEA_adjP_thr Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+#'   this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).
+#' @param ORA_sig_n Minimum number of significantly differential rRNA positions (ORA overlap)
+#'   required for an RP to be considered. Default: 0 in \code{dripARF_simplify_results} (i.e. any
+#'   overlap is accepted); default: 1 in plotting functions.
+#' @return A simplified data.frame with columns: \code{comp}, \code{Description}, \code{top}
+#'   (logical, \code{TRUE} if all thresholds are passed), \code{ES1} (RPSEA NES), \code{ES2}
+#'   (RPSEA NES z-score), \code{ORA} (logical), \code{RPSEA.padj}, \code{ES1.pass},
+#'   \code{ES2.pass}, \code{ORA.sigN}, \code{C1.avg.read.c}, \code{C2.avg.read.c}.
+#' @seealso \code{\link{dripARF_predict_heterogenity}}, \code{\link{dripARF_result_scatterplot}},
+#'   \code{\link{dripARF_result_heatmap}}
 #' @keywords dripARF results simplify
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_simplify_results(dripARF_results)
+#' }
 dripARF_simplify_results <- function(dripARF_results, randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=0) {
   temp <- dripARF_results[, c("comp", "Description", "C1.avg.read.c", "C2.avg.read.c")]
   temp$ES1 <- dripARF_results$RPSEA.NES
@@ -551,17 +676,35 @@ dripARF_simplify_results <- function(dripARF_results, randZscore_thr=1, ORA_adjP
 
 
 
-#' Draw heatmap for multiple comparisons.
-#' @description Draw heatmap of NES and NES_randZscore based on different thresholds.
-#' @param dripARF_results dripARF result data.
-#' @param title Title for the plot and files.
-#' @param targetDir Directory to save the plots in.
-#' @param addedRPs Add given RPs to the plot no matter if they are significant or not..
+#' Draw heatmap for multiple comparisons
+#' @description Draw a heatmap of RPSEA NES and NES z-scores across all comparisons, filtered by one
+#'   or more threshold combinations. Each element of the threshold vectors defines one threshold
+#'   combination; separate PDFs are saved for each.
+#' @param dripARF_results dripARF result data.frame as returned by \code{dripARF_predict_heterogenity()}.
+#' @param title Title string used for the plot and output filenames.
+#' @param targetDir Directory to save the PDF heatmaps in.
+#' @param addedRPs Character vector of RP names to always include in the plot regardless of
+#'   significance (optional).
+#' @param randZscore_thr Numeric vector of z-score thresholds for the RPSEA NES relative to its
+#'   randomised control sets. An RP passes this filter when its NES z-score is >= this value. Each
+#'   element defines one threshold combination (default: \code{c(1, 1, 1.5, 0)}).
+#' @param ORA_adjP_thr Numeric vector of adjusted p-value thresholds for the over-representation
+#'   analysis (ORA). An RP passes this filter when ORA BH-adjusted p-value <= this value (default:
+#'   \code{c(0.05, 2, 0.05, 2)}).
+#' @param RPSEA_adjP_thr Numeric vector of adjusted p-value thresholds for the RPSEA enrichment
+#'   score. An RP passes this filter when RPSEA BH-adjusted p-value <= this value (default:
+#'   \code{c(0.05, 0.05, 0.05, 0.05)}).
+#' @param ORA_sig_n Numeric vector specifying the minimum number of significantly differential rRNA
+#'   positions (ORA overlap) required for an RP to be considered (default: \code{c(1, 1, 1, 1)}).
+#' @return Invisibly returns the last \code{ComplexHeatmap} object drawn. PDFs are saved to
+#'   \code{targetDir} for each threshold combination.
 #' @keywords dripARF Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_result_heatmap(dripARF_results, "Title", "/Folder/to/save/in/")
 #' dripARF_result_heatmap(dripARF_results, "Title", "/Folder/to/save/in/", randZscore_thr=1)
+#' }
 dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=NULL,
                                    randZscore_thr=c(1,1,1.5,0), ORA_adjP_thr=c(.05,2,.05,2),
                                    RPSEA_adjP_thr=c(.05,.05,.05,.05), ORA_sig_n=c(1,1,1,1)){
@@ -641,20 +784,32 @@ dripARF_result_heatmap <- function(dripARF_results, title, targetDir, addedRPs=N
 
 
 #' Draw dripARF result scatterplot for multiple comparisons
-#' @description Draw scatterplot for GSEA and ORA analyses
-#' @param dripARF_results Full dripARF result data.
-#' @param targetDir Directory to save the plots in.
-#' @param title Default is "DRH_prediction_volcanos"#'
-#' @param addedRPs Add given RPs to the plot no matter if they are significant or not.
-#' @param highlightRPs List of RPs to highlight instead of highlighting the top-predicted RPs.
-#' @param randZscore_thr Default=1
-#' @param ORA_adjP_thr Default=0.05
-#' @param RPSEA_adjP_thr Default=0.05
-#' @param ORA_sig_n Default=1
-#' @keywords dripARF Differential Ribosome Heterogeneity Heatmap
+#' @description Draw a scatterplot of RPSEA NES z-score vs ORA adjusted p-value for all RPs across
+#'   comparisons, with top-predicted RPs highlighted.
+#' @param dripARF_results Full dripARF result data.frame as returned by
+#'   \code{dripARF_predict_heterogenity()}.
+#' @param targetDir Directory to save the PDF plot in.
+#' @param title Title string used for the plot and output filename (default:
+#'   \code{"DRH_prediction_volcanos"}).
+#' @param addedRPs Character vector of RP names to always highlight regardless of significance
+#'   (optional).
+#' @param highlightRPs Character vector of RP names to highlight instead of the top-predicted RPs
+#'   (optional).
+#' @param randZscore_thr Z-score threshold for the RPSEA NES relative to its randomised control
+#'   sets. An RP passes this filter when its NES z-score is >= this value (default: 1).
+#' @param ORA_adjP_thr Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+#'   passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).
+#' @param RPSEA_adjP_thr Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+#'   this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).
+#' @param ORA_sig_n Minimum number of significantly differential rRNA positions (ORA overlap)
+#'   required for an RP to be considered (default: 1).
+#' @return A \code{ggplot2} object. A PDF is also saved to \code{targetDir}.
+#' @keywords dripARF Differential Ribosome Heterogeneity Scatterplot
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
+#' }
 dripARF_result_scatterplot <- function(dripARF_results, targetDir,
                                        title="DRH_prediction_volcanos", addedRPs=NULL, highlightRPs=NULL,
                                        randZscore_thr=1, ORA_adjP_thr=0.05, RPSEA_adjP_thr=0.05, ORA_sig_n=1){
@@ -697,22 +852,34 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
 }
 
 
-#' Get lFC profiles of RP proximity sets
-#' @description Fish out the Differential values for RP proximity sets
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)
-#' @param dripARF_dds DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
-#' @keywords dripARF rRNA logFC profiles for rRNAs
+#' Get per-position DESeq2 differential abundance results for rRNA position heatmaps
+#' @description Extract per-position DESeq2 differential abundance results for use in rRNA
+#'   position-specific heatmaps (\code{dripARF_rRNApos_heatmaps()}). Runs DESeq2 for each pairwise
+#'   comparison and returns log2 fold-change and adjusted p-values at single-nucleotide resolution.
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param rRNA_counts Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+#'   (optional).
+#' @param dripARF_dds DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
+#'   comparisons are run.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param gsea_sets_RP RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc}).
+#' @return A data.frame with per-position DESeq2 results across all comparisons, with columns:
+#'   \code{baseMean}, \code{log2FoldChange}, \code{lfcSE}, \code{stat}, \code{pvalue}, \code{padj},
+#'   \code{pos} (rRNA position ID), \code{comp} (comparison label).
+#' @seealso \code{\link{dripARF_rRNApos_heatmaps}}
+#' @keywords dripARF rRNA logFC DESeq2
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_report_RPspec_pos_results(samples_df, "rRNAs.fa", organism="hs")
+#' }
 dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
                                               organism=NULL, compare="group", comparisons=NULL, exclude=NULL, 
                                               gsea_sets_RP=NULL, RP_proximity_df=NULL){
@@ -761,21 +928,32 @@ dripARF_report_RPspec_pos_results <- function(samples, rRNAs_fasta, rRNA_counts=
 }
 
 #' Draw Differential rRNA abundance heatmap and its overlap with RP-rRNA proximity sets
-#' @description Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance
-#' @param dripARF_DRF rRNA position specific differential rRNA fragment abundance results
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param RPs Set of RPs that should be included in the figure.
-#' @param targetDir Directory to save the plots in.
-#' @param abs_lFC_thr Differential abundance abs(logFC) threshold.
-#' @param adjP_thr Differential abundance adjusted P-value threshold.
-#' @param pval_thr Differential abundance P-value threshold.
-#' @param title Default is "rRNA_pos_spec_heatmap"
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' @description Visualises position-specific differential rRNA fragment abundance across comparisons
+#'   as a heatmap, overlaid with the rRNA contact-point positions of the requested RPs. Positions
+#'   that pass both the log2FC and adjusted p-value thresholds are highlighted.
+#' @param dripARF_DRF Per-position DESeq2 results data.frame as returned by
+#'   \code{dripARF_report_RPspec_pos_results()}.
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param RPs Character vector of RP names to include in the figure (e.g. \code{c("eL1", "uS25")}).
+#' @param targetDir Directory to save the PDF heatmap in.
+#' @param abs_lFC_thr Absolute log2 fold-change threshold for highlighting differential positions
+#'   (default: 0.5).
+#' @param adjP_thr Adjusted p-value threshold for highlighting differential positions (default:
+#'   0.05).
+#' @param pval_thr Nominal p-value threshold (default: 0.05). Used when adjusted p-values are not
+#'   available.
+#' @param title Title string and base name for the output PDF (default:
+#'   \code{"rRNA_pos_spec_heatmap"}).
+#' @param gsea_sets_RP RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc}).
+#' @return A \code{ComplexHeatmap} object. A PDF is also saved to \code{<targetDir>/<title>.pdf}.
 #' @keywords dripARF Differential Ribosome Heterogeneity Heatmap
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_rRNApos_heatmaps(dripARF_results, "mm", c("eL1","uS25"), "/Folder/to/save/in/")
+#' }
 dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir, 
                                      abs_lFC_thr=0.5, adjP_thr=0.05, pval_thr=0.05,
                                      title="rRNA_pos_spec_heatmap", 
@@ -869,7 +1047,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
   ha <- ComplexHeatmap::HeatmapAnnotation(rRNA = RP_proximity_df[focused_order,"rRNA"][whichPos],
                                           foo=foo, col=list(foo=prox_col,
                                                             rRNA=setNames(wesanderson::wes_palette("Rushmore1")[c(1,3,4,5)],rrnas), na_col = "white"),
-                                          annotation_legend_param = list(foo=list(title="RP-rRNA\nproximity map\ndistance (Å)",at=c(0,27,100,200,300))))
+                                          annotation_legend_param = list(foo=list(title="RP-rRNA\nproximity map\ndistance (Angstrom)",at=c(0,27,100,200,300))))
   
   comparisons <- unique(as.character(dripARF_DRF$comp))
   
@@ -902,26 +1080,42 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
   return(ht)
 }
 
-#' dripARF wrapper
-#' @description This function allows you to run the whole dripARF pipeline
-#' @param samplesFile File that describes file locations and sample groupings
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param samples_df Samples dataframe created by read_ARF_samples_file() function.
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in.
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param GSEAplots Whether to produce and save the standard GSEA plots.
-#' @param gsea_sets_RP RP-rRNA contact point sets to perform enrichments on.
-#' @param RP_proximity_df RP-rRNA proximity matrix that is created by ARF.
+#' Run the complete dripARF heterogeneity prediction pipeline
+#' @description Convenience wrapper that runs the full dripARF pipeline in a single call: reads
+#'   sample metadata, loads rRNA alignments, normalises counts with DESeq2, performs RPSEA and ORA
+#'   enrichment analyses, and saves result CSVs, a scatterplot PDF, and heatmap PDFs to
+#'   \code{targetDir}.
+#' @param samplesFile Path to the tab-separated samples file. Required columns: \code{sampleName},
+#'   \code{bedGraphFile} (or BAM path), \code{group}. See \code{read_ARF_samples_file()} for
+#'   details.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param samples_df Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional;
+#'   read from \code{samplesFile} if \code{NULL}).
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).
+#' @param targetDir Directory to save all result files (CSVs, PDFs) in.
+#' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
+#'   comparisons are run.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param gsea_sets_RP RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc};
+#'   provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+#'   provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @return A data.frame -- the same as returned by \code{dripARF_predict_heterogenity()}. Scatter
+#'   plot and heatmap PDFs are also saved to \code{targetDir}.
+#' @seealso \code{\link{dricARF}}, \code{\link{read_ARF_samples_file}},
+#'   \code{\link{dripARF_result_scatterplot}}, \code{\link{dripARF_result_heatmap}}
 #' @keywords dripARF pipeline
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
+#' }
 dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, GSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
   
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -960,8 +1154,8 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, rRNAs_fasta=rRNAs_fasta, organism = organism, 
                                                 QCplot = QCplot, targetDir = targetDir)
   dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
-                                                  compare="group", organism=organism, QCplot=QCplot, targetDir=targetDir,
-                                                  comparisons = comparisons, GSEAplots=GSEAplots, 
+                                                  compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
+                                                  comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
                                                   gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
   
   dripARF_result_scatterplot(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions")
@@ -973,18 +1167,39 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 
 
 
-#' dripARF threshold_test wrapper
-#' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
-#' @param RP_proximity_df RP-rRNA proximity matrix that is created by ARF.
-#' @param additional_RPcols If you have added your own columns to RP_proximity_df, please provide their column indexes. (needed for proper threshold & set generation)
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the target organism (target rRNAs file for converted positions).
-#' @param thresholds Thresholds for creating the RP-specific rRNA proximity sets.
-#' @param cap_added_RPcols Should we cap the number of positions in additional RP_cols? (Default=F)
-#' @keywords RPSEA RP RRNA proximity set generation
+#' Generate RP-rRNA proximity sets for RPSEA
+#' @description Generates GSEA-format term-to-gene sets for each ribosomal protein (RP) based on
+#'   rRNA proximity. When \code{thresholds=NULL}, the distance threshold is auto-set to the 5th
+#'   percentile of all RP-rRNA distances, and the set-size cap is 5\% of total rRNA positions. For
+#'   each RP, 99 randomised control sets are also generated by circularly shifting the proximity
+#'   positions, which are used downstream by \code{dripARF_predict_heterogenity()} to compute the
+#'   RPSEA NES z-score.
+#' @param RP_proximity_df RP-rRNA proximity matrix as returned by \code{ARF_parse_PDB_ribosome()} or
+#'   \code{ARF_convert_Ribo3D_pos()}.
+#' @param additional_RPcols Integer vector of column indexes for any custom RP columns added to
+#'   \code{RP_proximity_df} beyond the standard ARF columns (needed for proper threshold and set
+#'   generation, default: \code{c()}).
+#' @param rRNAs_fasta FASTA file for the rRNAs of the target organism. When provided, used to
+#'   calculate the set-size cap from total sequence length and to restrict positions to rRNAs
+#'   present in the file (optional).
+#' @param thresholds Numeric vector of length 2: \code{c(distance_threshold, max_set_size)}. If
+#'   \code{NULL}, thresholds are calculated automatically (5th percentile of distances; 5\% of
+#'   total rRNA length).
+#' @param cap_added_RPcols Logical. Whether to also cap the set size for columns specified in
+#'   \code{additional_RPcols} (default: \code{FALSE}).
+#' @return A data.frame with two columns (\code{ont}, \code{gene}) suitable for use as GSEA
+#'   term-to-gene sets. Includes one set per RP (rows where \code{ont} = RP name) and 99
+#'   randomised control sets per RP (rows where \code{ont} = \code{RandN_RP}).
+#' @seealso \code{\link{ARF_parse_PDB_ribosome}}, \code{\link{ARF_convert_Ribo3D_pos}},
+#'   \code{\link{dripARF_predict_heterogenity}}
+#' @keywords RPSEA RP rRNA proximity set generation
 #' @export
 #' @examples
+#' \dontrun{
 #' dripARF_get_RP_proximity_sets(RP_proximities_dataframe, rRNAs_fasta="rRNAs.fa")
-#' dripARF_get_RP_proximity_sets(RP_proximities_dataframe, additional_RPcols=80:95, rRNAs_fasta="rRNAs.fa")
+#' dripARF_get_RP_proximity_sets(RP_proximities_dataframe,
+#'   additional_RPcols=80:95, rRNAs_fasta="rRNAs.fa")
+#' }
 dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c(), rRNAs_fasta=NULL, thresholds=NULL, cap_added_RPcols=F){
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
@@ -1035,20 +1250,35 @@ dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c()
 }
 
 
-#' dripARF threshold_test wrapper
-#' @description This function allows you to run the whole dripARF pipeline with varying proximity thresholds
-#' @param samplesFile File that describes file locations and sample groupings
-#' @param rRNAs_fasta Fasta file for the 4 rRNAs of the organism.
-#' @param organism Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.
-#' @param compare If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).
-#' @param comparisons List of comparisons to be included.
-#' @param exclude List of sample names to be excluded from the analysis.
-#' @param thresholds List of given threshold vectors. Every vector contains the Angstrom threshold as 1st value, Set-size threshold as 2nd, and directionality as 3rd (optional, default=FALSE). 
-#' @param RP_proximity_df RP-rRNA proximity matrix that is calculated by ARF.
+#' Test dripARF predictions across varying RP-rRNA proximity thresholds
+#' @description Runs the dripARF heterogeneity prediction pipeline repeatedly for each supplied
+#'   threshold combination, allowing assessment of result stability across different distance and
+#'   set-size cutoffs. The output combines all runs with a \code{threshold} identifier column.
+#' @param samplesFile Path to the tab-separated samples file. See \code{read_ARF_samples_file()}.
+#' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
+#' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+#'   \code{"sc"} for yeast.
+#' @param compare Column name in the samples file to use as the grouping variable (default:
+#'   \code{"group"}).
+#' @param comparisons Named list of comparisons to include. If \code{NULL}, all pairwise
+#'   comparisons are run.
+#' @param exclude Character vector of sample names to exclude from the analysis.
+#' @param thresholds List of numeric vectors, each defining one threshold combination. Each vector
+#'   contains: 1st value = Angstrom distance threshold, 2nd value = maximum set-size threshold,
+#'   optional 3rd value = directionality flag (\code{TRUE}/\code{FALSE}, default: \code{FALSE}).
+#'   If \code{NULL}, auto-calculated thresholds are used (see \code{dripARF_get_RP_proximity_sets()}).
+#' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+#'   provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @return A data.frame combining \code{dripARF_predict_heterogenity()} results across all supplied
+#'   thresholds, with an additional \code{threshold} column identifying which threshold combination
+#'   was used.
 #' @keywords dripARF threshold alternative
 #' @export
 #' @examples
-#' dripARF_threshold_test("samples.txt", "rRNAs.fa", organism="mm", thresholds=list(c(20,150),c(15,100)))
+#' \dontrun{
+#' dripARF_threshold_test("samples.txt", "rRNAs.fa", organism="mm",
+#'   thresholds=list(c(20,150),c(15,100)))
+#' }
 dripARF_threshold_test <- function(samplesFile, rRNAs_fasta, 
                                    organism=NULL, compare="group", comparisons=NULL, exclude=NULL, thresholds=NULL,
                                    RP_proximity_df=NULL){
@@ -1252,17 +1482,28 @@ visualize_geneset <- function(organism, chain_file, RP) {
 }
 
 
-#' Add random-edited replicates to single replicate groups
-#' @description Add random-edited replicates to single replicate groups
-#' @param samples Samples dataframe created by read_ARF_samples_file() function.
-#' @param rRNA_counts rRNA_counts that were read by dripARF_read_rRNA_fragments() function
-#' @param QCplot TRUE or FALSE, whether to generate QC plots or not.
-#' @param targetDir Directory to save the QC plots in. (Default: working directory, getwd() output)
+#' Add pseudo-replicates to single-replicate sample groups
+#' @description Creates pseudo-replicates for sample groups that contain only a single sample.
+#'   DESeq2 requires at least two replicates per group to estimate dispersion; this function adds a
+#'   pseudo-replicate by multiplying each position's count by a per-position Uniform(0.9, 1.1)
+#'   random factor and rounding to the nearest integer. The new pseudo-replicate is appended to both
+#'   the \code{samples} data.frame (with suffix \code{"_ADDED"}) and the \code{rRNA_counts}
+#'   data.frame. \strong{WARNING}: this is a statistical workaround only. Biological replicates are
+#'   strongly preferred and should always be used when available.
+#' @param samples Samples dataframe created by \code{read_ARF_samples_file()}.
+#' @param rRNA_counts rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}.
+#' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).
+#' @param targetDir Directory to save QC plots in (default: \code{getwd()}).
+#' @return A list with two elements: \code{samples} (the updated samples data.frame with
+#'   pseudo-replicate rows appended) and \code{rRNA_counts} (the updated counts data.frame with
+#'   pseudo-replicate columns appended).
 #' @keywords single sample replicate creation
 #' @export
 #' @examples
-#' dripARF_add_replicates(samples_df)
-#' dripARF_add_replicates(samples_df, QCplot=TRUE, targetDir="./")
+#' \dontrun{
+#' dripARF_add_replicates(samples_df, rRNA_counts_df)
+#' dripARF_add_replicates(samples_df, rRNA_counts_df, QCplot=TRUE, targetDir="./")
+#' }
 dripARF_add_replicates <- function(samples, rRNA_counts, QCplot=FALSE, targetDir=NA) {
   group_counts <- table(samples$group)
   for (sample in samples$sampleName[samples$group%in%names(group_counts)[group_counts==1]]){

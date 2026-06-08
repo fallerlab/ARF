@@ -7,14 +7,26 @@
 read_ARF_samples_file(samplesFile)
 }
 \arguments{
-\item{samplesFile}{Sample data file that describes file locations and sample groupings.}
+\item{samplesFile}{Sample data file that describes file locations and sample groupings. A tab-separated TSV
+with at minimum the columns: \code{sampleName} (unique identifier), \code{bedGraphFile} (path to bedGraph
+or BAM alignment file), and \code{group} (condition/treatment label). Optional columns include
+\code{taggedRP} and \code{ribosomeIsolation}.}
+}
+\value{
+A data.frame with one row per sample. Columns correspond to those in the TSV. Row names are set
+to the sample names (first column).
 }
 \description{
-This function allows you to read the tab-seperated ARF-samples file, returning a dataframe.
+This function allows you to read the tab-separated ARF-samples file, returning a dataframe.
 }
 \examples{
+\dontrun{
 read_ARF_samples_file("samples.txt")
 read_ARF_samples_file("samples.tsv")
+}
+}
+\seealso{
+\code{\link{dripARF}}, \code{\link{dricARF}}
 }
 \keyword{Input}
 \keyword{Reader}

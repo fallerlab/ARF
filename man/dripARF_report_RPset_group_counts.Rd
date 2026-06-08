@@ -17,34 +17,42 @@ dripARF_report_RPset_group_counts(
 )
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)}
+\item{rRNA_counts}{Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+(optional).}
 
-\item{dripARF_dds}{DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)}
+\item{dripARF_dds}{DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{exclude}{List of sample names to be excluded from the analysis. (optional)}
+\item{exclude}{Character vector of sample names to exclude from the analysis (optional).}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on. (optional)}
+\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on (optional; preset for
+\code{hs}, \code{mm}, and \code{sc}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is determined by ARF. (optional)}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (optional; preset for \code{hs}, \code{mm}, and
+\code{sc}; provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
+}
+\value{
+A data.frame with RP proximity sets as rows and experimental groups as columns,
+containing DESeq2-normalised average read counts per set per group.
 }
 \description{
-Calculate the average read count of RP proximity sets
+Calculate the average DESeq2-normalised read count for each RP proximity set per
+experimental group.
 }
 \examples{
+\dontrun{
 dripARF_report_RPset_group_counts(samples_df, "rRNAs.fa", organism="hs")
 }
-\keyword{Average}
-\keyword{RP}
-\keyword{RP-set}
-\keyword{count}
-\keyword{of}
-\keyword{proximitty}
-\keyword{sets}
+}
+\keyword{DESeq2}
+\keyword{counts}
+\keyword{rRNA}

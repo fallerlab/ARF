@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_get_DESEQ_dds}
 \alias{dripARF_get_DESEQ_dds}
-\title{To normalize the counts with DESEQ}
+\title{Normalise rRNA counts with DESeq2}
 \usage{
 dripARF_get_DESEQ_dds(
   samples,
@@ -17,29 +17,48 @@ dripARF_get_DESEQ_dds(
 )
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism. Used to read fragments if
+\code{rRNA_counts} is not supplied.}
 
-\item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function (optional)}
+\item{rRNA_counts}{Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+(optional). If \code{NULL}, counts are read from the files listed in \code{samples}.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable for DESeq2
+(default: \code{"group"}).}
 
-\item{organism}{Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{count_threshold}{Exclude the positions with reads less than this threshold on average. (Default: 1000)}
+\item{count_threshold}{Exclude positions whose mean read count across all samples is below this
+value (default: 100).}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate a sample-similarity heatmap QC
+plot (default: \code{FALSE}).}
 
-\item{targetDir}{Directory to save the QC plots in. (Default: working directory, getwd() output)}
+\item{targetDir}{Directory to save QC plots and the temporary \code{temp.dds.RData} file in
+(default: \code{getwd()}).}
+}
+\value{
+A DESeq2 \code{DESeqDataSet} object fitted with the specified design formula. Also saved
+to \code{<targetDir>/temp.dds.RData}. If \code{QCplot=TRUE}, a sample-similarity heatmap is
+saved as PDF and TSV.
 }
 \description{
-A function that normalizes rRNA counts with DESEQ2
+Normalizes rRNA counts with DESeq2, estimating size factors and dispersions using a
+\code{~ group} design (or a custom grouping column). Positions with mean counts below
+\code{count_threshold} are filtered out before fitting.
 }
 \examples{
+\dontrun{
 dripARF_get_DESEQ_dds(samples_df, "rRNAs.fa", organism="hs")
+}
+}
+\seealso{
+\code{\link{dripARF_read_rRNA_fragments}}, \code{\link{dripARF_predict_heterogenity}}
 }
 \keyword{DESeq2}
 \keyword{abundance}

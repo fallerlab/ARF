@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_predict_heterogenity}
 \alias{dripARF_predict_heterogenity}
-\title{Predict Differential Ribosomal Heterogeneity candidates with rRNA count data}
+\title{Predict Differential Ribosomal Heterogeneity candidates}
 \usage{
 dripARF_predict_heterogenity(
   samples,
@@ -15,7 +15,7 @@ dripARF_predict_heterogenity(
   targetDir = NA,
   comparisons = NULL,
   exclude = NULL,
-  GSEAplots = FALSE,
+  ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL,
   optimized_run = F,
@@ -24,43 +24,74 @@ dripARF_predict_heterogenity(
 )
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{rRNA_counts}{rRNA_counts that were read by dripARF_read_rRNA_fragments() function: (optional)}
+\item{rRNA_counts}{Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
+(optional).}
 
-\item{dripARF_dds}{DESEQ2 normalized rRNA_counts coming from dripARF_get_DESEQ_dds() function: (optional)}
+\item{dripARF_dds}{DESeq2 \code{DESeqDataSet} from \code{dripARF_get_DESEQ_dds()} (optional).}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in the samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{organism}{Organism abbreviation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).}
 
-\item{targetDir}{Directory to save the QCplots in.}
+\item{targetDir}{Directory to save result CSVs and QC plots in.}
 
-\item{comparisons}{List of comparisons to be included.}
+\item{comparisons}{Named list of comparisons to include (each element a 2-element character
+vector \code{c("condition1", "condition2")}). If \code{NULL}, all pairwise comparisons are run.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{GSEAplots}{Whether to produce standard GSEA plots.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on (preset for \code{hs},
+\code{mm}, and \code{sc}; provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+\item{optimized_run}{\code{TRUE} to skip redundant DESeq2 calls and reuse pre-computed objects,
+reducing runtime for large datasets (default: \code{FALSE}).}
 
-\item{optimized_run}{Run in optimized mode for time-saving.}
+\item{measureID}{Ranking measure used to score rRNA positions for RPSEA. Options:
+\code{"abs_GSEA_measure_with_dynamic_p"} (default), \code{"abs_GSEA_measure"},
+\code{"abs_GSEA_measure_with_p"}, \code{"S2N"}, \code{"GSEA_measure"},
+\code{"GSEA_measure_with_p"}, \code{"GSEA_measure_with_dynamic_p"},
+\code{"abs_w_GSEA_m"}, \code{"w_GSEA_m"}.}
 
-\item{measureID}{Alternative options for rRNA position ranking for RPSEA, default: abs_GSEA_measure_with_dynamic_p. (avail. abs_GSEA_measure abs,_GSEA_measure_with_p, abs_GSEA_measure_with_dynamic_p, S2N, GSEA_measure, GSEA_measure_with_p, GSEA_measure_with_dynamic_p, abs_w_GSEA_m, w_GSEA_m)}
-
-\item{runID}{runID for output labeling, default: dripARF. (alt. example: dricARF).}
+\item{runID}{Label used for output file naming (default: \code{"dripARF"}).}
+}
+\value{
+A data.frame with one row per (RP, comparison) combination, with columns: \code{comp},
+\code{Description} (RP name), \code{ORA.overlap}, \code{ORA.setSize}, \code{ORA.padj},
+\code{ORA.p}, \code{RPSEA.NES}, \code{RPSEA.NES_randZ}, \code{RPSEA.padj}, \code{RPSEA.pval},
+\code{RPSEA.q}, \code{C1.avg.read.c}, \code{C2.avg.read.c}. One CSV per comparison is also
+written to \code{targetDir}.
 }
 \description{
-Overlap differential rRNA count data with 3d ribosome, rRNA-RP proximity data and predict heterogeneity candidates across groups.
+Overlaps differential rRNA count data with 3D ribosome rRNA-RP proximity data and
+predicts ribosomal heterogeneity candidates across groups. For each comparison, rRNA positions
+are ranked by a fold-change-based enrichment measure, then Ribosomal Protein Set Enrichment
+Analysis (RPSEA) and Over-Representation Analysis (ORA) are performed. Note: the function name
+contains a historical spelling typo (\code{heterogenity} instead of \code{heterogeneity}) that
+is preserved for backward compatibility.
+}
+\details{
+Predict Differential Ribosomal Heterogeneity candidates
 }
 \examples{
-dripARF_predict_heterogenity(samples_df,  "rRNAs.fa", rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
+\dontrun{
+dripARF_predict_heterogenity(samples_df, "rRNAs.fa",
+  rRNA_counts=rRNA_counts_df, organism="hs", QCplot=TRUE)
+}
+}
+\seealso{
+\code{\link{dripARF_simplify_results}}, \code{\link{dripARF_result_scatterplot}},
+\code{\link{dripARF_result_heatmap}}
 }
 \keyword{Differential}
 \keyword{Heterogeneity}

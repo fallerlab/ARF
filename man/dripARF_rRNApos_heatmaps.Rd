@@ -18,31 +18,44 @@ dripARF_rRNApos_heatmaps(
 )
 }
 \arguments{
-\item{dripARF_DRF}{rRNA position specific differential rRNA fragment abundance results}
+\item{dripARF_DRF}{Per-position DESeq2 results data.frame as returned by
+\code{dripARF_report_RPspec_pos_results()}.}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{RPs}{Set of RPs that should be included in the figure.}
+\item{RPs}{Character vector of RP names to include in the figure (e.g. \code{c("eL1", "uS25")}).}
 
-\item{targetDir}{Directory to save the plots in.}
+\item{targetDir}{Directory to save the PDF heatmap in.}
 
-\item{abs_lFC_thr}{Differential abundance abs(logFC) threshold.}
+\item{abs_lFC_thr}{Absolute log2 fold-change threshold for highlighting differential positions
+(default: 0.5).}
 
-\item{adjP_thr}{Differential abundance adjusted P-value threshold.}
+\item{adjP_thr}{Adjusted p-value threshold for highlighting differential positions (default:
+0.05).}
 
-\item{pval_thr}{Differential abundance P-value threshold.}
+\item{pval_thr}{Nominal p-value threshold (default: 0.05). Used when adjusted p-values are not
+available.}
 
-\item{title}{Default is "rRNA_pos_spec_heatmap"}
+\item{title}{Title string and base name for the output PDF (default:
+\code{"rRNA_pos_spec_heatmap"}).}
 
-\item{gsea_sets_RP}{RP-rRNA contact point sets to perform enrichments on.}
+\item{gsea_sets_RP}{RP-rRNA contact point sets (preset for \code{hs}, \code{mm}, and \code{sc}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc}).}
+}
+\value{
+A \code{ComplexHeatmap} object. A PDF is also saved to \code{<targetDir>/<title>.pdf}.
 }
 \description{
-Draw rRNA fragment change heatmaps to visualize position-specific differential rRNA fragment abundance
+Visualises position-specific differential rRNA fragment abundance across comparisons
+as a heatmap, overlaid with the rRNA contact-point positions of the requested RPs. Positions
+that pass both the log2FC and adjusted p-value thresholds are highlighted.
 }
 \examples{
+\dontrun{
 dripARF_rRNApos_heatmaps(dripARF_results, "mm", c("eL1","uS25"), "/Folder/to/save/in/")
+}
 }
 \keyword{Differential}
 \keyword{Heatmap}

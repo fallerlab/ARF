@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_threshold_test}
 \alias{dripARF_threshold_test}
-\title{dripARF threshold_test wrapper}
+\title{Test dripARF predictions across varying RP-rRNA proximity thresholds}
 \usage{
 dripARF_threshold_test(
   samplesFile,
@@ -16,27 +16,44 @@ dripARF_threshold_test(
 )
 }
 \arguments{
-\item{samplesFile}{File that describes file locations and sample groupings}
+\item{samplesFile}{Path to the tab-separated samples file. See \code{read_ARF_samples_file()}.}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism.}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{compare}{If you want to compare samples based on other grouping, choose the columnname that is given in samplesFile (Default=group).}
+\item{compare}{Column name in the samples file to use as the grouping variable (default:
+\code{"group"}).}
 
-\item{comparisons}{List of comparisons to be included.}
+\item{comparisons}{Named list of comparisons to include. If \code{NULL}, all pairwise
+comparisons are run.}
 
-\item{exclude}{List of sample names to be excluded from the analysis.}
+\item{exclude}{Character vector of sample names to exclude from the analysis.}
 
-\item{thresholds}{List of given threshold vectors. Every vector contains the Angstrom threshold as 1st value, Set-size threshold as 2nd, and directionality as 3rd (optional, default=FALSE).}
+\item{thresholds}{List of numeric vectors, each defining one threshold combination. Each vector
+contains: 1st value = Angstrom distance threshold, 2nd value = maximum set-size threshold,
+optional 3rd value = directionality flag (\code{TRUE}/\code{FALSE}, default: \code{FALSE}).
+If \code{NULL}, auto-calculated thresholds are used (see \code{dripARF_get_RP_proximity_sets()}).}
 
-\item{RP_proximity_df}{RP-rRNA proximity matrix that is calculated by ARF.}
+\item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
+provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
+}
+\value{
+A data.frame combining \code{dripARF_predict_heterogenity()} results across all supplied
+thresholds, with an additional \code{threshold} column identifying which threshold combination
+was used.
 }
 \description{
-This function allows you to run the whole dripARF pipeline with varying proximity thresholds
+Runs the dripARF heterogeneity prediction pipeline repeatedly for each supplied
+threshold combination, allowing assessment of result stability across different distance and
+set-size cutoffs. The output combines all runs with a \code{threshold} identifier column.
 }
 \examples{
-dripARF_threshold_test("samples.txt", "rRNAs.fa", organism="mm", thresholds=list(c(20,150),c(15,100)))
+\dontrun{
+dripARF_threshold_test("samples.txt", "rRNAs.fa", organism="mm",
+  thresholds=list(c(20,150),c(15,100)))
+}
 }
 \keyword{alternative}
 \keyword{dripARF}

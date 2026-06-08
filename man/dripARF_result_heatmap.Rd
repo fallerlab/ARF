@@ -2,7 +2,7 @@
 % Please edit documentation in R/dripARF.R
 \name{dripARF_result_heatmap}
 \alias{dripARF_result_heatmap}
-\title{Draw heatmap for multiple comparisons.}
+\title{Draw heatmap for multiple comparisons}
 \usage{
 dripARF_result_heatmap(
   dripARF_results,
@@ -16,20 +16,44 @@ dripARF_result_heatmap(
 )
 }
 \arguments{
-\item{dripARF_results}{dripARF result data.}
+\item{dripARF_results}{dripARF result data.frame as returned by \code{dripARF_predict_heterogenity()}.}
 
-\item{title}{Title for the plot and files.}
+\item{title}{Title string used for the plot and output filenames.}
 
-\item{targetDir}{Directory to save the plots in.}
+\item{targetDir}{Directory to save the PDF heatmaps in.}
 
-\item{addedRPs}{Add given RPs to the plot no matter if they are significant or not..}
+\item{addedRPs}{Character vector of RP names to always include in the plot regardless of
+significance (optional).}
+
+\item{randZscore_thr}{Numeric vector of z-score thresholds for the RPSEA NES relative to its
+randomised control sets. An RP passes this filter when its NES z-score is >= this value. Each
+element defines one threshold combination (default: \code{c(1, 1, 1.5, 0)}).}
+
+\item{ORA_adjP_thr}{Numeric vector of adjusted p-value thresholds for the over-representation
+analysis (ORA). An RP passes this filter when ORA BH-adjusted p-value <= this value (default:
+\code{c(0.05, 2, 0.05, 2)}).}
+
+\item{RPSEA_adjP_thr}{Numeric vector of adjusted p-value thresholds for the RPSEA enrichment
+score. An RP passes this filter when RPSEA BH-adjusted p-value <= this value (default:
+\code{c(0.05, 0.05, 0.05, 0.05)}).}
+
+\item{ORA_sig_n}{Numeric vector specifying the minimum number of significantly differential rRNA
+positions (ORA overlap) required for an RP to be considered (default: \code{c(1, 1, 1, 1)}).}
+}
+\value{
+Invisibly returns the last \code{ComplexHeatmap} object drawn. PDFs are saved to
+\code{targetDir} for each threshold combination.
 }
 \description{
-Draw heatmap of NES and NES_randZscore based on different thresholds.
+Draw a heatmap of RPSEA NES and NES z-scores across all comparisons, filtered by one
+or more threshold combinations. Each element of the threshold vectors defines one threshold
+combination; separate PDFs are saved for each.
 }
 \examples{
+\dontrun{
 dripARF_result_heatmap(dripARF_results, "Title", "/Folder/to/save/in/")
 dripARF_result_heatmap(dripARF_results, "Title", "/Folder/to/save/in/", randZscore_thr=1)
+}
 }
 \keyword{Differential}
 \keyword{Heatmap}

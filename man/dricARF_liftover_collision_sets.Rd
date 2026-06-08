@@ -2,7 +2,7 @@
 % Please edit documentation in R/dricARF.R
 \name{dricARF_liftover_collision_sets}
 \alias{dricARF_liftover_collision_sets}
-\title{Convert 3D Ribosome distance file to target organism through rRNA alignments!}
+\title{Lift over ribosome collision sets to a target organism via rRNA alignment}
 \usage{
 dricARF_liftover_collision_sets(
   target_species,
@@ -11,21 +11,39 @@ dricARF_liftover_collision_sets(
 )
 }
 \arguments{
-\item{target_species}{ID for the target species, i.e. mm, sc, etc.}
+\item{target_species}{ID string for the target species, e.g. \code{"dm"} (Drosophila) or any
+custom identifier.}
 
-\item{target_rRNAs_fasta}{Fasta file for the rRNAs of the target organism. Same file used in rRNA fragment alignment.}
+\item{target_rRNAs_fasta}{FASTA file for the rRNAs of the target organism. Should be the same
+file used in rRNA fragment alignment.}
 
-\item{rRNA_pairs}{List of rRNA ID pairs matching source and target rRNAs. (Use 28S, 18S, 5.8S, 5S as source ids) i.e. list(c("28S","species_28S"), c("18S","species_18S") etc.).}
+\item{rRNA_pairs}{List of 2-element character vectors matching source rRNA IDs to target rRNA
+IDs. Use \code{"28S"}, \code{"18S"}, \code{"5.8S"}, \code{"5S"} as source IDs. Example:
+\code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}.}
+}
+\value{
+A data.frame with two columns (\code{ont}, \code{gene}) containing lifted-over collision
+sets (e.g. \code{Rib.Col.}, \code{Col.Int.}, \code{sc_6I7O_SAS}, etc.) and their 99
+randomised control sets, ready for use as the \code{gsea_sets_Collision} argument in
+\code{dricARF()}.
 }
 \description{
-Align rRNAs from hs/sc and target organism, then, convert the collision sets into target organism coordinates.
+Aligns human (4V6X) and yeast (6T7I) rRNA sequences to the target organism's rRNAs
+via pairwise ClustalW alignment, then converts the built-in collision GSEA sets (SAS, Col.Int.,
+Rib.Col., etc.) to target-organism rRNA coordinates. Also generates 99 circular-shift
+randomised control sets per collision set for use in RPSEA.
 }
 \examples{
-dricARF_liftover_collision_sets("dm","drosophila_rRNAs.fa",rRNA_pairs=list(c("28S","dm_rRNA_28S"),c("18S","dm_rRNA_18S"),c("5.8S","dm_rRNA_5.8S"),c("5S","dm_rRNA_5S")))
+\dontrun{
+dricARF_liftover_collision_sets("dm", "drosophila_rRNAs.fa",
+  rRNA_pairs=list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"),
+  c("5.8S","dm_rRNA_5.8S"), c("5S","dm_rRNA_5S")))
 }
-\keyword{3D}
-\keyword{PDB}
-\keyword{analysis}
-\keyword{file}
-\keyword{ribosome}
-\keyword{using}
+}
+\seealso{
+\code{\link{dricARF}}
+}
+\keyword{collision}
+\keyword{dricARF}
+\keyword{liftover}
+\keyword{rRNA}

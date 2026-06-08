@@ -17,29 +17,45 @@ dricARF_result_scatterplot(
 )
 }
 \arguments{
-\item{dricARF_results}{Full dripARF result data.}
+\item{dricARF_results}{Full dricARF result data.frame as returned by \code{dricARF()}.}
 
-\item{targetDir}{Directory to save the plots in.}
+\item{targetDir}{Directory to save the PDF plot in.}
 
-\item{title}{Default is "dricARF (highlighted) & dripARF predictions"}
+\item{title}{Title string and base name for the output PDF (default:
+\code{"dricARF (highlighted) & dripARF predictions"}).}
 
-\item{addedRPs}{Add given RPs to the plot no matter if they are significant or not.}
+\item{addedRPs}{Character vector of RP names to always highlight regardless of significance
+(optional).}
 
-\item{highlightRPs}{List of RPs to highlight instead of highlighting the top-predicted RPs.}
+\item{highlightRPs}{Character vector of RP names to highlight instead of the top-predicted RPs
+(optional).}
 
-\item{randZscore_thr}{Default=1}
+\item{randZscore_thr}{Z-score threshold for the RPSEA NES relative to its randomised control
+sets. An RP passes this filter when its NES z-score is >= this value (default: 1).}
 
-\item{ORA_adjP_thr}{Default=0.05}
+\item{ORA_adjP_thr}{Adjusted p-value threshold for the over-representation analysis (ORA). An RP
+passes this filter when ORA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{RPSEA_adjP_thr}{Default=0.05}
+\item{RPSEA_adjP_thr}{Adjusted p-value threshold for the RPSEA enrichment score. An RP passes
+this filter when RPSEA BH-adjusted p-value <= this value (default: 0.05).}
 
-\item{ORA_sig_n}{Default=1}
+\item{ORA_sig_n}{Minimum number of significantly differential rRNA positions (ORA overlap)
+required for an RP to be considered (default: 1).}
+}
+\value{
+A \code{cowplot} grid object combining two panels. A PDF is also saved to
+\code{targetDir}.
 }
 \description{
-Draw scatterplot for GSEA and ORA analyses
+Draws a two-panel scatterplot of RPSEA NES z-score vs NES (panel 1) and vs
+\code{-log10(RPSEA.padj)} (panel 2). Ribosome-collision structural sets (SAS, Col.Int.,
+Rib.Col.) are highlighted with distinct colours, while RP heterogeneity candidates are shown
+in the background.
 }
 \examples{
-dripARF_result_scatterplot(dripARF_results, "/Folder/to/save/in/")
+\dontrun{
+dricARF_result_scatterplot(dricARF_results, "/Folder/to/save/in/")
+}
 }
 \keyword{Collisions}
 \keyword{Differential}

@@ -13,22 +13,36 @@ dripARF_read_rRNA_fragments(
 )
 }
 \arguments{
-\item{samples}{Samples dataframe created by read_ARF_samples_file() function.}
+\item{samples}{Samples dataframe created by \code{read_ARF_samples_file()}. Must contain at minimum
+columns \code{sampleName} (column 1) and the alignment file path (column 2, bedGraph or BAM).}
 
-\item{rRNAs_fasta}{Fasta file for the 4 rRNAs of the organism.}
+\item{rRNAs_fasta}{FASTA file for the rRNAs of the organism (28S, 18S, 5.8S, 5S). Sequence names
+are used as rRNA IDs in the output row names.}
 
-\item{organism}{Organism abbrevation. Pass "hs" for human, "mm" for mouse, and "sc" for yeast.}
+\item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
+\code{"sc"} for yeast.}
 
-\item{QCplot}{TRUE or FALSE, whether to generate QC plots or not.}
+\item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate a per-sample read-count violin plot
+(default: \code{FALSE}).}
 
-\item{targetDir}{Directory to save the QC plots in. (Default: working directory, getwd() output)}
+\item{targetDir}{Directory to save the QC plots in (default: \code{getwd()}).}
+}
+\value{
+A data.frame with rows = rRNA positions (row names formatted as \code{rRNA_pos}, e.g.
+\code{human_28S_1042}) and columns = sample names, containing integer read counts at each
+position. Positions with any \code{NA} value across samples are removed.
 }
 \description{
 Read bedgraph/bam files to create the rRNA count data.
 }
 \examples{
+\dontrun{
 dripARF_read_rRNA_fragments(samples_df, "rRNAs.fa", organism="hs")
 dripARF_read_rRNA_fragments(samples_df, "rRNAs.fa", organism="hs", QCplot=TRUE, targetDir="./")
+}
+}
+\seealso{
+\code{\link{dripARF_get_DESEQ_dds}}
 }
 \keyword{Reader}
 \keyword{alignment}
