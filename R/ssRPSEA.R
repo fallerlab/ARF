@@ -356,3 +356,72 @@ interaction_plotter <- function(GSEA_result_df) {
         )
   return(interaction_plot)
 }
+
+
+#' Correlate per-sample ssGSEA scores with a continuous feature using limma
+#'
+#' Continuous-covariate analogue of \code{run_limma_DE_analysis()} for the driftARF subtool.
+#' Instead of testing a discrete group contrast, it tests whether each RP set's per-sample ssGSEA
+#' activity tracks a continuous, numeric sample feature, using a moderated linear model. The feature
+#' is z-scored before fitting so the resulting slope (\code{logFC}) is a unit-free standardised
+#' effect and the weight stays comparable across features and identical in form to the dripARF
+#' ssRPSEA weight.
+#'
+#' @param ssgsea_scores Numeric matrix of ssGSEA scores (gene sets x samples), as returned by
+#'   \code{run_DESeq2_norm()}.
+#' @param samples Sample metadata data.frame. The first column holds sample names matching the
+#'   columns of \code{ssgsea_scores}; \code{features} name additional numeric columns.
+#' @param features Character vector of continuous numeric feature column names. One result block per
+#'   feature is produced; samples with a missing feature value are dropped for that feature's fit.
+#'
+#' @details Mirrors \code{run_limma_DE_analysis()}: the ssGSEA matrix is z-scored with
+#'   \code{scale()}, then for each feature a model \code{~ feature_z} is fitted with
+#'   \code{limma::lmFit} + \code{eBayes}, and the feature coefficient is extracted with
+#'   \code{topTable}. The weight is \deqn{(1 - adj.P.Val) / (1 + |logFC|)} exactly as in dripARF.
+#'
+#' @return A data.frame with columns \code{RP}, \code{comparison} (the feature name), \code{logFC}
+#'   (standardised slope of set activity vs feature), \code{adj.P.Val}, and \code{ssRPSEA.weight}.
+#'
+#' @importFrom limma lmFit eBayes topTable
+#' @keywords internal
+run_limma_cor_analysis <- function(ssgsea_scores, samples, features) {
+  clean_sample_names <- make.names(samples[[1]])
+  missing_samples <- setdiff(colnames(ssgsea_scores), clean_sample_names)
+  if (length(missing_samples) > 0) {
+    stop(sprintf(
+      "Sample(s) in ssgsea_scores not found in samples name column ('%s') after name normalisation: %s",
+      colnames(samples)[1], paste(missing_samples, collapse = ", ")
+    ))
+  }
+  missing_feats <- features[!features %in% colnames(samples)]
+  if (length(missing_feats) > 0)
+    stop(paste("Feature column(s) not found in samples:", paste(missing_feats, collapse = ", ")))
+
+  # Align samples rows to the ssGSEA score columns
+  idx <- match(colnames(ssgsea_scores), clean_sample_names)
+
+  results_list <- list()
+  for (feature in features) {
+    fv <- suppressWarnings(as.numeric(samples[[feature]][idx]))
+    keep <- !is.na(fv)
+    if (sum(keep) < 3) {
+      message(paste("Skipping ssRPSEA for feature", feature, "- fewer than 3 samples with a numeric value.\n"))
+      next
+    }
+    ssgsea_z <- scale(ssgsea_scores[, keep, drop = FALSE])
+    fz <- scale(fv[keep])[, 1]
+    design <- stats::model.matrix(~ fz)
+    fit <- limma::eBayes(limma::lmFit(ssgsea_z, design))
+    res <- limma::topTable(fit, coef = "fz", number = Inf, adjust.method = "BH")
+    res$RP <- rownames(res)
+    res$comparison <- feature
+    results_list[[feature]] <- res
+  }
+
+  if (length(results_list) == 0)
+    return(NULL)
+
+  lm_results <- do.call(rbind, results_list) |> as.data.frame()
+  lm_results$ssRPSEA.weight <- ((1 - lm_results$adj.P.Val) / (1 + abs(lm_results$logFC)))
+  return(lm_results)
+}

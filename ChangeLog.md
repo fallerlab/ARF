@@ -1,3 +1,27 @@
+## v2.3 — 2026-06-12
+
+### Added
+  - `driftARF` — **D**ynamic **RI**bosomal **F**eature **T**racking: a continuous-feature
+    subtool alongside dripARF/dricARF. Instead of contrasting discrete groups, it correlates
+    a numeric per-sample feature (a column in the samples file) with position-specific rRNA
+    fragment abundances (Pearson `r`/`p` on the VST-normalised matrix) and runs the existing
+    RPSEA + ORA engine to nominate RP heterogeneity sets, ribosome collision sets, or
+    user-given sets whose fragmentation tracks the feature. New file `R/driftARF.R`, exporting
+    `driftARF()` and `driftARF_predict_progression()`. Loops over multiple `features`; supports
+    `measureID` (`abs_cor_measure` default, `cor_measure` signed, `abs_r`, `r`),
+    `include_collision`, and reuses `dripARF_simplify_results` /
+    `dripARF_result_scatterplot` / `dripARF_result_heatmap` unchanged (the output `comp`
+    column holds the feature name).
+  - `run_limma_cor_analysis` (`R/ssRPSEA.R`): continuous-covariate analogue of
+    `run_limma_DE_analysis` for driftARF. Reuses the same per-sample ssGSEA scores
+    (`run_DESeq2_norm`) but fits set activity against the z-scored feature (`~ feature_z`)
+    instead of a group contrast, producing the driftARF `ssRPSEA.weight` and
+    `weighted.RPSEA.NES_randZ` with the identical `(1 - adj.P.Val) / (1 + |logFC|)` weight.
+    Per-feature interaction plot saved when `ssRPSEAplots = TRUE`.
+
+### Changed
+  - `DESCRIPTION`: version bumped to 2.3.
+
 ## v2.2 — 2026-05-01
 
 ### Added
