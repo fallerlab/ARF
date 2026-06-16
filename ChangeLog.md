@@ -20,6 +20,11 @@
     Per-feature interaction plot saved when `ssRPSEAplots = TRUE`.
 
 ### Changed
+  - `dripARF_get_DESEQ_dds`: `compare` now accepts `NULL`, fitting an intercept-only design
+    (`~1`); the grouping column is then neither required nor included in the DESeq2 formula.
+    `driftARF()`/`driftARF_predict_progression()` default `compare = NULL`, so driftARF runs
+    on a samples file with no `group` column (normalisation and the `blind=TRUE` VST are
+    design-independent). Pass `compare = "group"` to keep a factor in the model.
   - `DESCRIPTION`: version bumped to 2.3.
 
 ## v2.2 — 2026-05-01

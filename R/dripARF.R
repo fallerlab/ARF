@@ -112,8 +112,11 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
 #'   \code{rRNA_counts} is not supplied.
 #' @param rRNA_counts Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
 #'   (optional). If \code{NULL}, counts are read from the files listed in \code{samples}.
-#' @param compare Column name in the samples file to use as the grouping variable for DESeq2
-#'   (default: \code{"group"}).
+#' @param compare Column name in the samples file to use as the grouping variable for the DESeq2
+#'   design (default: \code{"group"}). Pass \code{compare=NULL} to fit an intercept-only design
+#'   (\code{~1}); the grouping column is then neither required nor included in the formula, which
+#'   is the appropriate choice when the object is only used for normalisation/transformation (e.g.
+#'   by \code{driftARF}).
 #' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
 #'   \code{"sc"} for yeast.
 #' @param exclude Character vector of sample names to exclude from the analysis.
@@ -149,12 +152,17 @@ dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compar
     rRNA_counts<-rRNA_counts[,samples[,1]]
   }
   
-  s_n <- unique(samples[,compare])
-  s_l <- length(s_n)
-  samples$DESEQcondition <- samples[,compare]
-  
+  if (is.null(compare)) {
+    # No grouping requested: normalise/transform with an intercept-only design.
+    # The `group` column is then neither required nor included in the DESeq2 formula.
+    design <- stats::as.formula("~1")
+  } else {
+    samples$DESEQcondition <- samples[,compare]
+    design <- stats::as.formula("~DESEQcondition")
+  }
+
   cts <- as.matrix(round(rRNA_counts, digits = 0))
-  dds <- DESeq2::DESeqDataSetFromMatrix(countData = cts, colData = samples, design = ~DESEQcondition)
+  dds <- DESeq2::DESeqDataSetFromMatrix(countData = cts, colData = samples, design = design)
   
   keep <- rowSums(DESeq2::counts(dds)) >= count_threshold*dim(samples)[1]
   dds <- dds[keep,]

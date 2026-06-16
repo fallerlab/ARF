@@ -25,8 +25,11 @@ dripARF_get_DESEQ_dds(
 \item{rRNA_counts}{Pre-computed rRNA count data.frame from \code{dripARF_read_rRNA_fragments()}
 (optional). If \code{NULL}, counts are read from the files listed in \code{samples}.}
 
-\item{compare}{Column name in the samples file to use as the grouping variable for DESeq2
-(default: \code{"group"}).}
+\item{compare}{Column name in the samples file to use as the grouping variable for the DESeq2
+design (default: \code{"group"}). Pass \code{compare=NULL} to fit an intercept-only design
+(\code{~1}); the grouping column is then neither required nor included in the formula, which
+is the appropriate choice when the object is only used for normalisation/transformation (e.g.
+by \code{driftARF}).}
 
 \item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
 \code{"sc"} for yeast.}

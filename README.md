@@ -157,14 +157,14 @@ Both functions return a data frame of predictions for all pairwise comparisons b
 
 ### Step 4 (alternative) — Track a continuous feature with driftARF
 
-When samples carry a continuous covariate (e.g. timepoint, dose, age, a measured phenotype) rather than discrete groups, add it as a numeric column in the samples file and run driftARF. The `group` column is still required (it is used only for DESeq2 normalisation):
+When samples carry a continuous covariate (e.g. timepoint, dose, age, a measured phenotype) rather than discrete groups, add it as a numeric column in the samples file and run driftARF. No `group` column is required — by default driftARF normalises with an intercept-only DESeq2 design (`~1`):
 
-| sampleName | bedGraphFile | group | pseudotime |
-|---|---|---|---|
-| s1 | path/to/s1.bedGraph | A | 1.2 |
-| s2 | path/to/s2.bedGraph | A | 3.4 |
-| s3 | path/to/s3.bedGraph | B | 6.1 |
-| s4 | path/to/s4.bedGraph | B | 9.7 |
+| sampleName | bedGraphFile | pseudotime |
+|---|---|---|
+| s1 | path/to/s1.bedGraph | 1.2 |
+| s2 | path/to/s2.bedGraph | 3.4 |
+| s3 | path/to/s3.bedGraph | 6.1 |
+| s4 | path/to/s4.bedGraph | 9.7 |
 
 ```R
 driftARF_results <- ARF::driftARF(
@@ -181,6 +181,7 @@ driftARF loops over each column named in `features`, correlates it with per-posi
 - `measureID = "cor_measure"` — signed/directional ranking (default `"abs_cor_measure"` ignores sign).
 - `include_collision = TRUE` — also score the ribosome collision sets alongside RP sets.
 - `ssRPSEAplots = TRUE` — save the per-feature `weighted.RPSEA.NES_randZ` vs `RPSEA.NES_randZ` interaction plot.
+- `compare = "group"` — include a grouping factor in the DESeq2 normalisation model (default `NULL`, i.e. an intercept-only `~1` design that needs no `group` column).
 
 The result columns match dripARF/dricARF, except `comp` holds the **feature name** (not a group contrast), and two correlation-context columns are added — `set.avg.r` / `set.avg.abs.r` (mean per-position correlation across the set). `C1.avg.read.c` / `C2.avg.read.c` here report mean normalised abundance in the below-median vs at/above-median feature halves. Because the schema is shared, `dripARF_simplify_results()`, `dripARF_result_scatterplot()`, and `dripARF_result_heatmap()` all work on driftARF output unchanged.
 

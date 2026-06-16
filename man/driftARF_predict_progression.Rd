@@ -10,7 +10,7 @@ driftARF_predict_progression(
   features,
   rRNA_counts = NULL,
   dripARF_dds = NULL,
-  compare = "group",
+  compare = NULL,
   organism = NULL,
   QCplot = FALSE,
   targetDir = NA,
@@ -37,9 +37,11 @@ features. driftARF loops over each feature and emits one result block (and CSV) 
 \item{dripARF_dds}{Pre-computed DESeq2 \code{DESeqDataSet} (optional). If \code{NULL} it is built
 from the counts.}
 
-\item{compare}{Column name used only to build the DESeq2 model for normalisation (default
-\code{"group"}). The variance-stabilising transform is run with \code{blind=TRUE} so the
-abundance scale used for correlation is not shaped by this grouping.}
+\item{compare}{Optional column name used to build the DESeq2 model for normalisation. Default
+\code{NULL} fits an intercept-only design (\code{~1}), so a \code{group} column is neither
+required nor included in the formula. Set it to a column name only if you want that factor in
+the normalisation model. Either way the variance-stabilising transform is run with
+\code{blind=TRUE}, so the abundance scale used for correlation is not shaped by the design.}
 
 \item{organism}{Organism abbreviation (\code{"hs"}, \code{"mm"}, \code{"sc"}) or \code{NULL} when
 supplying custom sets.}

@@ -89,9 +89,11 @@ driftARF_build_measure <- function(cor_df, measureID = "abs_cor_measure") {
 #'   (optional).
 #' @param dripARF_dds Pre-computed DESeq2 \code{DESeqDataSet} (optional). If \code{NULL} it is built
 #'   from the counts.
-#' @param compare Column name used only to build the DESeq2 model for normalisation (default
-#'   \code{"group"}). The variance-stabilising transform is run with \code{blind=TRUE} so the
-#'   abundance scale used for correlation is not shaped by this grouping.
+#' @param compare Optional column name used to build the DESeq2 model for normalisation. Default
+#'   \code{NULL} fits an intercept-only design (\code{~1}), so a \code{group} column is neither
+#'   required nor included in the formula. Set it to a column name only if you want that factor in
+#'   the normalisation model. Either way the variance-stabilising transform is run with
+#'   \code{blind=TRUE}, so the abundance scale used for correlation is not shaped by the design.
 #' @param organism Organism abbreviation (\code{"hs"}, \code{"mm"}, \code{"sc"}) or \code{NULL} when
 #'   supplying custom sets.
 #' @param QCplot Logical, passed to \code{dripARF_read_rRNA_fragments()} (default \code{FALSE}).
@@ -119,7 +121,7 @@ driftARF_build_measure <- function(cor_df, measureID = "abs_cor_measure") {
 #' @keywords driftARF correlation RPSEA progression
 #' @export
 driftARF_predict_progression <- function(samples, rRNAs_fasta, features, rRNA_counts = NULL, dripARF_dds = NULL,
-                                         compare = "group", organism = NULL, QCplot = FALSE, targetDir = NA,
+                                         compare = NULL, organism = NULL, QCplot = FALSE, targetDir = NA,
                                          exclude = NULL, measureID = "abs_cor_measure", ssRPSEAplots = FALSE,
                                          gsea_sets_RP = NULL, RP_proximity_df = NULL, runID = "driftARF") {
 
@@ -296,7 +298,9 @@ driftARF_predict_progression <- function(samples, rRNAs_fasta, features, rRNA_co
 #' @param samples_df Optional pre-read samples data.frame (skips reading \code{samplesFile}).
 #' @param organism Organism abbreviation: \code{"hs"}, \code{"mm"}, \code{"sc"}, or \code{NULL} when
 #'   supplying custom sets.
-#' @param compare Column used only to build the DESeq2 normalisation model (default \code{"group"}).
+#' @param compare Optional column for the DESeq2 normalisation model. Default \code{NULL} uses an
+#'   intercept-only design (\code{~1}); no \code{group} column is required. Provide a column name
+#'   only to include that factor in the normalisation model.
 #' @param QCplot Logical, whether to draw read-fragment QC plots (default \code{TRUE}).
 #' @param targetDir Output directory (default: working directory).
 #' @param exclude Character vector of sample names to exclude.
@@ -324,7 +328,7 @@ driftARF_predict_progression <- function(samples, rRNAs_fasta, features, rRNA_co
 #'          features = c("age", "tumor_grade"), organism = "mm",
 #'          targetDir = "driftARF_results/")
 #' }
-driftARF <- function(samplesFile, rRNAs_fasta, features, samples_df = NULL, organism = NULL, compare = "group",
+driftARF <- function(samplesFile, rRNAs_fasta, features, samples_df = NULL, organism = NULL, compare = NULL,
                      QCplot = TRUE, targetDir = NA, exclude = NULL, measureID = "abs_cor_measure",
                      ssRPSEAplots = FALSE, include_collision = FALSE, gsea_sets_RP = NULL, RP_proximity_df = NULL,
                      gsea_sets_Collision = NULL) {

@@ -10,7 +10,7 @@ driftARF(
   features,
   samples_df = NULL,
   organism = NULL,
-  compare = "group",
+  compare = NULL,
   QCplot = TRUE,
   targetDir = NA,
   exclude = NULL,
@@ -36,7 +36,9 @@ correlate against. One result block and CSV are produced per feature.}
 \item{organism}{Organism abbreviation: \code{"hs"}, \code{"mm"}, \code{"sc"}, or \code{NULL} when
 supplying custom sets.}
 
-\item{compare}{Column used only to build the DESeq2 normalisation model (default \code{"group"}).}
+\item{compare}{Optional column for the DESeq2 normalisation model. Default \code{NULL} uses an
+intercept-only design (\code{~1}); no \code{group} column is required. Provide a column name
+only to include that factor in the normalisation model.}
 
 \item{QCplot}{Logical, whether to draw read-fragment QC plots (default \code{TRUE}).}
 
