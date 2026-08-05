@@ -1,6 +1,13 @@
+---
+output:
+  pdf_document:
+    pandoc_args: --listings
+    includes:
+      in_header: header.tex
+---
 # Analysis of Ribosomal rRNA Fragments (ARF)
 
-This is a notebook that provides extensive documentation of the **ARF** pipeline. This documentation is divided into:
+This is a notebook that provides extensive documentation of the **ARF** pipeline. This documentation is divided in to:
 -	[Installation instructions](#Installation instructions)
 -	[Pipeline examples](#Pipeline examples)
 
@@ -18,30 +25,23 @@ devtools::install_github("fallerlab/ARF@main")
 
 Please make sure that you have the following packages installed as dripARF requires them:
 
+-   bedr
 -   DESeq2 (>= 1.30.1)
--   SummarizedExperiment
--   matrixStats
+-   clusterProfiler
+-   ComplexHeatmap
+-   enrichplot
+-   fgsea
+-   grid
 -   ggplot2
 -   ggrepel
--   scales
+-   matrixStats
 -   reshape2
--   clusterProfiler
--   fgsea
--   ComplexHeatmap
--   grid
+-   scales
+-   SummarizedExperiment
+-   tidyverse
 -   bio3d
 -   Biostrings
 -   msa
--   cowplot
--   dplyr
--   magrittr
--   readr
--   RColorBrewer
--   circlize
--   wesanderson
--   GSVA
--   limma
--   tidyr
 
 ### Package installation in R
 ```R
@@ -49,20 +49,19 @@ install.packages('renv',
 	dependencies = TRUE)
 
 ## initiate renv to manage R environment
-renv::init()
+renv.init()
 
 ## install packages in R environment
 install.packages(
-	c('renv', 'remotes', 'curl', 'ggplot2', 'ggrepel', 'scales',
-	  'reshape2', 'bio3d', 'cowplot', 'dplyr', 'magrittr', 'readr',
-	  'RColorBrewer', 'circlize', 'wesanderson', 'tidyr'),
-	dependencies = TRUE)
-
+	'renv','remotes', 'targets', 'bedr', 'curl', 'ggrepel',
+	'reshape2', 'tidyverse', 'bio3d', dependencies = TRUE)
+	
 remotes::install_bioc(
-	c('DESeq2', 'SummarizedExperiment', 'matrixStats',
-	  'clusterProfiler', 'fgsea', 'ComplexHeatmap',
-	  'msa', 'Biostrings', 'GSVA', 'limma'),
-	dependencies = TRUE)
+	c('DESeq2', 'matrixStats',
+        'clusterProfiler', 'enrichplot', 'fgsea',
+        'ComplexHeatmap',
+        'msa', 'SummarizedExperiment'),
+    dependencies = TRUE)
 
 renv::install("fallerlab/ARF@main")
 ```
@@ -77,24 +76,23 @@ renv::install("fallerlab/ARF@main")
 
 To use ARF for any organism apart from those in the ARF structure database, the user must 
 
-1. use structures from the ARF database of ribosome structures
+1. use structures from the ARF database of ribosome structures that is exactly for the organism of interest or closely related
 
-2. either have the structure of or the closest structure to the organism of interest. 
-
-
+2. have the structure of the organism of interest. 
 
 
-1.**Ribosome profiling reveals the fine-tuned response of *Escherichia coli* to mild and severe acid stress**
 
-*The response to acidity is crucial for neutralophilic bacteria.  Escherichia coli has a well characterized regulatory network to induce  multiple defense mechanisms against excess of protons. Nevertheless,  systemic studies of the transcriptional and translational reprogramming  of E. coli to different acidic strengths have not yet been performed.  Here, we used ribosome profiling and mRNA sequencing to determine the  response of E. [more...](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022)*
+**1. For an organism that is already in the structural database of ARF or an organism that is evolutionary close to the organism of interest, the PDB ID can be provided to ARF for downstream geneset generation.**
+
+**Ribosome profiling reveals the fine-tuned response of *Escherichia coli* to mild and severe acid stress**
+
+*The response to acidity is crucial for neutralophilic bacteria.  Escherichia coli has a well characterized regulatory network to induce  multiple defense mechanisms against excess of protons. Nevertheless,  systemic studies of the transcriptional and translational reprogramming  of E. coli to different acidic strengths have not yet been performed.  Here, we used ribosome profiling and mRNA sequencing to determine the  response of E.[ more...](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE219022)*
 
 *Organism: 	Escherichia coli str. K-12 substr. MG1655*
 
 
 
-For an organism that is already in the structural database of dripARF, the PDB ID can be provided to ARF for downstream geneset generation.
-
-> **Note:** Get the fasta file of the structure from PDB and use it for the alignment of the reads.
+**NB:** Get the fasta file of the structure from PDB and use it for the alignment of the reads. 
 
 
 
@@ -104,7 +102,6 @@ Where the user wants to use ribosomes in the ARF ribosome database, the PDB ID *
 ############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
 conversion_table_generator <- function(PDB_ID = NULL,
                                        ALL_PDB_RPS_edited_file = "./ARF/data-raw/ALL_PDB_RPS_edited.csv") {
-  # rRNAs_file <- "Pseudomonas/pdb/rcsb_pdb_7UNW.fasta"
   
   if(!is.null(PDB_ID)) {
     final_conversion_df <- all_pdb_rps_edited_file[all_pdb_rps_edited_file$PDB_id == PDB_ID, ] |>
@@ -156,7 +153,7 @@ rRNA_16S_6 rRNA_16S     6 123.8482 83.87247 159.3839 156.0171 146.2595 126.0625 
 
 In obtaining the final genesets, the structural fasta and the rRNA sequence pairs (the same for both source and target) are provided to **ARF_convert_Ribo3D_pos**, **dripARF_get_RP_proximity_sets** and **dricARF_liftover_collision_sets** functions
 
-> **Note:** Check for atypical (N, X, etc.) characters that may occur in the rRNA fasta file. These can generate an error in the ARF pipeline.
+**NB:** ARF automatically replaces non-IUPAC characters (e.g., X) in the rRNA FASTA with N prior to sequence alignment. No manual intervention is required.
 
 ```R
 ########### ARF_convert_Ribo3D_pos
@@ -235,7 +232,7 @@ In determining rRNA positions changes and enrichment tests to predict likely cha
 
 
 
-#### Run dricARF
+#### Run dripARF
 
 ```R
 ########## Run dricARF
@@ -249,6 +246,7 @@ dricARF_results <- ARF::dricARF(
   targetDir = "./Escherichia/ARF_results/dricARF",
   comparisons = NULL,
   exclude = NULL,
+  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision
@@ -275,74 +273,21 @@ dricARF_results <- ARF::dricARF(
 
 
 
-2.**Hfq mediates transcriptome-wide RNA structurome reprogramming under virulence-inducing conditions in a phytopathogen**
-*Although RNA structures play important roles in regulating gene expression, the mechanism and function of mRNA folding in plant bacterial pathogens remain elusive. Therefore, we perform dimethyl sulfate sequencing (DMS-seq) on the Pseudomonas syringae under nutrition-rich and deficient conditions, revealing that the mRNA structure changes substantially in the minimal medium (MM) that tunes global translation efficiency (TE), thereby inducing virulence.
-Organism:	Pseudomonas savastanoi pv. phaseolicola 1448A*
+**2. For an organism whose structure is not in the database of ARF and you want to provide a PDB structure.**
 
+**Arabidopsis HOT3/eIF5B1 constrains rRNA RNAi by facilitating 18S rRNA maturation during translation initiation**
+*Ribosome biogenesis is essential for protein synthesis in gene expression. Yeast eIF5B has been shown biochemically to facilitate 18S rRNA 3' end maturation during late-40S ribosomal subunit assembly and gate the transition from translation initiation to elongation. But the effects of eIF5B have not been studied at the genome-wide level in any organism, and 18S rRNA 3' end maturation is poorly understood in plants. Arabidopsis HOT3/eIF5B1 was found to promote development and heat-stress acclimation by translational regulation, but its molecular function remained unknown. Here, we show that HOT3 is a late-stage ribosome biogenesis factor that facilitates 18S rRNA 3' end processing and is a translation initiation factor that globally impacts the transition from initiation to elongation. By developing and implementing 18S-ENDseq, we revealed previously unknown events in 18S rRNA 3' end maturation or metabolism. We quantitatively defined new processing hotspots and identified adenylation as the prevalent non-templated RNA modification at the 3' ends of pre-18S rRNAs. Aberrant 18S rRNA maturation in hot3 further activated RNAi to generate RDR1- and DCL2/4-dependent risiRNAs mainly from a 3' portion of 18S rRNA. We further showed that risiRNAs in hot3 were predominantly localized in ribosome-free fractions not responsible for the 18S rRNA maturation or translation initiation defects in hot3. Our study uncovered the molecular function of HOT3/eIF5B1 in 18S rRNA maturation at the late-40S assembly stage and revealed the regulatory crosstalk among ribosome biogenesis, mRNA translation initiation, and siRNA biogenesis in plants. Overall design: Comparative translation profiling analysis of Ribo-seq data for inflorescence of WT, hot3-2, hot3-3 and HOT-EYFP/hot3-2
+Organism:	Arabidopsis thaliana*
 
+###### 
 
-For an organism whose structure is not in the database of ARF,
+**NB:** This is **not** automated in ARF so it has to be done manually due to inconsistencies in the PDB files. Chain names and ID tend to differ from structure to structure making it difficult to automate.
 
-**a.** use a structure of an organism in the ARF database that is evolutionary close to the organism of interest.
-
-**b**. provide a PDB structure 
-
-
-
-###### a. Using ARF ribosome structure database
-
-Where the user wants to use ribosomes in the ARF ribosome database, the PDB ID is specified in the **ARF_parse_PDB_ribosome** function to generate the distances.
-
-```R
-############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(species = "ps", PDBid = "3J9W",
-                            download_directory = "./Pseudomonas/ARF_results/")
-
-> head(RP_proximity_df)
-                rRNA resno     bL17     bL19     bL20     bL21      bL27     bL28     bL31     bL32     bL33     bL34     bL35  
-rRNA_16S_8  rRNA_16S     8 122.6946 83.35646 159.3836 157.4184 116.09391 137.6919 129.2263 134.1063 138.9464 123.1226 149.7557 
-rRNA_16S_9  rRNA_16S     9 115.0248 78.22618 149.9908 147.5692 106.17896 125.7729 123.6571 124.8846 127.8942 112.8808 138.7025 
-rRNA_16S_10 rRNA_16S    10 122.0681 82.35799 152.2817 148.5858 105.83935 129.4725 111.2955 128.2300 126.3189 120.0920 137.5317 
-rRNA_16S_11 rRNA_16S    11 113.1197 75.09033 141.9361 138.1703  95.44860 118.9757 107.1514 118.0651 116.6108 109.8239 127.5232 
-rRNA_16S_12 rRNA_16S    12 111.8091 74.61790 139.1231 135.0645  92.13528 115.3906 103.9626 115.5878 112.6200 107.5341 123.5958 
-rRNA_16S_13 rRNA_16S    13 110.4894 74.40479 136.4506 132.1372  89.05201 111.6549 101.4642 113.2292 108.7133 105.1049 119.7709 
-```
-
-```R
-LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
-  source_distance_file = "./Ribosome.3D.3J9W.ARF.minimum_distances.csv",
-  source_rRNAs_fasta = "./Pseudomonas/ARF_results/3J9W.rRNAs.fasta",
-  target_species = "ps",
-  target_rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
-  rRNA_pairs = list(c("rRNA_16S", "ps_rRNA_16S"), c("rRNA_23S", "ps_rRNA_23S"), c("rRNA_5S", "ps_rRNA_5S")),
-  source_positions = NULL,
-  source_sets = NULL,
-  type = "distances"
-)
-
-> head(LO.RP_proximity_df)
-                      rRNA resno     bL17     bL19     bL20     bL21      bL27     bL28     bL31     bL32     bL33     bL34     
-ps_rRNA_16S_6  ps_rRNA_16S     6 122.6946 83.35646 159.3836 157.4184 116.09391 137.6919 129.2263 134.1063 138.9464 123.1226 
-ps_rRNA_16S_7  ps_rRNA_16S     7 115.0248 78.22618 149.9908 147.5692 106.17896 125.7729 123.6571 124.8846 127.8942 112.8808 
-ps_rRNA_16S_8  ps_rRNA_16S     8 122.0681 82.35799 152.2817 148.5858 105.83935 129.4725 111.2955 128.2300 126.3189 120.0920 
-ps_rRNA_16S_9  ps_rRNA_16S     9 113.1197 75.09033 141.9361 138.1703  95.44860 118.9757 107.1514 118.0651 116.6108 109.8239 
-ps_rRNA_16S_10 ps_rRNA_16S    10 111.8091 74.61790 139.1231 135.0645  92.13528 115.3906 103.9626 115.5878 112.6200 107.5341 
-ps_rRNA_16S_11 ps_rRNA_16S    11 110.4894 74.40479 136.4506 132.1372  89.05201 111.6549 101.4642 113.2292 108.7133 105.1049 
-
-```
-
-
-
-###### 2. Providing a ribosome structure for your organism 
-
-> **Note:** This is **not** automated in ARF and must be done manually due to inconsistencies in PDB files. Chain names and IDs tend to differ from structure to structure, making automation difficult.
-
-Using ARF with structures not in its database requires that the different chains in the ribosome structure (from PDB) are properly associated with their standard names. This can be done by parsing the ribosome structure and mapping old names to the new ones using a conversion table that maps old names to standard ones. The conversion table (**PDB_chains_2_RP_nomenclature**) should have columns **ID**, **RP_name**, **RP_new**, and **chainID**.
+Using ARF with structures that are not inherent to it requires that the different chains in the ribosome structure (from PDB) are properly associated with their standard names. This can be done parsing the ribosome structure and the old names mapped to the new ones using a conversion of table which maps old names to the standard ones. The conversion table (**PDB_chains_2_RP_nomenclature**) should have columns **ID**, **RP_name**. **RP_new**, and **chainID**.
 
 ```R
 ############ Generating a conversion table for RPs with structural chain IDs from ARF structural database
 conversion_table_generator <- function(rRNAs_file, organism, ALL_PDB_RPS_edited_file = "./ARF/data-raw/ALL_PDB_RPS_edited.csv") {
-  # rRNAs_file <- "Pseudomonas/pdb/rcsb_pdb_7UNW.fasta"
   
   ## Read rRNA fasta of PDB structure
   rRNA_seq_set <- Biostrings::readBStringSet(rRNAs_file)
@@ -385,20 +330,21 @@ conversion_table_generator <- function(rRNAs_file, organism, ALL_PDB_RPS_edited_
 }
 
 ## Run function to get standard RP names from PDB structure names
-final_conversion_df <- conversion_table_generator(rRNAs_file = "./Pseudomonas/pdb/rcsb_pdb_7UNW.fasta",
-                            organism = "Bacillus subtilis subsp. subtilis str. 168 (224308)")
+final_conversion_df <- conversion_table_generator(rRNAs_file = "./Arabidopsis/pdb/rcsb_pdb_8B2L.fasta",
+                                                  organism = "Nicotiana tabacum") |>
+                        distinct()
                             
 > head(final_conversion_df)
        ID RP_name RP_new chainID
-1 7UNW_33     L10   uL10       I
-2 7UNW_34     L11   uL11       J
-3 7UNW_35     L13   uL13       L
-4 7UNW_36     L14   uL14       M
-5 7UNW_37     L15   uL15       N
-6 7UNW_38     L16   uL16       O
+1 8B2L_38     L13   uL13      D3
+2 8B2L_40     L15   uL15      F3
+3 8B2L_42     L19   bL19      H3
+4 8B2L_66     L23   uL23      e3
+5 8B2L_49     L29   uL29      O3
+6 8B2L_54     L34   bL34      T3
 ```
 
-> **Note:** If there is a mapping table between RP names (**ID, RP_name, RP_new**) and chainIDs, downstream functions work correctly, especially **ARF::ARF_parse_PDB_ribosome**.
+**NB:** If there is a mapping table between RP_names (**ID, RP_name, RP_new**) and chainIDs, downstream functions work fine especially for the **ARF::ARF_parse_PDB_ribosome** function.
 
 
 
@@ -406,26 +352,45 @@ After parsing the ribosome structure, the distances between the ribosomal protei
 
 ```R          
 ############ Computing the distances between RP and rRNA: ARF_parse_PDB_ribosome
-RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(species = "ps", PDBid = "7UNW",
-                            download_directory = "./Pseudomonas/ARF_results/",
-                            PDB_chains_2_RP_nomenclature = filter(final_conversion_df, !grepl("RNA", RP_name))
-)
+RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(species = "AT", PDBid = "8B2L",
+                                               download_directory = "./Arabidopsis/ARF_results/",
+                                               PDB_chains_2_RP_nomenclature = filter(final_conversion_df, !grepl("RNA", RP_name))
+                                            )
+
+> head(RP_proximity_df)
+               rRNA resno     bL19     bL34     bS16     bS18     bS21      bS6     eL13     eL15     eL19     eL29     eL34
+rRNA_18S_1 rRNA_18S     1 77.98355 111.3755 80.66826 95.53819 27.88385 65.60532 153.5121 127.2228 77.98355 130.3601 111.3755
+rRNA_18S_2 rRNA_18S     2 71.68672 104.5543 77.33179 94.14142 22.90794 72.84076 150.9881 123.0247 71.68672 130.3473 104.5543
+rRNA_18S_3 rRNA_18S     3 82.59883 109.9158 68.69656 84.00509 28.98561 73.09128 147.7250 121.6217 82.59883 124.8351 109.9158 
+rRNA_18S_4 rRNA_18S     4 80.18202 105.8229 62.25940 77.52245 32.41385 73.44756 140.6974 114.8993 80.18202 117.8812 105.8229 
+rRNA_18S_5 rRNA_18S     5 82.71370 107.0446 57.66111 72.51181 33.76687 75.84136 138.3124 113.4135 82.71370 115.3651 107.0446 
+rRNA_18S_6 rRNA_18S     6 79.25142 102.6017 53.45841 68.06296 38.13404 75.18194 131.2548 106.7126 79.25142 108.4252 102.6017 
 ```
 
-The computed distances for the rRNA positions are lifted over the organism of interest using the **ARF_convert_Ribo3D_pos** function to produce the **LO.RP_proximity_df**.
+The computed distances for the rRNA positions are lifted over the organism of interest using the **ARF_convert_Ribo3D_pos** function to produce the **LO.RP_proximity_df **.
+
 ```R
 ########### ARF_convert_Ribo3D_pos
 LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
-  source_distance_file = "./Ribosome.3D.7UNW.ARF.minimum_distances.csv",
-  source_rRNAs_fasta = "./Pseudomonas/ARF_results/7UNW.rRNAs.fasta",
-  target_species = "ps",
-  target_rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
-  rRNA_pairs = list(c("rRNA_16S", "ps_rRNA_16S"), c("rRNA_23S", "ps_rRNA_23S"), c("rRNA_5S", "ps_rRNA_5S")),
+  source_distance_file = "./Ribosome.3D.8B2L.ARF.minimum_distances.csv",
+  source_rRNAs_fasta = "./Arabidopsis/ARF_results/8B2L.rRNAs.fasta",
+  target_species = "AT",
+  target_rRNAs_fasta = "./Arabidopsis/organism/rRNA/Arabidopsis_thaliana.TAIR10.seq_20101214.mixed.ENA.23S.final.fa",
+  rRNA_pairs = list(c("rRNA_18S", "rRNA_18S"), c("rRNA_25S", "rRNA_25S"), c("rRNA_5S", "rRNA_5S")),
   source_positions = NULL,
   source_sets = NULL,
   type = "distances"
 )
 
+
+> head(LO.RP_proximity_df)
+               rRNA resno     bL19     bL34     bS16     bS18     bS21      bS6     eL13     eL15     eL19     eL29     eL34     
+rRNA_18S_1 rRNA_18S     1 77.98355 111.3755 80.66826 95.53819 27.88385 65.60532 153.5121 127.2228 77.98355 130.3601 111.3755 
+rRNA_18S_2 rRNA_18S     2 71.68672 104.5543 77.33179 94.14142 22.90794 72.84076 150.9881 123.0247 71.68672 130.3473 104.5543 
+rRNA_18S_3 rRNA_18S     3 82.59883 109.9158 68.69656 84.00509 28.98561 73.09128 147.7250 121.6217 82.59883 124.8351 109.9158 
+rRNA_18S_4 rRNA_18S     4 80.18202 105.8229 62.25940 77.52245 32.41385 73.44756 140.6974 114.8993 80.18202 117.8812 105.8229 
+rRNA_18S_5 rRNA_18S     5 82.71370 107.0446 57.66111 72.51181 33.76687 75.84136 138.3124 113.4135 82.71370 115.3651 107.0446 
+rRNA_18S_6 rRNA_18S     6 79.25142 102.6017 53.45841 68.06296 38.13404 75.18194 131.2548 106.7126 79.25142 108.4252 102.6017
 ```
 
 
@@ -434,26 +399,26 @@ LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
 
 rRNA position sets for RPs used in GSEA are finally generated with the **dripARF_get_RP_proximity_sets** function to generate the **gsea_sets_RP** dataframe.
 
-> **Note:** The sequences in the rRNA fasta file must have headers that match the entries in the `gsea_sets_RP` gene column. In this case the rRNA fasta headers should be ***>ps_rRNA_23S***, ***>ps_rRNA_16S***, or ***>ps_rRNA_5S***.
+**NB:** The sequences in the rRNA fasta file must have headers that correspond to the that in the gsea_sets_RP gene column. Therefore, in this case, the rRNA fasta should be ***>rRNA_23S*** , ***>rRNA_16S*** or ***>rRNA_5S***.
 
 ```R
 ########### dripARF_get_RP_proximity_sets
 gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
   RP_proximity_df = LO.RP_proximity_df,
   additional_RPcols = c(),
-  rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
+  rRNAs_fasta = "./Arabidopsis/organism/rRNA/Arabidopsis_thaliana.TAIR10.seq_20101214.mixed.ENA.23S.final.fa",
   thresholds = NULL,
   cap_added_RPcols = F
 )
 
 > head(gsea_sets_RP)
-   ont             gene
-1 bL17  ps_rRNA_23S_480
-2 bL17  ps_rRNA_23S_481
-3 bL17  ps_rRNA_23S_482
-4 bL17 ps_rRNA_23S_1255
-5 bL17 ps_rRNA_23S_1256
-6 bL17 ps_rRNA_23S_1257
+   ont         gene
+1 bL19 rRNA_18S_817
+2 bL19 rRNA_18S_818
+3 bL19 rRNA_18S_819
+4 bL19 rRNA_18S_820
+5 bL19 rRNA_18S_821
+6 bL19 rRNA_18S_822
 ```
 
 
@@ -462,64 +427,71 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 
 rRNA position sets for RPs used in GSEA are finally generated with the **dripARF_get_RP_proximity_sets** function to generate the **gsea_sets_RP** dataframe.
 
-> **Note:** Tweak rRNA sequence IDs in the fasta file (if they are different from what is in the *rRNA pairs*) before mapping, so that IDs correspond with the rRNA pairs used here. **"18S", "28S", and "5S"** should not change in the pair list.
+**NB:** Tweak rRNA sequence IDs in the fasta file (if they are different from the what is in the *rRNA pairs*) before mapping to so that IDs correspond with the rRNA pairs used here. **"18S", "28S", and "5S"** should not change in the pair list.
 
 ```R
 ###########  dricARF_liftover_collision_sets
 gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
-  target_species = "ps",
-  target_rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
-  rRNA_pairs = list(c("18S", "ps_rRNA_16S"), c("28S", "ps_rRNA_23S"), c("5S", "ps_rRNA_5S"))
+  target_species = "AT",
+  target_rRNAs_fasta = "./Arabidopsis/organism/rRNA/Arabidopsis_thaliana.TAIR10.seq_20101214.mixed.ENA.23S.final.fa",
+  rRNA_pairs = list(c("18S", "rRNA_18S"), c("25S", "rRNA_25S"), c("5S", "rRNA_5S"))
 )
 
-> head(gsea_sets_Collision)
-               ont            gene
-1 sc_6I7O_Col.Int. ps_rRNA_16S_296
-2 sc_6I7O_Col.Int. ps_rRNA_16S_297
-3 sc_6I7O_Col.Int. ps_rRNA_16S_298
-4 sc_6I7O_Col.Int. ps_rRNA_16S_299
-5 sc_6I7O_Col.Int. ps_rRNA_16S_300
-6 sc_6I7O_Col.Int. ps_rRNA_16S_301
+
+> tail(gsea_sets_Collision)
+                   ont               gene
+221695 Rand99_Rib.Col. rRNA_rRNA_25S_1567
+221696 Rand99_Rib.Col. rRNA_rRNA_25S_1568
+221697 Rand99_Rib.Col. rRNA_rRNA_25S_1569
+221698 Rand99_Rib.Col. rRNA_rRNA_25S_1688
+221699 Rand99_Rib.Col.    rRNA_rRNA_5S_44
+221700 Rand99_Rib.Col.    rRNA_rRNA_5S_45
 ```
 
 
 
 #### Predicting rRNA changes
+
 To predict changes in rRNA positions and position sets, the samples file which contains the name of the sample, the path to the bedgraph files and the groups used for differential analysis	
 
-|       sampleName         |bedGraphFile                          |group                         |
-|----------------|-------------------------------|-----------------------------|
-|Ribo-seq-WT-MM-1|PRJNA892464/riboseq/SRR21981107/tophat_align/accepted_hits.bedGraph|WT-MM            |
-|Ribo-seq-WT-MM-2          |PRJNA892464/riboseq/SRR21981106/tophat_align/accepted_hits.bedGraph|WT-MM |
-|Ribo-seq-WT-KB-1         |PRJNA892464/riboseq/SRR21981109/tophat_align/accepted_hits.bedGraph|WT-KB|
-|Ribo-seq-WT-KB-2         |PRJNA892464/riboseq/SRR21981108/tophat_align/accepted_hits.bedGraph|WT-KB|
+| sampleName        | bedGraphFile                                                 | group        |
+| ----------------- | ------------------------------------------------------------ | ------------ |
+| WT Ribo seq1      | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110909/tophat_align/accepted_hits.bedGraph | WT Ribo      |
+| WT Ribo seq2      | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110908/tophat_align/accepted_hits.bedGraph | WT Ribo      |
+| h32 Ribo seq1     | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110907/tophat_align/accepted_hits.bedGraph | h32 Ribo     |
+| h32 Ribo seq2     | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110906/tophat_align/accepted_hits.bedGraph | h32 Ribo     |
+| d2d4 Ribo seq1    | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110905/tophat_align/accepted_hits.bedGraph | d2d4 Ribo    |
+| d2d4 Ribo seqq2   | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110904/tophat_align/accepted_hits.bedGraph | d2d4 Ribo    |
+| h32d2d4 Ribo seq1 | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110903/tophat_align/accepted_hits.bedGraph | h32d2d4 Ribo |
+| h32d2d4 Ribo seq2 | /home/edwin/test/Arabidopsis/data/PRJNA925168/riboseq/SRR23110902/tophat_align/accepted_hits.bedGraph | h32d2d4 Ribo |
 
 #### Run dripARF
 
 ```R
 ########## Run dripARF
 dripARF_results <- ARF::dripARF(
-  samplesFile = "./Pseudomonas/data/PRJNA892464/riboseq/samples.tsv",
-  rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
+  samplesFile = "./Arabidopsis/data/PRJNA925168/riboseq/samples.tsv",
+  rRNAs_fasta = "./Arabidopsis/organism/rRNA/Arabidopsis_thaliana.TAIR10.seq_20101214.mixed.ENA.23S.final.fa",
   samples_df = NULL,
-  organism = NULL,
+  organism = "AT",
   compare = "group",
   QCplot = TRUE,
-  targetDir = "./Pseudomonas/ARF_results/dripARF",
+  targetDir = "./Arabidopsis/ARF_results/dripARF",
   comparisons = NULL,
   exclude = NULL,
+  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df
 )
 
 > head(dripARF_results)
-            comp Description ORA.overlap ORA.setSize  ORA.padj      ORA.p RPSEA.NES RPSEA.NES_randZ   RPSEA.padj   RPSEA.pval      RPSEA.q C1.avg.read.c C2.avg.read.c
-1 WT-MM_vs_WT-KB        bS18           1         103 1.0000000 0.88123005  1.360593       1.0825019 6.699161e-05 2.734351e-06 1.241679e-05      46441.02      47565.55
-2 WT-MM_vs_WT-KB        uL29           0          96 1.0000000 1.00000000  1.327863       1.1353856 3.808520e-04 2.331747e-05 9.162235e-05     348778.17    1074992.88
-3 WT-MM_vs_WT-KB        bL17          10         227 0.7648441 0.01560906  1.300683       1.2126996 2.058084e-06 4.200172e-08 2.393615e-07      43475.23      77354.52
-4 WT-MM_vs_WT-KB         uL5           0         135 1.0000000 1.00000000  1.248895       0.8168641 3.327019e-03 3.394917e-04 1.117176e-03      25554.95      29238.72
-5 WT-MM_vs_WT-KB        uL23           4         206 1.0000000 0.60626532  1.226569       0.8454657 4.434675e-04 3.620143e-05 1.370837e-04     130670.95     416735.07
-6 WT-MM_vs_WT-KB        uS11           1         178 1.0000000 0.97561035  1.179385       0.6180827 2.402107e-02 2.941356e-03 8.231266e-03      28808.16      29985.51
+                 comp Description ORA.overlap ORA.setSize     ORA.padj        ORA.p RPSEA.NES RPSEA.NES_randZ   RPSEA.padj   RPSEA.pval      RPSEA.q C1.avg.read.c C2.avg.read.c
+1 WT Ribo_vs_h32 Ribo        eL38          38          56 1.843017e-04 2.835410e-05  1.227182       0.9456723 5.703480e-03 1.316188e-03 3.941369e-03     13204.424      32137.14
+2 WT Ribo_vs_h32 Ribo         eS8          46         238 1.000000e+00 1.000000e+00  1.214294       1.1423127 8.393819e-07 4.304523e-08 4.200291e-07    150467.415     109519.60
+3 WT Ribo_vs_h32 Ribo         uS8          46         238 1.000000e+00 1.000000e+00  1.214294       1.1423127 8.393819e-07 4.304523e-08 4.200291e-07    150467.415     109519.60
+4 WT Ribo_vs_h32 Ribo        bL19         136         177 1.799458e-22 9.227991e-24  1.196394       1.2830180 7.112028e-05 7.294388e-06 3.924466e-05      6817.121      13055.40
+5 WT Ribo_vs_h32 Ribo        eL19         136         177 1.799458e-22 9.227991e-24  1.196394       1.2830180 7.112028e-05 7.294388e-06 3.924466e-05      6817.121      13055.40
+6 WT Ribo_vs_h32 Ribo        bL34         120         178 1.085809e-12 1.113650e-13  1.173411       0.8794976 6.355478e-04 1.303688e-04 5.163078e-04     94137.795     101895.72
 ```
 
 #### Run dricARF
@@ -527,27 +499,87 @@ dripARF_results <- ARF::dripARF(
 ```R
 ########## Run dricARF
 dricARF_results <- ARF::dricARF(
-  samplesFile = "./Pseudomonas/data/PRJNA892464/riboseq/samples.tsv",
-  rRNAs_fasta = "./Pseudomonas/organism/rRNA/Pseudomonas.savastanoi.fa",
+  samplesFile = "./Arabidopsis/data/PRJNA925168/riboseq/samples.tsv",
+  rRNAs_fasta = "./Arabidopsis/organism/rRNA/Arabidopsis_thaliana.TAIR10.seq_20101214.mixed.ENA.23S.final.fa",
   samples_df = NULL,
-  organism = "ps",
+  organism = "AT",
   compare = "group",
   QCplot = TRUE,
-  targetDir = "./Pseudomonas/ARF_results/dricARF",
+  targetDir = "./Arabidopsis/ARF_results/dripARF",
   comparisons = NULL,
   exclude = NULL,
+  GSEAplots = TRUE,
   gsea_sets_RP = gsea_sets_RP,
   RP_proximity_df = LO.RP_proximity_df,
   gsea_sets_Collision = gsea_sets_Collision
 )
 
 > head(dricARF_results)
-            comp Description ORA.overlap ORA.setSize  ORA.padj      ORA.p RPSEA.NES RPSEA.NES_randZ   RPSEA.padj   RPSEA.pval      RPSEA.q C1.avg.read.c C2.avg.read.c
-1 WT-MM_vs_WT-KB        bS18           1         103 1.0000000 0.88123005  1.357511       1.0823762 3.399440e-05 1.172221e-06 5.845266e-06      46441.02      47565.55
-2 WT-MM_vs_WT-KB        uL29           0          96 1.0000000 1.00000000  1.325801       1.1354463 5.588335e-04 2.890518e-05 1.153647e-04     348778.17    1074992.88
-3 WT-MM_vs_WT-KB        bL17          10         227 0.9053257 0.01560906  1.298672       1.2126787 3.862281e-06 6.659106e-08 3.982719e-07      43475.23      77354.52
-4 WT-MM_vs_WT-KB         uL5           0         135 1.0000000 1.00000000  1.244630       0.8168425 2.064576e-03 1.779807e-04 6.296391e-04      25554.95      29238.72
-5 WT-MM_vs_WT-KB        uL23           4         206 1.0000000 0.60626532  1.225220       0.8454988 8.260331e-04 5.696780e-05 2.165598e-04     130670.95     416735.07
-6 WT-MM_vs_WT-KB        uS11           1         178 1.0000000 0.97561035  1.177031       0.6181139 3.522836e-02 3.644313e-03 1.000334e-02      28808.16      29985.51
+                 comp Description ORA.overlap ORA.setSize     ORA.padj        ORA.p RPSEA.NES RPSEA.NES_randZ   RPSEA.padj   RPSEA.pval      RPSEA.q C1.avg.read.c C2.avg.read.c
+1 WT Ribo_vs_h32 Ribo        eL38          38          56 1.843017e-04 2.835410e-05  1.220301       0.9421230 5.703480e-03 1.316188e-03 3.951069e-03     13204.424      32137.14
+2 WT Ribo_vs_h32 Ribo         eS8          46         238 1.000000e+00 1.000000e+00  1.211576       1.1498347 8.393819e-07 4.304523e-08 4.210628e-07    150467.415     109519.60
+3 WT Ribo_vs_h32 Ribo         uS8          46         238 1.000000e+00 1.000000e+00  1.211576       1.1498347 8.393819e-07 4.304523e-08 4.210628e-07    150467.415     109519.60
+4 WT Ribo_vs_h32 Ribo        bL19         136         177 1.799458e-22 9.227991e-24  1.192329       1.2804162 7.112028e-05 7.294388e-06 3.934124e-05      6817.121      13055.40
+5 WT Ribo_vs_h32 Ribo        eL19         136         177 1.799458e-22 9.227991e-24  1.192329       1.2804162 7.112028e-05 7.294388e-06 3.934124e-05      6817.121      13055.40
+6 WT Ribo_vs_h32 Ribo        bL34         120         178 1.085809e-12 1.113650e-13  1.169130       0.8768647 6.355478e-04 1.303688e-04 5.175785e-04     94137.795     101895.72
 ```
 
+
+
+```R
+> sessionInfo()
+R version 4.4.2 (2024-10-31)
+Platform: x86_64-conda-linux-gnu
+Running under: Ubuntu 22.04.4 LTS
+
+Matrix products: default
+BLAS/LAPACK: /home/<user name>/mambaforge/envs/<env name>/lib/libopenblasp-r0.3.28.so;  LAPACK version 3.12.0
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C               LC_TIME=nl_NL.UTF-8        LC_COLLATE=en_US.UTF-8    
+ [5] LC_MONETARY=nl_NL.UTF-8    LC_MESSAGES=en_US.UTF-8    LC_PAPER=nl_NL.UTF-8       LC_NAME=C                 
+ [9] LC_ADDRESS=C               LC_TELEPHONE=C             LC_MEASUREMENT=nl_NL.UTF-8 LC_IDENTIFICATION=C       
+
+time zone: <region>/<city>
+tzcode source: system (glibc)
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ARF_2.1     tidyr_1.3.1 dplyr_1.1.4
+
+loaded via a namespace (and not attached):
+  [1] DBI_1.2.3                   gson_0.1.0                  rlang_1.1.4                 magrittr_2.0.3             
+  [5] clue_0.3-66                 GetoptLong_1.0.5            DOSE_4.0.0                  matrixStats_1.4.1          
+  [9] compiler_4.4.2              RSQLite_2.3.9               systemfonts_1.1.0           png_0.1-8                  
+ [13] vctrs_0.6.5                 reshape2_1.4.4              stringr_1.5.1               pkgconfig_2.0.3            
+ [17] shape_1.4.6.1               crayon_1.5.3                fastmap_1.2.0               XVector_0.46.0             
+ [21] labeling_0.4.3              utf8_1.2.4                  tzdb_0.4.0                  enrichplot_1.26.3          
+ [25] UCSC.utils_1.2.0            ragg_1.3.3                  purrr_1.0.2                 bit_4.5.0.1                
+ [29] zlibbioc_1.52.0             cachem_1.1.0                aplot_0.2.3                 GenomeInfoDb_1.42.1        
+ [33] jsonlite_1.8.9              blob_1.2.4                  DelayedArray_0.32.0         BiocParallel_1.40.0        
+ [37] parallel_4.4.2              cluster_2.1.7               R6_2.5.1                    stringi_1.8.4              
+ [41] RColorBrewer_1.1-3          GenomicRanges_1.58.0        GOSemSim_2.32.0             SummarizedExperiment_1.36.0
+ [45] Rcpp_1.0.13-1               iterators_1.0.14            ggtangle_0.0.5              R.utils_2.12.3             
+ [49] readr_2.1.5                 IRanges_2.40.1              Matrix_1.6-5                splines_4.4.2              
+ [53] igraph_2.1.2                tidyselect_1.2.1            abind_1.4-8                 qvalue_2.38.0              
+ [57] rstudioapi_0.17.1           doParallel_1.0.17           codetools_0.2-20            lattice_0.22-6             
+ [61] tibble_3.2.1                plyr_1.8.9                  bio3d_2.4-5                 withr_3.0.2                
+ [65] Biobase_2.66.0              treeio_1.30.0               KEGGREST_1.46.0             gridGraphics_0.5-1         
+ [69] circlize_0.4.16             Biostrings_2.74.0           pillar_1.9.0                ggtree_3.14.0              
+ [73] MatrixGenerics_1.18.0       renv_1.0.11                 foreach_1.5.2               stats4_4.4.2               
+ [77] clusterProfiler_4.14.4      ggfun_0.1.8                 generics_0.1.3              vroom_1.6.5                
+ [81] hms_1.1.3                   S4Vectors_0.44.0            ggplot2_3.5.1               munsell_0.5.1              
+ [85] scales_1.3.0                tidytree_0.4.6              glue_1.8.0                  lazyeval_0.2.2             
+ [89] tools_4.4.2                 data.table_1.15.4           locfit_1.5-9.10             fgsea_1.32.0               
+ [93] fs_1.6.5                    fastmatch_1.1-4             cowplot_1.1.3               grid_4.4.2                 
+ [97] ape_5.8                     AnnotationDbi_1.68.0        colorspace_2.1-1            nlme_3.1-165               
+[101] GenomeInfoDbData_1.2.13     patchwork_1.3.0             msa_1.38.0                  cli_3.6.3                  
+[105] textshaping_0.4.0           fansi_1.0.6                 S4Arrays_1.6.0              ComplexHeatmap_2.21.1      
+[109] gtable_0.3.6                R.methodsS3_1.8.2           yulab.utils_0.1.8           DESeq2_1.46.0              
+[113] digest_0.6.37               BiocGenerics_0.52.0         SparseArray_1.6.0           ggrepel_0.9.6              
+[117] ggplotify_0.1.2             rjson_0.2.23                farver_2.1.2                memoise_2.0.1              
+[121] R.oo_1.27.0                 lifecycle_1.0.4             httr_1.4.7                  GlobalOptions_0.1.2        
+[125] GO.db_3.20.0                bit64_4.5.2                              
+```

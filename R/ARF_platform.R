@@ -122,8 +122,8 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
     chainData <- PDB_chains_2_RP_nomenclature
     if(sum(c("RP_new","RP_name","chainID")%in%colnames(chainData))!=3)
       stop(paste("Given nomenclature data.frame is incomplete."))
-  } else if(PDBid %in% ARFcollide:::RP_nomenclature_map$PDB_id){
-    chainData <- ARFcollide:::RP_nomenclature_map %>% dplyr::filter(PDB_id==PDBid)
+  } else if(PDBid %in% ARF:::RP_nomenclature_map$PDB_id){
+    chainData <- ARF:::RP_nomenclature_map %>% dplyr::filter(PDB_id==PDBid)
   } else
     stop(paste("PDB_id", PDB_id, "is not within the default nomenclature, please provide nomenclature data.frame for this run."))
   
@@ -307,7 +307,10 @@ ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
   s_2_t <- list()
   for (pair in rRNA_pairs) {
     rRNAs <- source_rRNAs[pair[1]]
-    alignment <- strsplit(as.character(msa::msaClustalW(Biostrings::RNAStringSet(append(rRNAs,target_rRNAs[pair[2]])))@unmasked),
+    seqs_to_align <- append(rRNAs, target_rRNAs[pair[2]])
+    seqs_to_align <- Biostrings::BStringSet(gsub("[^ACGUTacgutRYSWKMBDHVNryswkmbdhvn-]", "N",
+                                                 as.character(seqs_to_align)))
+    alignment <- strsplit(as.character(msa::msaClustalW(Biostrings::RNAStringSet(seqs_to_align))@unmasked),
                           split="")
     # Read the alignment into S2T vector 
     s_2_t[[pair[1]]] <- rep(NA,length(alignment[[1]])) 

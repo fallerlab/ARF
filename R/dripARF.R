@@ -54,7 +54,7 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
   df <- NULL
   df <- setNames(data.frame(matrix(ncol = length(samples[,1]), nrow = sum(lengths(rRNAs_seq)),data=0)), 
                    samples[,1])
-  rownames(df) <- unname(unlist(sapply(names(rRNAs_seq), FUN = function(x){return(paste(x,(1:lengths(rRNAs_seq[x]))-1,sep = "_"))})))
+  rownames(df) <- unname(unlist(sapply(names(rRNAs_seq), FUN = function(x){return(paste(x,1:lengths(rRNAs_seq[x]),sep = "_"))})))
   
   for (i in 1:dim(samples)[1]) {
     sample <- samples[i,1]
@@ -68,7 +68,7 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
           cat(paste("\rReading the bedgraph file %",as.character(round(100*i/(dim(temp)[1]),2))))
           flush.console() 
         }
-        all <- temp$V2[i]:(temp$V3[i]-1)
+        all <- (temp$V2[i]+1):temp$V3[i]
         df[paste(temp$V1[i], all, sep = "_"), sample] = temp$V4[i]
       }
     } else if (endsWith(x = inputFile,suffix=".bam")) {
@@ -78,7 +78,7 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
           cat(paste("\rReading the bam file %",as.character(round(100*i/length(tempGrange$score),2))))
           flush.console() 
         }
-        all <- tempGrange@ranges@start[i]:(tempGrange@ranges@start[i] + tempGrange@ranges@width[i])
+        all <- tempGrange@ranges@start[i]:(tempGrange@ranges@start[i] + tempGrange@ranges@width[i] - 1)
         df[paste(tempGrange@seqnames@values[i], all, sep = "_"), sample] = tempGrange$score[i]
       }
     } else {
@@ -253,7 +253,7 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
     }
   }
   
-  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
+  RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
   
   ###############################################################
   vsd <- DESeq2::varianceStabilizingTransformation(dds, blind=FALSE)
@@ -416,7 +416,7 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     }
   }
   ## Fix this later - Exclude Randomized Control sets from report
-  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
+  RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
   
   ########## Overrepresentation Analysis ############
   RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
@@ -532,10 +532,11 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
     egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE,
                                                minGSSize = 10, maxGSSize = 10000,
                                                pvalueCutoff = 2, scoreType = scoreType)
-    egmt_used_measure@result$NES_rand_zscore <- NA
+    egmt_used_measure@result$NES_rand_zscore <- rep(NA_real_, nrow(egmt_used_measure@result))
     for (RP in RPs_toreport){
       # Change This, make it more accurate, like removing Rand_ and then check equality
-      tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP) 
+      tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
+      tochange[is.na(tochange)] <- FALSE
       egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
     }
     
@@ -978,7 +979,7 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
     }
   }
   
-  RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
+  RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
   
   prox_col = circlize::colorRamp2(c(0,26.9999,27, 50,200,300),c("black","black","grey30","grey60","grey99","white"))
   
@@ -1371,7 +1372,7 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
     ######### Gene set enrichment Analysis ############
     dripARF_results <- NULL
     ###################################################
-    RPs_toreport <- unique(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")]))
+    RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
     ########## Overrepresentation Analysis ############
     RP_pathways <- sapply(RPs_toreport,FUN=function(x){return(as.character(gsea_sets_RP$gene[gsea_sets_RP$ont==x]))})
     
@@ -1411,9 +1412,10 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
       } else {
         egmt_used_measure <- clusterProfiler::GSEA(geneList = used_geneList, TERM2GENE=gsea_sets_RP, verbose=TRUE, minGSSize = 10, maxGSSize = 10000, pvalueCutoff = 2, scoreType = "pos")
       }
-      egmt_used_measure@result$NES_rand_zscore <- NA
+      egmt_used_measure@result$NES_rand_zscore <- rep(NA_real_, nrow(egmt_used_measure@result))
       for (RP in RPs_toreport){
         tochange <- endsWith(x = egmt_used_measure@result$ID, suffix = RP)
+        tochange[is.na(tochange)] <- FALSE
         egmt_used_measure@result$NES_rand_zscore[tochange] <- scale(egmt_used_measure@result$NES[tochange])
       }
       
@@ -1505,6 +1507,9 @@ visualize_geneset <- function(organism, chain_file, RP) {
 #' dripARF_add_replicates(samples_df, rRNA_counts_df, QCplot=TRUE, targetDir="./")
 #' }
 dripARF_add_replicates <- function(samples, rRNA_counts, QCplot=FALSE, targetDir=NA) {
+  warning("dripARF_add_replicates() is an experimental feature. Pseudo-replication violates ",
+          "DESeq2 dispersion estimation assumptions and will produce anti-conservative p-values. ",
+          "Biological replicates should always be used when available.")
   group_counts <- table(samples$group)
   for (sample in samples$sampleName[samples$group%in%names(group_counts)[group_counts==1]]){
     new_sampleName <- paste0(sample,"_ADDED")

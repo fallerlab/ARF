@@ -367,11 +367,11 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
       target_residues <- yeast_2_t[[rRNA]][source_residues]
       target_residues <- target_residues[!is.na(target_residues)]
       if (length(target_residues)>0){
-        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_s2t[rRNA],target_residues,sep = "_"))
+        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_yeast2t[rRNA],target_residues,sep = "_"))
       }
     }
   }
-  
+
   human_source_positions <- sapply(c("hs_7QVP_Col.Int.", "hs_7QVP_SAS"),
                                    function(x)(return(ARF:::human_gsea_sets_Collision$gene[ARF:::human_gsea_sets_Collision$ont==x]))) 
   for (setid in names(human_source_positions)){
@@ -386,7 +386,7 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
       target_residues <- human_2_t[[rRNA]][source_residues]
       target_residues <- target_residues[!is.na(target_residues)]
       if (length(target_residues)>0){
-        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_s2t[rRNA],target_residues,sep = "_"))
+        target_positions[[setid]] <- append(target_positions[[setid]], paste(rRNA_human2t[rRNA],target_residues,sep = "_"))
       }
     }
   }
