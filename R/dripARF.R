@@ -14,6 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+.check_targetDir <- function(targetDir) {
+  if (!dir.exists(targetDir))
+    stop("targetDir '", targetDir, "' does not exist. ",
+         "Please create it first or supply an existing directory path.")
+  if (file.access(targetDir, mode = 2) != 0)
+    stop("targetDir '", targetDir, "' is not writable. ",
+         "Please check directory permissions or supply a different path.")
+}
+
 #' Read rRNA quantification from .bedGraph or .bam files
 #' @description Read bedgraph/bam files to create the rRNA count data.
 #' @param samples Samples dataframe created by \code{read_ARF_samples_file()}. Must contain at minimum
@@ -46,7 +55,8 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
   if (is.na(targetDir)){
     targetDir=getwd()
   }
-  
+  if (QCplot) .check_targetDir(targetDir)
+
   # Read source rRNAs
   rRNAs_seq <- Biostrings::readBStringSet(file = rRNAs_fasta,use.names = T)
   names(rRNAs_seq) <- sapply(sapply(names(rRNAs_seq),strsplit,split=" ",fixed=T),"[",1)
@@ -336,7 +346,8 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
   if (is.na(targetDir)){
     targetDir=getwd()
   }
-  
+  .check_targetDir(targetDir)
+
   # Read samples
   if(!is.null(exclude))
     samples <- samples[!samples[,1]%in%exclude,]
@@ -621,7 +632,9 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
       # if(measureID=="abs_GSEA_measure") {
       #   write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_dripARF_default_results.csv",sep = ""), row.names = FALSE)
       # } else {
-      write.csv(x =  GSEA_result_df, file = paste(targetDir,"/",paste(comp,collapse = "_vs_"),"_",runID,"_",measureID,"_results.csv",sep = ""), row.names = FALSE)
+      safe_comp <- gsub("[^A-Za-z0-9._-]", "_", paste(comp, collapse = "_vs_"))
+      out_file <- file.path(targetDir, paste0(safe_comp, "_", runID, "_", measureID, "_results.csv"))
+      write.csv(x = GSEA_result_df, file = out_file, row.names = FALSE)
       # }
     }
     colnames(GSEA_result_df)[(length(colnames(GSEA_result_df))-1) : length(colnames(GSEA_result_df))] <- c("C1.avg.read.c","C2.avg.read.c")
@@ -1145,7 +1158,8 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   if (is.na(targetDir)){
     targetDir=getwd()
   }
-  
+  .check_targetDir(targetDir)
+
   if(is.null(samples_df))
     samples_df <- read_ARF_samples_file(samplesFile)
   

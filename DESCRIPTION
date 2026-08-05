@@ -51,5 +51,5 @@ Imports:
 	tidyr
 Suggests:
 	HelloRanges
-Depends: 
-    R (>= 4.0)
+Depends:
+    R (>= 4.1.0)

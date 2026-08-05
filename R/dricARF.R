@@ -223,7 +223,8 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   if (is.na(targetDir)){
     targetDir=getwd()
   }
-  
+  .check_targetDir(targetDir)
+
   if(is.null(samples_df))
     samples_df <- read_ARF_samples_file(samplesFile)
   
