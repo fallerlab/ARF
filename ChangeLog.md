@@ -1,3 +1,22 @@
+## v2.2.1 — 2026-09-08
+
+### Fixed
+  - `dripARF.R`: `RPs_toreport` now wrapped in `na.omit()` at all four construction sites,
+    preventing `NA` RP names from propagating into `endsWith()` and generating all-NA
+    logical subscripts that crashed `NES_rand_zscore` assignment.
+  - `dripARF.R`: `NES_rand_zscore` column now initialised with `rep(NA_real_, nrow(...))` instead
+    of bare `NA`, fixing a zero-row data-frame replacement error when GSEA returns no
+    qualifying pathways.
+  - `dripARF.R`, `driftARF.R`: `tochange[is.na(tochange)] <- FALSE` guard added after
+    every `endsWith()` call to handle any residual `NA` entries in the logical index.
+  - `dripARF.R`, `dricARF.R`: `.check_targetDir()` helper added; called upfront in all
+    functions that write files, giving a clear error if the target directory does not
+    exist or is not writable (replaces cryptic `cannot open the connection` failure).
+  - `dripARF.R`: output CSV filenames sanitised with `gsub("[^A-Za-z0-9._-]", "_", ...)`
+    and assembled with `file.path()` to prevent invalid paths from special characters in
+    group/comparison names.
+  - `DESCRIPTION`: minimum R version declared as `R (>= 4.1.0)`.
+
 ## v2.2 — 2026-05-01
 
 ### Added
