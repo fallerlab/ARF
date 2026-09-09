@@ -281,9 +281,12 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
   human_rRNAs <- Biostrings::readBStringSet(file = system.file("extdata", "4V6X_human_rRNAs.fa", package = "ARF"), use.names = T)
   names(yeast_rRNAs) <- sapply(sapply(names(yeast_rRNAs),strsplit,split=" ",fixed=T),"[",1)
   names(human_rRNAs) <- sapply(sapply(names(human_rRNAs),strsplit,split=" ",fixed=T),"[",1)
-  
+  yeast_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(yeast_rRNAs)))
+  human_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(human_rRNAs)))
+
   target_rRNAs <- Biostrings::readBStringSet(file = target_rRNAs_fasta, use.names = T)
   names(target_rRNAs) <- sapply(sapply(names(target_rRNAs), strsplit, split=" ", fixed=T),"[",1)
+  target_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(target_rRNAs)))
   
   # Create rRNA pairs list
   yeast_rRNA_pairs=list()
