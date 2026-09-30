@@ -294,8 +294,8 @@ ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
   target_rRNAs <- Biostrings::readBStringSet(file = target_rRNAs_fasta,use.names = T)
   names(source_rRNAs) <- sapply(sapply(names(source_rRNAs),strsplit,split=" ",fixed=T),"[",1)
   names(target_rRNAs) <- sapply(sapply(names(target_rRNAs),strsplit,split=" ",fixed=T),"[",1)
-  source_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(source_rRNAs)))
-  target_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(target_rRNAs)))
+  source_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(source_rRNAs)))
+  target_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(target_rRNAs)))
   
   # Add missing rRNA pairs with the same name
   for (rRNA in names(target_rRNAs)){

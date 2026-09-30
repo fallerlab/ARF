@@ -1,0 +1,414 @@
+---
+title: "Analysis of Ribosomal rRNA Fragments (ARF) — Use Cases"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  cache   = FALSE
+)
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r load-arf}
+# Load ARF from the cloned repository (working directory = repo root)
+if (requireNamespace("devtools", quietly = TRUE)) {
+  devtools::load_all(".")
+} else {
+  library(ARF)
+}
+```
+
+```{r create-dirs}
+for (d in c(
+  "testrun/mouse_drip",
+  "testrun/mouse_dric",
+  "testrun/ecoli",
+  "testrun/ecoli/dricARF",
+  "testrun/arabidopsis",
+  "testrun/arabidopsis/dripARF",
+  "testrun/arabidopsis/dricARF"
+)) dir.create(d, showWarnings = FALSE, recursive = TRUE)
+```
+
+This notebook provides working use-case examples for the **ARF** pipeline. All paths are relative to the repository root.
+
+---
+
+# Built-in organisms — mouse (fully runnable)
+
+The repository includes mouse Ribo-seq test data aligned to the built-in mouse rRNA sequences.
+No PDB download or custom structural setup is needed.
+
+```{r mouse-drip, cache=TRUE}
+dripARF_results <- ARF::dripARF(
+  samplesFile    = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv",
+  rRNAs_fasta    = "rRNAs/mouse_rRNAs.fa",
+  organism       = "mm",
+  compare        = "group",
+  comparisons    = list(c("uL1_FLAG", "uL1_Total")),
+  QCplot         = TRUE,
+  ssRPSEAplots   = FALSE,
+  targetDir      = "testrun/mouse_drip"
+)
+
+head(dripARF_results[, c("comp","Description","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","ORA.padj")])
+```
+
+```{r mouse-dric, cache=TRUE}
+dricARF_results <- ARF::dricARF(
+  samplesFile  = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv",
+  rRNAs_fasta  = "rRNAs/mouse_rRNAs.fa",
+  organism     = "mm",
+  compare      = "group",
+  comparisons  = list(c("uL1_FLAG", "uL1_Total")),
+  QCplot       = FALSE,
+  ssRPSEAplots = FALSE,
+  targetDir    = "testrun/mouse_dric"
+)
+
+head(dricARF_results[, c("comp","Description","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","ORA.padj")])
+```
+
+---
+
+# Custom organism — PDB in ARF database (E. coli, requires internet)
+
+When the PDB ID is already in the ARF structural database (e.g. 6XZA for *E. coli*),
+no manual chain mapping is needed. The steps below download the PDB file (~50 MB),
+compute RP–rRNA distances, and generate GSEA sets ready for analysis.
+
+```{r ecoli-setup}
+ecoli_outdir <- "testrun/ecoli"
+dir.create(ecoli_outdir, showWarnings = FALSE, recursive = TRUE)
+```
+
+## Computing RP–rRNA distances: `ARF_parse_PDB_ribosome`
+
+```{r ecoli-parse, cache=TRUE}
+RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
+  species            = "ec",
+  PDBid              = "6XZA",
+  download_directory = ecoli_outdir,
+  out_prefix         = file.path(ecoli_outdir, "Ribosome.3D")
+)
+
+head(RP_proximity_df[, 1:8])
+```
+
+The rRNA names in this FASTA (used as keys in `rRNA_pairs`):
+
+```{r ecoli-rna-names}
+ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
+(ecoli_rRNA_names <- names(Biostrings::readBStringSet(ecoli_rRNAs_fasta)))
+```
+
+## Liftover distances to study organism: `ARF_convert_Ribo3D_pos`
+
+For a same-species run the source and target FASTAs are identical; the function
+still lifts coordinates through alignment, confirming no positions are lost.
+
+```{r ecoli-liftover, cache=TRUE}
+LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
+  source_distance_file = file.path(ecoli_outdir, "Ribosome.3D.6XZA.ARF.minimum_distances.csv"),
+  source_rRNAs_fasta   = ecoli_rRNAs_fasta,
+  target_species       = "ec",
+  target_rRNAs_fasta   = ecoli_rRNAs_fasta,
+  rRNA_pairs           = list(
+    c("rRNA_16S", "rRNA_16S"),
+    c("rRNA_23S", "rRNA_23S"),
+    c("rRNA_5S",  "rRNA_5S")
+  ),
+  source_positions = NULL,
+  source_sets      = NULL,
+  type             = "distances"
+)
+
+head(LO.RP_proximity_df[, 1:8])
+```
+
+## Generating RP proximity sets: `dripARF_get_RP_proximity_sets`
+
+```{r ecoli-rpsets, cache=TRUE}
+gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
+  RP_proximity_df   = LO.RP_proximity_df,
+  additional_RPcols = c(),
+  rRNAs_fasta       = ecoli_rRNAs_fasta,
+  thresholds        = NULL,
+  cap_added_RPcols  = FALSE
+)
+
+head(gsea_sets_RP)
+```
+
+## Generating collision sets: `dricARF_liftover_collision_sets`
+
+The pair list maps built-in collision-set rRNA keys ("16S", "28S", "5S") to the
+target organism's rRNA names as they appear in the study FASTA.
+
+```{r ecoli-colsets, cache=TRUE}
+gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
+  target_species     = "ec",
+  target_rRNAs_fasta = ecoli_rRNAs_fasta,
+  rRNA_pairs         = list(
+    c("16S", "rRNA_16S"),
+    c("28S", "rRNA_23S"),
+    c("5S",  "rRNA_5S")
+  )
+)
+
+tail(gsea_sets_Collision)
+```
+
+## Running dripARF / dricARF
+
+The structural objects (`LO.RP_proximity_df`, `gsea_sets_RP`, `gsea_sets_Collision`) are
+ready. Running the analysis requires Ribo-seq bedGraph files aligned to the E. coli 6XZA
+rRNA sequences — these are not included in the repository.
+
+The samples file should look like:
+
+| sampleName   | bedGraphFile | group |
+|---|---|---|
+| RIBO_pH7.6_1 | path/to/SRR22447291.bedGraph | RIBO_pH7.6 |
+| RIBO_pH5.8_1 | path/to/SRR22447288.bedGraph | RIBO_pH5.8 |
+| RIBO_pH4.4_1 | path/to/SRR22447286.bedGraph | RIBO_pH4.4 |
+
+```{r ecoli-dric, cache=TRUE}
+dricARF_results <- ARF::dricARF(
+  samplesFile         = "test_data/Escherichia_PRJNA906596/riboseq/samples.tsv",
+  rRNAs_fasta         = ecoli_rRNAs_fasta,
+  samples_df          = NULL,
+  organism            = NULL,
+  compare             = "group",
+  QCplot              = TRUE,
+  targetDir           = file.path(ecoli_outdir, "dricARF"),
+  comparisons         = NULL,
+  exclude             = NULL,
+  ssRPSEAplots        = TRUE,
+  gsea_sets_RP        = gsea_sets_RP,
+  RP_proximity_df     = LO.RP_proximity_df,
+  gsea_sets_Collision = gsea_sets_Collision
+)
+
+head(dricARF_results)
+```
+
+---
+
+# Custom organism — PDB not in ARF database (Arabidopsis)
+
+When the PDB ID is not in the ARF structural database (e.g. 8B2L for *Nicotiana tabacum* /
+*Arabidopsis*), chain names must be mapped manually via a conversion table before distances
+can be computed. The rRNA sequences can be extracted directly from the RCSB FASTA bundled
+in `test_data/`, enabling collision-set liftover without the full structural pipeline.
+
+> **NB:** Protein chain mapping is not automated due to inconsistencies across PDB files.
+> Chain names and IDs differ from structure to structure.
+
+## Extracting rRNA sequences from the PDB FASTA
+
+The RCSB FASTA for 8B2L is included in `test_data/`. rRNA chains are identified by
+their description field and renamed to the standard `rRNA_XS` convention.
+
+```{r arabidopsis-rna-extract}
+at_outdir <- "testrun/arabidopsis"
+dir.create(at_outdir, showWarnings = FALSE, recursive = TRUE)
+
+raw_fasta  <- Biostrings::readBStringSet("test_data/rcsb_pdb_8B2L.fasta")
+rRNA_idx   <- grepl("rRNA", names(raw_fasta), ignore.case = TRUE)
+rRNA_seqs  <- raw_fasta[rRNA_idx]
+
+# Rename: "...| 18S rRNA |..." → "rRNA_18S"
+names(rRNA_seqs) <- sub(".*\\|([0-9.]+S) rRNA\\|.*", "rRNA_\\1", names(rRNA_seqs))
+
+at_rRNAs_fasta <- file.path(at_outdir, "8B2L_rRNAs.fasta")
+Biostrings::writeXStringSet(rRNA_seqs, at_rRNAs_fasta)
+
+names(rRNA_seqs)
+```
+
+## Generating collision sets: `dricARF_liftover_collision_sets`
+
+With the rRNA FASTA available, collision-set liftover from human/yeast to the target
+organism runs without requiring the full structural pipeline.
+
+```{r arabidopsis-colsets, cache=TRUE}
+at_gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
+  target_species     = "AT",
+  target_rRNAs_fasta = at_rRNAs_fasta,
+  rRNA_pairs         = list(
+    c("18S", "rRNA_18S"),
+    c("25S", "rRNA_25S"),
+    c("5S",  "rRNA_5S")
+  )
+)
+
+tail(at_gsea_sets_Collision)
+```
+
+## Building a conversion table for protein chains (requires nomenclature data)
+
+To compute RP–rRNA distances via `ARF_parse_PDB_ribosome`, protein chains must be mapped
+to standard RP names. This requires the organism to be present in
+`data-raw/ALL_PDB_RPS_edited.csv`. For 8B2L (*Nicotiana tabacum*) this entry is not yet
+in the database and must be added manually.
+
+```{r arabidopsis-convtable, eval=FALSE}
+conversion_table_generator <- function(rRNAs_file, organism = NULL,
+                                       ALL_PDB_RPS_edited_file = "data-raw/ALL_PDB_RPS_edited.csv") {
+  rRNA_seq_set <- Biostrings::readBStringSet(rRNAs_file)
+
+  conversion_table <- as.data.frame(rRNA_seq_set@ranges) |>
+    dplyr::mutate(
+      ID      = sub("\\|.*", "", names),
+      RP_name = sub(".*\\]\\|(.*)\\|.*", "\\1", names),
+      chainID = paste0(sub(".*\\|(.*)\\]\\|.*", "\\1", names), "]")
+    ) |>
+    dplyr::mutate(
+      RP_name = ifelse(
+        grepl("protein|factor|initiator", RP_name),
+        sapply(strsplit(RP_name, " "), function(x) x[length(x)]),
+        sapply(strsplit(RP_name, " "), function(x) x[1])
+      ),
+      chainID = gsub("^Chain.*auth |\\]", "", chainID)
+    )
+
+  all_pdb_rps <- read.table(ALL_PDB_RPS_edited_file, sep = ",", header = TRUE)
+
+  # Try exact organism match first
+  organism_rp_df <- if (!is.null(organism))
+    dplyr::filter(all_pdb_rps, organism == !!organism)
+  else
+    data.frame()
+
+  # Fall back to the organism with the most overlapping RP names
+  if (nrow(organism_rp_df) == 0) {
+    protein_names <- conversion_table$RP_name[!grepl("rRNA", conversion_table$RP_name,
+                                                      ignore.case = TRUE)]
+    match_counts <- all_pdb_rps |>
+      dplyr::group_by(organism) |>
+      dplyr::summarize(n_match = sum(RPname %in% protein_names), .groups = "drop") |>
+      dplyr::arrange(dplyr::desc(n_match))
+    best_organism <- match_counts$organism[1]
+    message(if (!is.null(organism)) paste0("Organism '", organism, "' not found. ") else "",
+            "Using '", best_organism, "' as closest match (",
+            match_counts$n_match[1], " overlapping RP names).")
+    organism_rp_df <- dplyr::filter(all_pdb_rps, organism == best_organism)
+  }
+
+  organism_rp_df <- organism_rp_df |>
+    dplyr::mutate(
+      RPname = ifelse(grepl("rRNA", RPname), stringr::str_extract(RPname, "[0-9]+S"), RPname)
+    )
+
+  protein_rows <- dplyr::left_join(organism_rp_df[, c("RPname", "RP_new")], conversion_table,
+                                   by = dplyr::join_by(RPname == RP_name)) |>
+    dplyr::mutate(RP_name = RPname,
+                  RP_new  = dplyr::coalesce(RP_new, RP_name)) |>
+    dplyr::filter(!is.na(chainID)) |>
+    dplyr::select(ID, RP_name, RP_new, chainID)
+
+  rRNA_rows <- conversion_table |>
+    dplyr::filter(grepl("rRNA", RP_name, ignore.case = TRUE)) |>
+    dplyr::mutate(RP_new = RP_name) |>
+    dplyr::select(ID, RP_name, RP_new, chainID)
+
+  rbind(protein_rows, rRNA_rows)
+}
+
+final_conversion_df <- conversion_table_generator(
+  rRNAs_file = "test_data/rcsb_pdb_8B2L.fasta",
+  organism   = "Nicotiana tabacum"
+) |> dplyr::distinct()
+
+head(final_conversion_df)
+```
+
+## Computing distances and RP proximity sets
+
+```{r arabidopsis-parse, eval=FALSE}
+RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
+  species                      = "AT",
+  PDBid                        = "8B2L",
+  download_directory           = at_outdir,
+  out_prefix                   = file.path(at_outdir, "Ribosome.3D"),
+  PDB_chains_2_RP_nomenclature = final_conversion_df
+)
+
+head(RP_proximity_df[, 1:8])
+```
+
+```{r arabidopsis-liftover, eval=FALSE}
+LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
+  source_distance_file = file.path(at_outdir, "Ribosome.3D.8B2L.ARF.minimum_distances.csv"),
+  source_rRNAs_fasta   = file.path(at_outdir, "8B2L.rRNAs.fasta"),
+  target_species       = "AT",
+  target_rRNAs_fasta   = at_rRNAs_fasta,
+  rRNA_pairs           = list(
+    c("rRNA_18S", "rRNA_18S"),
+    c("rRNA_25S", "rRNA_25S"),
+    c("rRNA_5S",  "rRNA_5S")
+  ),
+  source_positions = NULL,
+  source_sets      = NULL,
+  type             = "distances"
+)
+
+gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
+  RP_proximity_df   = LO.RP_proximity_df,
+  additional_RPcols = c(),
+  rRNAs_fasta       = at_rRNAs_fasta,
+  thresholds        = NULL,
+  cap_added_RPcols  = FALSE
+)
+```
+
+## Running dripARF / dricARF
+
+```{r arabidopsis-dric, eval=FALSE}
+# gsea_sets_RP and LO.RP_proximity_df require ARF_parse_PDB_ribosome to have run first
+dripARF_results <- ARF::dripARF(
+  samplesFile     = "test_data/Arabidopsis_PRJNA925168/riboseq/samples.tsv",
+  rRNAs_fasta     = at_rRNAs_fasta,
+  organism        = "AT",
+  compare         = "group",
+  QCplot          = TRUE,
+  targetDir       = file.path(at_outdir, "dripARF"),
+  ssRPSEAplots    = TRUE,
+  gsea_sets_RP    = gsea_sets_RP,
+  RP_proximity_df = LO.RP_proximity_df
+)
+
+dricARF_results <- ARF::dricARF(
+  samplesFile         = "test_data/Arabidopsis_PRJNA925168/riboseq/samples.tsv",
+  rRNAs_fasta         = at_rRNAs_fasta,
+  organism            = "AT",
+  compare             = "group",
+  QCplot              = TRUE,
+  targetDir           = file.path(at_outdir, "dricARF"),
+  ssRPSEAplots        = TRUE,
+  gsea_sets_RP        = gsea_sets_RP,
+  RP_proximity_df     = LO.RP_proximity_df,
+  gsea_sets_Collision = at_gsea_sets_Collision
+)
+
+head(dricARF_results)
+```
+
+---
+
+# Session info
+
+```{r session-info}
+sessionInfo()
+```

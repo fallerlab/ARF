@@ -281,12 +281,12 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
   human_rRNAs <- Biostrings::readBStringSet(file = system.file("extdata", "4V6X_human_rRNAs.fa", package = "ARF"), use.names = T)
   names(yeast_rRNAs) <- sapply(sapply(names(yeast_rRNAs),strsplit,split=" ",fixed=T),"[",1)
   names(human_rRNAs) <- sapply(sapply(names(human_rRNAs),strsplit,split=" ",fixed=T),"[",1)
-  yeast_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(yeast_rRNAs)))
-  human_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(human_rRNAs)))
+  yeast_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(yeast_rRNAs)))
+  human_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(human_rRNAs)))
 
   target_rRNAs <- Biostrings::readBStringSet(file = target_rRNAs_fasta, use.names = T)
   names(target_rRNAs) <- sapply(sapply(names(target_rRNAs), strsplit, split=" ", fixed=T),"[",1)
-  target_rRNAs <- Biostrings::BStringSet(chartr("Tt", "Uu", as.character(target_rRNAs)))
+  target_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(target_rRNAs)))
   
   # Create rRNA pairs list
   yeast_rRNA_pairs=list()
@@ -402,11 +402,14 @@ dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, 
   # borrowed from dripARF_get_RP_proximity_sets for adding the random sets
   gsea_sets_RP <- do.call("rbind", lapply(names(target_positions), FUN = function(RP){
     tmp_df<-NULL
-    proxpos <- target_positions[[RP]]
-    
-    tmp_df <- data.frame(ont=RP,gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
+    proxpos_chars <- target_positions[[RP]]
+    proxpos <- which(paste(RP_proximity_df$rRNA, RP_proximity_df$resno, sep="_") %in% proxpos_chars)
+
+    if (length(proxpos) == 0) return(NULL)
+
+    tmp_df <- data.frame(ont=RP, gene=paste(RP_proximity_df$rRNA[proxpos], RP_proximity_df$resno[proxpos], sep = "_"))
     rands <- c((1:100)*(round(dim(RP_proximity_df)[1]/100,digits = 0)-1))
-    
+
     tmp_df <- rbind(tmp_df, as.data.frame(do.call("rbind", lapply(1:99, FUN = function(i){
       randset <- ((proxpos+rands[i]) %% (dim(RP_proximity_df)[1]))+1
       return(data.frame(ont=paste(paste("Rand",as.character(i),sep = ""),RP,sep="_"),
