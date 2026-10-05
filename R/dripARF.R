@@ -1219,19 +1219,19 @@ dripARF_get_RP_proximity_sets <- function(RP_proximity_df, additional_RPcols=c()
   gsea_sets_RP <- NULL
   RPfocus <- colnames(RP_proximity_df)[c(-1,-2)]
 
+  excludedCols <- c(-1,-2)
+  if(length(additional_RPcols) > 0){
+    excludedCols <- c(excludedCols,-additional_RPcols)
+  }
+
   if(is.null(thresholds)){
-    excludedCols <- c(-1,-2)
-    if(length(additional_RPcols) > 0){
-      excludedCols <- c(excludedCols,-additional_RPcols)
-    }
-    
     dist_thr <- quantile(RP_proximity_df[,excludedCols],0.05,na.rm = T)
     RPset_size_thr <- round(dim(RP_proximity_df)[1]*0.05)
     if(!is.null(rRNAs_fasta)){
       seq_set <- Biostrings::readBStringSet(filepath = rRNAs_fasta)
       RPset_size_thr <- sum(Biostrings::width(seq_set))*0.05
       RP_proximity_df <- RP_proximity_df[RP_proximity_df$rRNA%in%sapply(strsplit(names(seq_set),split = " "),"[",1),]
-    }  
+    }
     thresholds <- c(dist_thr,RPset_size_thr)
   }
   

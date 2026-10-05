@@ -1,6 +1,6 @@
 Package: ARF
 Title: ARF - Analysis of rRNA Fragments originating from Ribo-seq experiments
-Version: 2.2.1
+Version: 2.2.2
 Authors@R: c(
     person(given = "Ferhat",
            family = "Alkan",
@@ -18,7 +18,7 @@ Authors@R: c(
            email = "w.faller@nki.nl",
            comment = c(ORCID = "0000-0002-0738-2254"))
            )
-Description: ARF is a platform that consists multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF, dricARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity, whereas dricARF predicts abundance change in ribosome collisions across samples. Bot predictions are performed by overlapping rRNA fragment data with the 3D structure of different ribosome conformations.
+Description: ARF is a platform that consists of multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF, dricARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal heterogeneity, whereas dricARF predicts abundance change in ribosome collisions across samples. Both predictions are performed by overlapping rRNA fragment data with the 3D structure of different ribosome conformations.
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
@@ -50,6 +50,8 @@ Imports:
 	limma,
 	tidyr
 Suggests:
-	HelloRanges
+	HelloRanges,
+	testthat (>= 3.0.0)
+Config/testthat/edition: 3
 Depends:
     R (>= 4.1.0)
