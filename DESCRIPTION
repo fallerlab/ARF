@@ -48,10 +48,12 @@ Imports:
 	wesanderson,
 	GSVA,
 	limma,
-	tidyr
+	tidyr,
+	reticulate
 Suggests:
 	HelloRanges,
 	testthat (>= 3.0.0)
 Config/testthat/edition: 3
+SystemRequirements: Python (>= 3.10), Python packages: gemmi, freesasa
 Depends:
     R (>= 4.1.0)

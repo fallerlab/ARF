@@ -1,0 +1,10 @@
+sampleName	bedGraphFile	group	taggedRP	ribosomeIsolation
+RIBO_pH7.6_1	test_data/Escherichia_PRJNA906596/riboseq/SRR22447291/tophat_align/accepted_hits.bedGraph	RIBO_pH7.6	RIBO_pH7.6_col	col
+RIBO_pH5.8_1	test_data/Escherichia_PRJNA906596/riboseq/SRR22447288/tophat_align/accepted_hits.bedGraph	RIBO_pH5.8	RIBO_pH5.8_1_col	col
+RIBO_pH4.4_1	test_data/Escherichia_PRJNA906596/riboseq/SRR22447286/tophat_align/accepted_hits.bedGraph	RIBO_pH4.4	RIBO_pH4.4_1_col	col
+RIBO_pH7.6_2	test_data/Escherichia_PRJNA906596/riboseq/SRR22447285/tophat_align/accepted_hits.bedGraph	RIBO_pH7.6	RIBO_pH7.6_col	col
+RIBO_pH5.8_2	test_data/Escherichia_PRJNA906596/riboseq/SRR22447284/tophat_align/accepted_hits.bedGraph	RIBO_pH5.8	RIBO_pH5.8_2_col	col
+RIBO_pH4.4_2	test_data/Escherichia_PRJNA906596/riboseq/SRR22447283/tophat_align/accepted_hits.bedGraph	RIBO_pH4.4	RIBO_pH4.4_2_col	col
+RIBO_pH7.6_3	test_data/Escherichia_PRJNA906596/riboseq/SRR22447282/tophat_align/accepted_hits.bedGraph	RIBO_pH7.6	RIBO_pH7.6_col	col
+RIBO_pH5.8_3	test_data/Escherichia_PRJNA906596/riboseq/SRR22447281/tophat_align/accepted_hits.bedGraph	RIBO_pH5.8	RIBO_pH5.8_3_col	col
+RIBO_pH4.4_3	test_data/Escherichia_PRJNA906596/riboseq/SRR22447280/tophat_align/accepted_hits.bedGraph	RIBO_pH4.4	RIBO_pH4.4_3_col	col

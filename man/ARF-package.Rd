@@ -6,7 +6,7 @@
 \alias{ARF-package}
 \title{ARF: ARF - Analysis of rRNA Fragments originating from Ribo-seq experiments}
 \description{
-ARF is a platform that consists multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF, dricARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal hetegeneity, whereas dricARF predicts abundance change in ribosome collisions across samples. Bot predictions are performed by overlapping rRNA fragment data with the 3D structure of different ribosome conformations.
+ARF is a platform that consists of multiple methods for the analysis of rRNA fragments coming from Ribo-seq experiments. It contains the following methods; dripARF, dricARF. dripARF predicts which Ribosomal Proteins contribute the differential ribosomal heterogeneity, whereas dricARF predicts abundance change in ribosome collisions across samples. Both predictions are performed by overlapping rRNA fragment data with the 3D structure of different ribosome conformations.
 }
 \author{
 \strong{Maintainer}: Ferhat Alkan \email{feralkan@gmail.com} (\href{https://orcid.org/0000-0001-6709-9605}{ORCID})

@@ -1,0 +1,7 @@
+sampleName	bedGraphFile	group
+WT_rep1	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481528/accepted_hits_rRNA.bedGraph	WT
+WT_rep2	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481527/accepted_hits_rRNA.bedGraph	WT
+hrpA_rep1	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481526/accepted_hits_rRNA.bedGraph	hrpA
+hrpA_rep2	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481525/accepted_hits_rRNA.bedGraph	hrpA
+hrpA_smrB_rep1	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481524/accepted_hits_rRNA.bedGraph	hrpA_smrB
+hrpA_smrB_rep2	test_data/Escherichia_coli_PRJNA1126309/riboseq/SRR29481523/accepted_hits_rRNA.bedGraph	hrpA_smrB
