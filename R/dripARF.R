@@ -104,9 +104,12 @@ dripARF_read_rRNA_fragments <- function(samples, rRNAs_fasta, organism=NULL, QCp
     g1 <- ggplot2::ggplot(reshape2::melt(df), ggplot2::aes(x=variable, y=value)) +
       ggplot2::geom_violin()+ggplot2::scale_y_log10()+ggplot2::coord_flip()+
       ggplot2::ylab("Positional rRNA fragment counts (log-scale)")+ggplot2::xlab("Samples")
+    qc_height <- 3 + floor(length(samples[,1])**0.5) * 3
+    if (requireNamespace("knitr", quietly = TRUE) && !is.null(knitr::current_input()))
+      knitr::opts_current$set(fig.height = qc_height)
     print(g1)
     ggplot2::ggsave(filename = paste(targetDir, "/", "raw_rRNA_counts.png", sep = ""), plot = g1, limitsize = FALSE,
-                    width = 8, height = 3+(floor(length(samples[,1])**0.5)*3))
+                    width = 8, height = qc_height)
   }
   
   return(df[rowSums(is.na(df))==0,])
@@ -218,8 +221,8 @@ dripARF_get_DESEQ_dds <- function(samples, rRNAs_fasta, rRNA_counts=NULL, compar
 #' dripARF_report_RPset_group_counts(samples_df, "rRNAs.fa", organism="hs")
 #' }
 dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=NULL, dripARF_dds=NULL,
-                                              organism=NULL, compare="group", exclude=NULL, 
-                                              gsea_sets_RP=NULL, RP_proximity_df=NULL){
+                                              organism=NULL, compare="group", exclude=NULL,
+                                              gsea_sets_RP=NULL, RP_proximity_df=NULL, rRNA_pairs=NULL){
   
   # # Check organism first
   # if (!ARF_check_organism(organism))
@@ -243,26 +246,49 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
   samples$DESEQcondition <- samples[,compare]
   
   ###################################################
-  if(is.null(RP_proximity_df)){
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::human_gsea_sets_RP
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-    } else {
-      message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"),
-                collapse = " "))
-      return(NULL)
+  .preset_organisms <- c("hs", "mm", "sc")
+
+  if (is.null(RP_proximity_df)) {
+    if (!organism %in% .preset_organisms) {
+      stop(
+        "organism '", organism, "' is not a preset (hs / mm / sc). ",
+        "Please provide RP_proximity_df (and gsea_sets_RP) explicitly.",
+        call. = FALSE
+      )
     }
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
   }
-  
+
+  if (is.null(gsea_sets_RP)) {
+    if (!organism %in% .preset_organisms) {
+      stop(
+        "organism '", organism, "' is not a preset. Please provide gsea_sets_RP explicitly.",
+        call. = FALSE
+      )
+    }
+    gsea_sets_RP <- switch(organism,
+      hs = ARF:::human_gsea_sets_RP,
+      mm = ARF:::mouse_gsea_sets_RP,
+      sc = ARF:::yeast_gsea_sets_RP)
+  }
+
+  # --- Detect rRNA name mismatch and auto-liftover when needed ---
+  if (!is.null(rRNAs_fasta) && organism %in% .preset_organisms &&
+      .detect_rRNA_mismatch(RP_proximity_df, rRNAs_fasta)) {
+    message(
+      "rRNA names in '", basename(rRNAs_fasta), "' do not match the '", organism, "' preset. ",
+      "Running alignment-based liftover to remap coordinates. ",
+      "Supply rRNA_pairs = list(c('28S','your_name'), ...) to override auto-pairing."
+    )
+    remapped        <- .remap_rp_proximity_to_fasta(organism, RP_proximity_df, gsea_sets_RP,
+                                                     rRNAs_fasta, rRNA_pairs)
+    RP_proximity_df <- remapped$RP_proximity_df
+    gsea_sets_RP    <- remapped$gsea_sets_RP
+  }
+
   RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
   
   ###############################################################
@@ -301,7 +327,8 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #' @param compare Column name in the samples file to use as the grouping variable (default:
 #'   \code{"group"}).
 #' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-#'   \code{"sc"} for yeast.
+#'   \code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply \code{RP_proximity_df}
+#'   and \code{gsea_sets_RP} explicitly.
 #' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).
 #' @param targetDir Directory to save result CSVs and QC plots in.
 #' @param comparisons Named list of comparisons to include (each element a 2-element character
@@ -319,6 +346,11 @@ dripARF_report_RPset_group_counts <- function(samples, rRNAs_fasta, rRNA_counts=
 #'   \code{"GSEA_measure_with_p"}, \code{"GSEA_measure_with_dynamic_p"},
 #'   \code{"abs_w_GSEA_m"}, \code{"w_GSEA_m"}.
 #' @param runID Label used for output file naming (default: \code{"dripARF"}).
+#' @param rRNA_pairs Optional. List of two-element character vectors pairing source rRNA IDs to
+#'   rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+#'   Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+#'   system and you want to control the auto-pairing step. If \code{NULL} and a mismatch is
+#'   detected, \code{auto_pair_rRNAs()} is used automatically.
 #' @return A data.frame with one row per (RP, comparison) combination, with columns: \code{comp},
 #'   \code{Description} (RP name), \code{ORA.overlap}, \code{ORA.setSize}, \code{ORA.padj},
 #'   \code{ORA.p}, \code{RPSEA.NES}, \code{RPSEA.NES_randZ}, \code{RPSEA.padj}, \code{RPSEA.pval},
@@ -337,7 +369,8 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
                                          compare="group", organism=NULL, QCplot=FALSE, targetDir=NA,
                                          comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
                                          gsea_sets_RP=NULL, RP_proximity_df=NULL, optimized_run=F,
-                                         measureID="abs_GSEA_measure_with_dynamic_p", runID='dripARF') {
+                                         measureID="abs_GSEA_measure_with_dynamic_p", runID='dripARF',
+                                         rRNA_pairs=NULL) {
   # # Check organism first
   # if (!ARF_check_organism(organism))
   #   return(NA)
@@ -407,25 +440,38 @@ dripARF_predict_heterogenity <- function(samples, rRNAs_fasta, rRNA_counts=NULL,
   }
   
   ###################################################
-  if(is.null(RP_proximity_df)){
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::human_gsea_sets_RP
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-    } else {
-      message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"), 
-                collapse = " "))
-      return(NULL)
-    }
+  .preset_organisms2 <- c("hs", "mm", "sc")
+
+  if (is.null(RP_proximity_df)) {
+    if (!organism %in% .preset_organisms2)
+      stop("organism '", organism, "' is not a preset. Provide RP_proximity_df explicitly.", call. = FALSE)
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
   }
+
+  if (is.null(gsea_sets_RP)) {
+    if (!organism %in% .preset_organisms2)
+      stop("organism '", organism, "' is not a preset. Provide gsea_sets_RP explicitly.", call. = FALSE)
+    gsea_sets_RP <- switch(organism,
+      hs = ARF:::human_gsea_sets_RP,
+      mm = ARF:::mouse_gsea_sets_RP,
+      sc = ARF:::yeast_gsea_sets_RP)
+  }
+
+  if (!is.null(rRNAs_fasta) && organism %in% .preset_organisms2 &&
+      .detect_rRNA_mismatch(RP_proximity_df, rRNAs_fasta)) {
+    message(
+      "rRNA names in '", basename(rRNAs_fasta), "' do not match the '", organism, "' preset. ",
+      "Running alignment-based liftover. Supply rRNA_pairs to override auto-pairing."
+    )
+    remapped        <- .remap_rp_proximity_to_fasta(organism, RP_proximity_df, gsea_sets_RP,
+                                                     rRNAs_fasta, rRNA_pairs)
+    RP_proximity_df <- remapped$RP_proximity_df
+    gsea_sets_RP    <- remapped$gsea_sets_RP
+  }
+
   ## Fix this later - Exclude Randomized Control sets from report
   RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
   
@@ -847,7 +893,8 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
     ggplot2::geom_hline(yintercept = 0)+
     ggplot2::geom_vline(xintercept = c(1), linetype="dashed", col=cols[5])+
     ggplot2::geom_vline(xintercept = 0, col=cols[5])+
-    ggplot2::facet_grid(comp~.,scales = "free")+
+    ggplot2::facet_grid(comp~., scales = "free",
+                        labeller = ggplot2::labeller(comp = ggplot2::label_wrap_gen(25)))+
     ggplot2::geom_point(ggplot2::aes(col=ORA,shape=ES1.pass),alpha=.5)+
     ggplot2::geom_point(data = to_highlight, size=.1, inherit.aes = TRUE, col="black")+
     ggrepel::geom_text_repel(data = to_highlight, force = 3,
@@ -855,13 +902,18 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
     ggplot2::scale_color_manual(values = c(cols[3],cols[2],cols[5]))+
     ggplot2::scale_shape_manual(values = c(16,17),breaks = c(TRUE,FALSE))+
     ggplot2::theme_bw()+
+    ggplot2::theme(strip.text.y  = ggplot2::element_text(angle = 0, hjust = 0.5, size = 7),
+                   plot.margin   = ggplot2::margin(0.2, 1.8, 0.2, 0.2, "cm"))+
     ggplot2::labs(col=paste0("ORA \n padj<",as.character(ORA_adjP_thr)), shape=paste0("RPSEA\n padj<",as.character(RPSEA_adjP_thr)))+
     ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
     ggplot2::ylab("Enrichment Score 1 (RPSEA NES)")
+  n_comp       <- length(unique(dripARF_results$comp))
+  inline_height <- 4 + ceiling(n_comp * 3)
+  if (requireNamespace("knitr", quietly = TRUE) && !is.null(knitr::current_input()))
+    knitr::opts_current$set(fig.height = inline_height, fig.width = 7)
   print(g1)
   ggplot2::ggsave(plot = g1, filename = paste(targetDir, "/", title, ".pdf",sep=""),
-                  width = 5,
-                  height = 4+(ceiling(length(unique(dripARF_results$comp)))*3),limitsize = FALSE)
+                  width = 7, height = inline_height, limitsize = FALSE)
   return(g1)
 }
 
@@ -972,28 +1024,26 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
                                      abs_lFC_thr=0.5, adjP_thr=0.05, pval_thr=0.05,
                                      title="rRNA_pos_spec_heatmap", 
                                      gsea_sets_RP=NULL, RP_proximity_df=NULL){
-  if(is.null(RP_proximity_df)){
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::human_gsea_sets_RP
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-    } else {
-      message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"), 
-                collapse = " "))
-      return(NULL)
-    }
+  .po <- c("hs", "mm", "sc")
+  if (is.null(RP_proximity_df)) {
+    if (!organism %in% .po)
+      stop("organism '", organism, "' is not a preset. Provide RP_proximity_df.", call. = FALSE)
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
   }
-  
+  if (is.null(gsea_sets_RP)) {
+    if (!organism %in% .po)
+      stop("organism '", organism, "' is not a preset. Provide gsea_sets_RP.", call. = FALSE)
+    gsea_sets_RP <- switch(organism,
+      hs = ARF:::human_gsea_sets_RP,
+      mm = ARF:::mouse_gsea_sets_RP,
+      sc = ARF:::yeast_gsea_sets_RP)
+  }
+
   RPs_toreport <- unique(na.omit(as.character(gsea_sets_RP$ont[!substring(gsea_sets_RP$ont,1,3)%in%c("MRf","FDf","Ran")])))
-  
+
   prox_col = circlize::colorRamp2(c(0,26.9999,27, 50,200,300),c("black","black","grey30","grey60","grey99","white"))
   
   profileplot <- dripARF_DRF
@@ -1106,7 +1156,8 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' @param samples_df Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional;
 #'   read from \code{samplesFile} if \code{NULL}).
 #' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-#'   \code{"sc"} for yeast.
+#'   \code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply \code{RP_proximity_df}
+#'   and \code{gsea_sets_RP} explicitly.
 #' @param compare Column name in the samples file to use as the grouping variable (default:
 #'   \code{"group"}).
 #' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).
@@ -1118,6 +1169,11 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #'   provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).
 #' @param RP_proximity_df RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
 #'   provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).
+#' @param rRNA_pairs Optional. List of two-element character vectors pairing source rRNA IDs to
+#'   rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+#'   Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+#'   system and you want to control the auto-pairing step. If \code{NULL} and a mismatch is
+#'   detected, \code{auto_pair_rRNAs()} is used automatically.
 #' @return A data.frame -- the same as returned by \code{dripARF_predict_heterogenity()}. Scatter
 #'   plot and heatmap PDFs are also saved to \code{targetDir}.
 #' @seealso \code{\link{dricARF}}, \code{\link{read_ARF_samples_file}},
@@ -1128,30 +1184,39 @@ dripARF_rRNApos_heatmaps <- function(dripARF_DRF, organism, RPs, targetDir,
 #' \dontrun{
 #' dripARF("samples.txt", "rRNAs.fa", organism="mm", targetDir="/target/directory/to/save/results")
 #' }
-dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL){
-  
-  # # Check organism first
-  # if (!ARF_check_organism(organism))
-  #   return(NA)
-  if(is.null(RP_proximity_df)){
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::human_gsea_sets_RP
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-      if (is.null(gsea_sets_RP))
-        gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-    } else {
-      message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"), 
-                collapse = " "))
-      return(NULL)
-    }
+dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE, targetDir=NA,
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
+                    gsea_sets_RP=NULL, RP_proximity_df=NULL, rRNA_pairs=NULL) {
+
+  .preset_organisms <- c("hs", "mm", "sc")
+
+  if (is.null(RP_proximity_df)) {
+    if (!organism %in% .preset_organisms)
+      stop("organism '", organism, "' is not a preset (hs/mm/sc). Provide RP_proximity_df.", call. = FALSE)
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
+  }
+
+  if (is.null(gsea_sets_RP)) {
+    if (!organism %in% .preset_organisms)
+      stop("organism '", organism, "' is not a preset. Provide gsea_sets_RP.", call. = FALSE)
+    gsea_sets_RP <- switch(organism,
+      hs = ARF:::human_gsea_sets_RP,
+      mm = ARF:::mouse_gsea_sets_RP,
+      sc = ARF:::yeast_gsea_sets_RP)
+  }
+
+  if (organism %in% .preset_organisms && .detect_rRNA_mismatch(RP_proximity_df, rRNAs_fasta)) {
+    message(
+      "rRNA names in '", basename(rRNAs_fasta), "' do not match the '", organism, "' preset. ",
+      "Running alignment-based liftover. Supply rRNA_pairs to override auto-pairing."
+    )
+    remapped        <- .remap_rp_proximity_to_fasta(organism, RP_proximity_df, gsea_sets_RP,
+                                                     rRNAs_fasta, rRNA_pairs)
+    RP_proximity_df <- remapped$RP_proximity_df
+    gsea_sets_RP    <- remapped$gsea_sets_RP
   }
   
   # Assign target directory
@@ -1171,7 +1236,8 @@ dripARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
   dripARF_results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
                                                   compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
                                                   comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
-                                                  gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df)
+                                                  gsea_sets_RP=gsea_sets_RP, RP_proximity_df=RP_proximity_df,
+                                                  rRNA_pairs=rRNA_pairs)
   
   dripARF_result_scatterplot(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions")
   dripARF_result_heatmap(dripARF_results = dripARF_results, targetDir = targetDir, title = "ALL dripARF predictions",
@@ -1298,24 +1364,15 @@ dripARF_threshold_test <- function(samplesFile, rRNAs_fasta,
                                    organism=NULL, compare="group", comparisons=NULL, exclude=NULL, thresholds=NULL,
                                    RP_proximity_df=NULL){
   
-  # # Check organism first
-  # if (!ARF_check_organism(organism))
-  #   return(NA)
-  
-  if(is.null(RP_proximity_df)){
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-    } else {
-      message(paste(c("Organism", organism, "Not implemented yet! Please generate your own set of proximity matrix and RP-rRNA sets using ARF.\n"), 
-                collapse = " "))
-      return(NULL)
-    }
+  if (is.null(RP_proximity_df)) {
+    if (!organism %in% c("hs", "mm", "sc"))
+      stop("organism '", organism, "' is not a preset (hs/mm/sc). Provide RP_proximity_df.", call. = FALSE)
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
   }
-  
+
   samples <- read_ARF_samples_file(samplesFile)
   if(!is.null(exclude))
     samples <- samples[!samples[,1]%in%exclude,]

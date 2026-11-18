@@ -20,7 +20,8 @@ dripARF_predict_heterogenity(
   RP_proximity_df = NULL,
   optimized_run = F,
   measureID = "abs_GSEA_measure_with_dynamic_p",
-  runID = "dripARF"
+  runID = "dripARF",
+  rRNA_pairs = NULL
 )
 }
 \arguments{
@@ -37,7 +38,8 @@ dripARF_predict_heterogenity(
 \code{"group"}).}
 
 \item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-\code{"sc"} for yeast.}
+\code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply \code{RP_proximity_df}
+and \code{gsea_sets_RP} explicitly.}
 
 \item{QCplot}{\code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{FALSE}).}
 
@@ -64,6 +66,12 @@ reducing runtime for large datasets (default: \code{FALSE}).}
 \code{"abs_w_GSEA_m"}, \code{"w_GSEA_m"}.}
 
 \item{runID}{Label used for output file naming (default: \code{"dripARF"}).}
+
+\item{rRNA_pairs}{Optional. List of two-element character vectors pairing source rRNA IDs to
+rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+system and you want to control the auto-pairing step. If \code{NULL} and a mismatch is
+detected, \code{auto_pair_rRNAs()} is used automatically.}
 }
 \value{
 A data.frame with one row per (RP, comparison) combination, with columns: \code{comp},

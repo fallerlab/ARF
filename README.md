@@ -188,7 +188,11 @@ ARF has preset RP-rRNA proximity data for three organisms:
 
 ## Using ARF with other organisms
 
-For organisms other than human, mouse, and yeast, structural data must be prepared first using the helper functions below, then passed to `dripARF()` or `dricARF()` with `organism = NULL`.
+ARF supports two scenarios for non-standard rRNA references:
+
+**Preset organism, different rRNA FASTA** — if you use `organism = "hs"`, `"mm"`, or `"sc"` but your `rRNAs_fasta` file has sequence names that differ from the built-in preset (e.g. a custom ENSEMBL-derived FASTA instead of the bundled one), ARF detects the mismatch automatically and lifts the preset coordinate data over to your FASTA via ClustalW alignment. You will see an informational message; no extra setup is needed.
+
+**Truly novel organism** — for organisms other than human, mouse, and yeast, structural data must be prepared first using the helper functions below, then passed to `dripARF()` or `dricARF()` with `organism = NULL`.
 
 ARF includes structural data for a wide range of species (bacteria, plants, other eukaryotes). Run `ARF_check_organism("any")` to print the full list of available PDB IDs grouped by species.
 
@@ -214,9 +218,8 @@ LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
   source_rRNAs_fasta   = "./my_results/6XZA.rRNAs.fasta",
   target_species       = "ec",
   target_rRNAs_fasta   = "./my_organism/rRNAs.fa",
-  rRNA_pairs           = list(c("rRNA_16S", "ec_rRNA_16S"),
-                              c("rRNA_23S", "ec_rRNA_23S"),
-                              c("rRNA_5S",  "ec_rRNA_5S")),
+  # rRNA_pairs is auto-detected by default; supply a list of c("src","tgt")
+  # vectors here only if the automatic pairing picks the wrong partner
   type = "distances"
 )
 ```

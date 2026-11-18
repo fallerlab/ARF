@@ -13,7 +13,8 @@ dripARF_report_RPset_group_counts(
   compare = "group",
   exclude = NULL,
   gsea_sets_RP = NULL,
-  RP_proximity_df = NULL
+  RP_proximity_df = NULL,
+  rRNA_pairs = NULL
 )
 }
 \arguments{

@@ -17,7 +17,8 @@ dricARF(
   ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
   RP_proximity_df = NULL,
-  gsea_sets_Collision = NULL
+  gsea_sets_Collision = NULL,
+  rRNA_pairs = NULL
 )
 }
 \arguments{
@@ -29,7 +30,8 @@ dricARF(
 \item{samples_df}{Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional).}
 
 \item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-\code{"sc"} for yeast.}
+\code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply all three of
+\code{RP_proximity_df}, \code{gsea_sets_RP}, and \code{gsea_sets_Collision} explicitly.}
 
 \item{compare}{Column name in the samples file to use as the grouping variable (default:
 \code{"group"}).}
@@ -53,6 +55,12 @@ provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
 \item{gsea_sets_Collision}{Ribosome collision GSEA sets for dricARF enrichments (preset for
 \code{hs} and \code{sc}; provide for other organisms via
 \code{dricARF_liftover_collision_sets()}).}
+
+\item{rRNA_pairs}{Optional. List of two-element character vectors pairing source rRNA IDs to
+rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+system and you want to control the auto-pairing step. If \code{NULL} (the default) and a
+mismatch is detected, \code{auto_pair_rRNAs()} is used automatically.}
 }
 \value{
 A data.frame in the same format as returned by \code{dripARF_predict_heterogenity()},

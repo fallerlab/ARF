@@ -45,6 +45,20 @@ dir.create(ecoli_outdir, showWarnings = FALSE, recursive = TRUE)
 # first (works with miniconda / conda / micromamba), fall back to virtualenv.
 if (is.null(getOption("ARF.python.env_type")) &&
     is.null(getOption("ARF.python.path"))) {
+  # Knit spawns a fresh R process, so options set in the console are lost.
+  # Try to locate a conda/mamba/micromamba binary so conda_list() works.
+  if (is.null(getOption("reticulate.conda_binary"))) {
+    candidates <- unique(c(
+      Sys.which("conda"),
+      Sys.which("mamba"),
+      Sys.which("micromamba"),
+      path.expand("~/micromamba/bin/micromamba"),
+      path.expand("~/.local/bin/micromamba")
+    ))
+    found <- candidates[nzchar(candidates) & file.exists(candidates)]
+    if (length(found) > 0L)
+      options(reticulate.conda_binary = found[[1L]])
+  }
   env_type <- if (tryCatch(
     "sasa-python" %in% reticulate::conda_list()$name,
     error = function(e) FALSE
@@ -61,9 +75,9 @@ if (is.null(getOption("ARF.python.env_type")) &&
 
 ARF builds gene sets that capture which parts of the rRNA are positioned at the collision interface of collided ribosomes. Two complementary approaches are used:
 
-**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. Residues whose solvent-accessible surface area differs substantially between the two chains in the disome are considered buried at the interface. This is sensitive to concave pockets and buried contacts.
+**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. For each rRNA residue the differential SASA (max − min across the two chains) is z-transformed; positions with z > 1.64 (top ~5 %) are selected as buried at the interface. Each selected position is then extended by ±1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
 
-**Col.Int. sets** are based on **3D proximity**. Residues on rRNA within a distance threshold of another rRNA atom are taken as interface residues. This is a direct geometric measurement.
+**Col.Int. sets** are based on **3D proximity**. For each rRNA residue the minimum distance to any ribosomal-protein atom is computed. Residues in the closest 5th percentile are selected, then extended by ±1 nt in rRNA coordinate space. This is a direct geometric measurement.
 
 Both sets are expressed in GSEA format — a `data.frame` with columns `ont` (set name) and `gene` (residue identifier such as `ec_23S_rRNA_145`) — and are designed to be passed to `dricARF()` as `gsea_sets_Collision`.
 
@@ -135,20 +149,10 @@ target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "AR
 if (!nzchar(target_rRNAs_fasta))
   target_rRNAs_fasta <- "inst/extdata/EscherichiaColi.fa"   # dev fallback
 
-# rRNA_pairs maps each rRNA in the structure FASTA to its name in
-# target_rRNAs_fasta. Names on the left get the target_species prefix applied
-# (e.g. "5S_ribosomal_RNA" becomes "ec_5S_ribosomal_RNA" with target_species="ec").
-rRNA_pairs <- list(
-  c("ec_5S_ribosomal_RNA",  "ec_5S_rRNA"),
-  c("ec_23S_RNA",           "ec_23S_rRNA"),
-  c("ec_16S_ribosomal_RNA", "ec_16S_rRNA")
-)
-
 collision_sets <- ARF::ARF_build_collision_sets(
   PDBid              = "9GFT",
   target_species     = "ec",
   target_rRNAs_fasta = target_rRNAs_fasta,
-  rRNA_pairs         = rRNA_pairs,
   output_dir         = outdir,
   algorithm          = "LeeRichards",
   probe_radius       = 10,
@@ -284,15 +288,9 @@ sasa_df <- ARF_build_SASA_candidates(
 
 ### Step 3 — Build Rib.Col. gene sets
 
-`rRNA_pairs` maps each rRNA name in the structure rRNA FASTA to its name in your reference FASTA used for Ribo-seq mapping:
+`rRNA_pairs` is optional — by default (`rRNA_pairs = NULL`) each source rRNA is paired automatically with the highest-scoring global-alignment target rRNA. Supply it explicitly only when the auto-detection picks the wrong partner.
 
 ```{r eval=FALSE}
-rRNA_pairs <- list(
-  c("ec_5S_ribosomal_RNA",  "ec_5S_rRNA"),
-  c("ec_23S_RNA",           "ec_23S_rRNA"),
-  c("ec_16S_ribosomal_RNA", "ec_16S_rRNA")
-)
-
 target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "ARF")
 if (!nzchar(target_rRNAs_fasta))
   target_rRNAs_fasta <- "inst/extdata/EscherichiaColi.fa"   # dev fallback
@@ -300,8 +298,7 @@ if (!nzchar(target_rRNAs_fasta))
 RibCol.gsea_sets <- ARF::dricARF_build_SASA_set(
   sasa_df            = sasa_df,
   rRNAs_file         = rRNAs_file_clean,
-  target_rRNAs_fasta = target_rRNAs_fasta,
-  rRNA_pairs         = rRNA_pairs
+  target_rRNAs_fasta = target_rRNAs_fasta
 )
 ```
 
@@ -321,8 +318,7 @@ Col.gsea_set <- ARF_build_ColInt_set(
   rRNAs               = paste(target_species, rRNAs, sep = "_"),
   duplication_resolve = min,          # how to merge multiple chains per RP
   target_species      = target_species,
-  target_rRNAs_fasta  = target_rRNAs_fasta,
-  rRNA_pairs          = rRNA_pairs
+  target_rRNAs_fasta  = target_rRNAs_fasta
 )
 ```
 
@@ -354,6 +350,8 @@ To run `dricARF()`, three inputs must share the same rRNA coordinate system — 
 
 The E. coli test data (`test_data/Escherichia_PRJNA906596`) was aligned to `6XZA.rRNAs.fasta` (sequence names `rRNA_16S`, `rRNA_23S`, `rRNA_5S`). All three inputs must use this same reference.
 
+> **Preset organisms (hs / mm / sc):** if you are using a preset organism but your `rRNAs_fasta` has different sequence names from the built-in preset, `dricARF()` and `dripARF()` detect this automatically and lift the preset coordinate data to your FASTA via ClustalW alignment. You will see an informational message; no manual step is needed.
+
 ### Build RP proximity sets
 
 ```{r ecoli-rp-proximity, cache=TRUE}
@@ -367,18 +365,13 @@ RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
   out_prefix         = file.path(ecoli_outdir, "Ribosome.3D")
 )
 
-# Source and target FASTA are the same — 1:1 position mapping, no coordinate shift
+# Source and target FASTA are the same — auto-pairing will produce 1:1 identity pairs
 LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
   source_distance_file = file.path(ecoli_outdir, "Ribosome.3D.6XZA.ARF.minimum_distances.csv"),
   source_rRNAs_fasta   = ecoli_rRNAs_fasta,
   target_species       = "ec",
   target_rRNAs_fasta   = ecoli_rRNAs_fasta,
-  rRNA_pairs           = list(
-    c("rRNA_16S", "rRNA_16S"),
-    c("rRNA_23S", "rRNA_23S"),
-    c("rRNA_5S",  "rRNA_5S")
-  ),
-  source_positions = NULL, source_sets = NULL, type = "distances"
+  source_positions     = NULL, source_sets = NULL, type = "distances"
 )
 
 gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
@@ -392,18 +385,10 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 The Quick Start built `gsea_sets_Collision` targeting `EscherichiaColi.fa` (gene names like `ec_23S_rRNA_489`). For prediction the bedGraph chromosome names are `rRNA_16S`, `rRNA_23S`, `rRNA_5S` — so the gene sets must use those names too. Rebuild targeting `6XZA.rRNAs.fasta`; the slow SASA step is skipped automatically because `overwrite = FALSE` reuses the existing TSV:
 
 ```{r collision-sets-pred}
-# rRNA_pairs maps 9GFT rRNA names → 6XZA.rRNAs.fasta names
-rRNA_pairs_pred <- list(
-  c("ec_5S_ribosomal_RNA",  "rRNA_5S"),
-  c("ec_23S_RNA",           "rRNA_23S"),
-  c("ec_16S_ribosomal_RNA", "rRNA_16S")
-)
-
 collision_sets_pred <- ARF::ARF_build_collision_sets(
   PDBid              = "9GFT",
   target_species     = "ec",
   target_rRNAs_fasta = ecoli_rRNAs_fasta,
-  rRNA_pairs         = rRNA_pairs_pred,
   output_dir         = outdir,
   overwrite          = FALSE
 )
@@ -436,9 +421,11 @@ The structure should be a **near-complete ribosome complex** in `.cif` format. S
 
 Pass the four-letter PDB ID to `ARF_build_collision_sets()` or `ARF_run_SASA()` and files are downloaded automatically. To reuse a local file, pass its path as `PDB_file`.
 
-### Building rRNA_pairs
+### rRNA pairing (auto-detect vs. manual)
 
-`rRNA_pairs` is a list of two-element character vectors:
+By default (`rRNA_pairs = NULL`) the pipeline calls `auto_pair_rRNAs()` to pair structure rRNAs with reference rRNAs automatically: each source sequence is globally aligned against every target sequence and the best-scoring match is selected. This works reliably when the rRNAs differ in length (5S ≈ 120 nt, 16S/18S ≈ 1500 nt, 23S/25S/28S ≈ 2900 nt), because global alignment score is an unambiguous discriminator.
+
+To override, supply `rRNA_pairs` explicitly as a list of two-element character vectors:
 
 ```
 list(
@@ -447,7 +434,7 @@ list(
 )
 ```
 
-The first element must match (after `target_species`-prefixing) a `names(rRNA_seqs)` entry from `ARF_parse_structure_fasta()`. The second element must match a sequence header in `target_rRNAs_fasta`. Typically these correspond to the rRNA molecules whose positions you want to report in reference coordinates.
+The first element must match (after `target_species`-prefixing) a `names(rRNA_seqs)` entry from `ARF_parse_structure_fasta()`. The second element must match a sequence header in `target_rRNAs_fasta`.
 
 ### The conversion table
 
@@ -476,7 +463,7 @@ ARF_build_collision_sets(
   PDBid,
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs,
+  rRNA_pairs           = NULL,
   PDB_file             = NULL,
   fasta_file           = NULL,
   output_dir           = getwd(),
@@ -581,10 +568,10 @@ Generates **Rib.Col.** gene sets from SASA burial data, aligned to reference rRN
 
 ```{r eval=FALSE}
 dricARF_build_SASA_set(
-  sasa_df,            # output of ARF_build_SASA_candidates()
-  rRNAs_file,         # path to the rRNA FASTA (from Step 1)
-  target_rRNAs_fasta, # path to reference genome rRNA FASTA
-  rRNA_pairs          # list of c("pdb_name", "ref_name") pairs
+  sasa_df,                    # output of ARF_build_SASA_candidates()
+  rRNAs_file,                 # path to the rRNA FASTA (from Step 1)
+  target_rRNAs_fasta,         # path to reference genome rRNA FASTA
+  rRNA_pairs = NULL           # auto-detected; supply to override
 )
 ```
 
@@ -600,12 +587,12 @@ ARF_build_ColInt_set(
   PDB_file,
   conversion_table,
   PDBid,
-  out_prefix,          # file-path prefix for intermediate outputs
-  rRNAs,               # character vector: paste(target_species, rRNAs, sep="_")
-  duplication_resolve, # function: min / max / mean
+  out_prefix,               # file-path prefix for intermediate outputs
+  rRNAs,                    # character vector: paste(target_species, rRNAs, sep="_")
+  duplication_resolve,      # function: min / max / mean
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs
+  rRNA_pairs = NULL         # auto-detected; supply to override
 )
 ```
 
@@ -683,7 +670,7 @@ The main bottleneck is the FreeSASA Python call. For a full 70S ribosome with `p
 
 If `dricARF_build_SASA_set()` returns an empty table:
 
-1. Check that `rRNA_pairs` names match `names(rRNA_seqs)` and headers in `target_rRNAs_fasta` exactly (case-sensitive).
+1. If using auto-detection, check the pairing messages printed by `auto_pair_rRNAs()`. If a pair is wrong, supply `rRNA_pairs` explicitly. If supplying manually, check that names match `names(rRNA_seqs)` and headers in `target_rRNAs_fasta` exactly (case-sensitive).
 2. Verify that the SASA `.tsv` contains rows for the expected chain IDs.
 3. Run `ARF_build_SASA_candidates()` and inspect `sasa_df` before proceeding.
 

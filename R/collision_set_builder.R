@@ -247,8 +247,8 @@ ARF_run_SASA <- function(
 #' Build SASA candidate residue set from SASA annotations
 #'
 #' Reads the TSV produced by \code{\link{ARF_run_SASA}}, labels each residue
-#' with its rRNA identity, and returns the top residues by SASA difference
-#' across chains, capped at 10 % of unique positions or 500 residues.
+#' with its rRNA identity, and returns residues where the z-transformed
+#' differential SASA (max - min across chains) exceeds 1.64 (top ~5 %).
 #'
 #' @param output_file   Path to the SASA TSV (written by \code{ARF_run_SASA}).
 #' @param rRNAs         Character vector of rRNA entity description names.
@@ -290,9 +290,16 @@ ARF_build_SASA_candidates <- function(output_file, rRNAs, target_species) {
         )
 
     # -- Compute per-residue SASA range across chains
-    temp_sasa_df <- sasa_df |>
+    rRNA_rows <- sasa_df |>
         dplyr::select(entity_description, auth_seq_id, auth_chain, rRNA, sasa_A2) |>
-        dplyr::filter(!is.na(rRNA), !is.na(sasa_A2)) |>
+        dplyr::filter(!is.na(rRNA), !is.na(sasa_A2))
+
+    if (nrow(rRNA_rows) == 0L) {
+        return(data.frame(rRNA = character(), auth_seq_id = character(),
+                          sasa_A2_diff = numeric(), stringsAsFactors = FALSE))
+    }
+
+    temp_sasa_df <- rRNA_rows |>
         dplyr::group_by(rRNA, auth_seq_id) |>
         dplyr::reframe(
             sasa_A2_diff = max(sasa_A2) - min(sasa_A2),
@@ -300,27 +307,13 @@ ARF_build_SASA_candidates <- function(output_file, rRNAs, target_species) {
         ) |>
         as.data.frame()
 
-    # Cap gene set at 10 % of unique positions or 500, whichever is smaller.
-    sasa_max_set_size <- min(
-        round(nrow(dplyr::distinct(temp_sasa_df, rRNA, auth_seq_id)) * 0.1),
-        500L
-    )
-
     # Residues with sasa_A2_diff > 0 are differentially exposed across chains —
     # in a collision disome one copy is buried at the interface while the other
-    # is not. These are the collision interface candidates. The top-N cap below
-    # then keeps only the most differentially exposed positions.
-    sasa_set_temp <- temp_sasa_df |>
+    # is not. z > 1.64 selects the top ~5 % most differentially exposed positions.
+    sasa_set <- temp_sasa_df |>
         dplyr::filter(!is.na(sasa_A2_diff), sasa_A2_diff > 0) |>
-        dplyr::arrange(dplyr::desc(sasa_A2_diff)) |>
-        dplyr::mutate(sasa_A2_diff_z = as.numeric(scale(log(sasa_A2_diff + 1e-8))))
-
-    sasa_set <- if (nrow(sasa_set_temp) > sasa_max_set_size) {
-        sasa_set_temp |>
-            dplyr::slice_head(n = sasa_max_set_size)
-    } else {
-        sasa_set_temp
-    }
+        dplyr::mutate(sasa_A2_diff_z = as.numeric(scale(sasa_A2_diff))) |>
+        dplyr::filter(sasa_A2_diff_z > 1.64)
 
     sasa_set |>
         dplyr::mutate(rRNA = paste0(target_species, "_", rRNA))
@@ -491,7 +484,8 @@ dripARF_get_collision_proximity_sets <- function(
     additional_RPcols  = c(),
     rRNAs_fasta        = NULL,
     thresholds         = NULL,
-    cap_added_RPcols   = FALSE
+    cap_added_RPcols   = FALSE,
+    extend_nt          = 0L
 ) {
     message("Generating proximity sets for GSEA analysis")
     message(sprintf("Positions in RP_proximity_df: %d", nrow(RP_proximity_df)))
@@ -539,11 +533,22 @@ dripARF_get_collision_proximity_sets <- function(
         is_standard <- RP %in% standard_RPs
 
         if (length(proxpos) > set_size_cap && (is_standard || cap_added_RPcols)) {
-            # Cap to closest positions
-            RP_proxpos[[RP]] <- sort(
+            proxpos <- sort(
                 proxpos[order(RP_proximity_df[[RP]][proxpos])[seq_len(set_size_cap)]]
             )
-        } else if (length(proxpos) > 0L) {
+        }
+        if (length(proxpos) > 0L) {
+            if (extend_nt > 0L) {
+                cur_df       <- RP_proximity_df[proxpos, c("rRNA", "resno"), drop = FALSE]
+                cur_df$resno <- as.integer(cur_df$resno)
+                ext_df       <- dplyr::bind_rows(lapply(seq(-extend_nt, extend_nt), function(d) {
+                    data.frame(rRNA = cur_df$rRNA, resno = cur_df$resno + d)
+                }))
+                ext_key <- paste(ext_df$rRNA, ext_df$resno, sep = "_")
+                all_key <- paste(RP_proximity_df$rRNA,
+                                 as.integer(RP_proximity_df$resno), sep = "_")
+                proxpos <- sort(which(all_key %in% ext_key))
+            }
             RP_proxpos[[RP]] <- proxpos
         }
         message(sprintf("  %-30s %d proximity positions", RP,
@@ -576,7 +581,9 @@ dripARF_get_collision_proximity_sets <- function(
 #' Orchestrates \code{\link{ARF_build_ColInt_proximity}},
 #' \code{\link[ARF]{ARF_convert_Ribo3D_pos}}, and
 #' \code{\link{dripARF_get_collision_proximity_sets}} to produce the final
-#' collision-interface GSEA gene set for a target species.
+#' collision-interface GSEA gene set for a target species.  Selected positions
+#' (5th-percentile RP distance threshold) are extended by ±1 nt in rRNA
+#' coordinate space before building GSEA sets.
 #'
 #' @param rRNAs_file          Path to the source (structure) rRNA FASTA.
 #' @param PDB_file            Path to the mmCIF structure file.
@@ -604,7 +611,7 @@ ARF_build_ColInt_set <- function(
     duplication_resolve  = min,
     target_species,
     target_rRNAs_fasta,
-    rRNA_pairs
+    rRNA_pairs = NULL
 ) {
     # -- Step A: compute RP–rRNA distances
     ColInt_proximity_list <- ARF_build_ColInt_proximity(
@@ -665,13 +672,14 @@ ARF_build_ColInt_set <- function(
         sep = "_"
     )
 
-    # -- Step D: generate GSEA sets 
+    # -- Step D: generate GSEA sets (±1 nt extension applied to match original method)
     dripARF_get_collision_proximity_sets(
-        RP_proximity_df  = LO.Col_proximity_df_final,
+        RP_proximity_df   = LO.Col_proximity_df_final,
         additional_RPcols = c(),
-        rRNAs_fasta      = target_rRNAs_fasta,
-        thresholds       = NULL,
-        cap_added_RPcols = FALSE
+        rRNAs_fasta       = target_rRNAs_fasta,
+        thresholds        = NULL,
+        cap_added_RPcols  = FALSE,
+        extend_nt         = 1L
     )
 }
 
@@ -828,7 +836,7 @@ ARF_build_collision_sets <- function(
     PDBid,
     target_species,
     target_rRNAs_fasta,
-    rRNA_pairs,
+    rRNA_pairs           = NULL,
     PDB_file             = NULL,
     fasta_file           = NULL,
     output_dir           = getwd(),
@@ -902,6 +910,10 @@ ARF_build_collision_sets <- function(
     conversion_table <- parsed$conversion_table
     rRNA_seqs        <- parsed$rRNA_seqs
 
+    # Auto-detect rRNA pairs once the structure FASTA is on disk
+    if (is.null(rRNA_pairs))
+        rRNA_pairs <- auto_pair_rRNAs(rRNAs_file_clean, target_rRNAs_fasta)
+
     # --- Step 3: Clean SASA annotations and write input TSV for candidates
     input_sasa_file <- file.path(output_dir, "input_sasa.tsv")
     if (overwrite || !file.exists(input_sasa_file)) {
@@ -967,8 +979,9 @@ ARF_build_collision_sets <- function(
 #' Build SASA-based GSEA sets via rRNA liftover alignment
 #'
 #' Aligns source and target rRNA sequences with ClustalW to lift over the SASA
-#' candidate positions, then builds foreground and 99 circular-shift
-#' randomisation GSEA sets.
+#' candidate positions (z-transformed differential SASA > 1.64), extends each
+#' selected position by ±1 nt in rRNA coordinate space, then builds foreground
+#' and 99 circular-shift randomisation GSEA sets.
 #'
 #' @param sasa_df           data.frame produced by
 #'   \code{\link{ARF_build_SASA_candidates}}.
@@ -984,7 +997,7 @@ dricARF_build_SASA_set <- function(
     sasa_df,
     rRNAs_file,
     target_rRNAs_fasta,
-    rRNA_pairs
+    rRNA_pairs = NULL
 ) {
     # -- Load and normalise sequences
     structure_rRNAs <- Biostrings::readBStringSet(rRNAs_file)
@@ -995,6 +1008,10 @@ dricARF_build_SASA_set <- function(
     target_rRNAs <- Biostrings::BStringSet(
         chartr("TtXx", "UuNn", as.character(target_rRNAs))
     )
+
+    # -- Auto-detect rRNA pairs when not supplied
+    if (is.null(rRNA_pairs))
+        rRNA_pairs <- auto_pair_rRNAs(rRNAs_file, target_rRNAs_fasta)
 
     # -- Build source → target position maps via pairwise alignment
     message("Aligning rRNA pairs for position liftover ...")
@@ -1055,6 +1072,16 @@ dricARF_build_SASA_set <- function(
                 "Returning empty set.", call. = FALSE)
         return(data.frame(ont = character(0L), gene = character(0L)))
     }
+
+    # ±1 nt extension in rRNA coordinate space
+    focus_df       <- RP_proxpos[proxpos, , drop = FALSE]
+    focus_df$resno <- as.integer(focus_df$resno)
+    ext_df  <- dplyr::bind_rows(lapply(-1L:1L, function(d) {
+        data.frame(rRNA = focus_df$rRNA, resno = focus_df$resno + d)
+    }))
+    ext_key <- paste(ext_df$rRNA, ext_df$resno, sep = "_")
+    all_key <- paste(RP_proxpos$rRNA, as.integer(RP_proxpos$resno), sep = "_")
+    proxpos <- which(all_key %in% ext_key)
 
     foreground <- data.frame(
         ont  = "Rib.Col.",

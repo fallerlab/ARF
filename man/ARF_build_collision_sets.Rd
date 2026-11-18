@@ -8,7 +8,7 @@ ARF_build_collision_sets(
   PDBid,
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs,
+  rRNA_pairs = NULL,
   PDB_file = NULL,
   fasta_file = NULL,
   output_dir = getwd(),

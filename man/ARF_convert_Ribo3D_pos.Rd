@@ -2,14 +2,14 @@
 % Please edit documentation in R/ARF_platform.R
 \name{ARF_convert_Ribo3D_pos}
 \alias{ARF_convert_Ribo3D_pos}
-\title{Convert 3D Ribosome distance file to target organism through rRNA alignments}
+\title{Convert 3D ribosome distance file to target organism through rRNA alignments}
 \usage{
 ARF_convert_Ribo3D_pos(
   source_distance_file,
   source_rRNAs_fasta,
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs = list(),
+  rRNA_pairs = NULL,
   source_positions = NULL,
   source_sets = NULL,
   type = "distances"
@@ -26,10 +26,10 @@ ARF_convert_Ribo3D_pos(
 \item{target_rRNAs_fasta}{FASTA file for the rRNAs of the target organism. Should be the same file
 used in rRNA fragment alignment.}
 
-\item{rRNA_pairs}{List of 2-element character vectors matching source rRNA IDs to target rRNA IDs
-(necessary for lift-over). Example:
-\code{list(c("rRNA_28S", "dm_28S"), c("rRNA_18S", "dm_18S"))}. Pairs for rRNAs with identical
-names in source and target are added automatically.}
+\item{rRNA_pairs}{List of 2-element character vectors matching source rRNA IDs to target rRNA IDs,
+e.g. \code{list(c("rRNA_28S", "dm_28S"), c("rRNA_18S", "dm_18S"))}. When \code{NULL} (default),
+pairs are detected automatically via \code{\link{auto_pair_rRNAs}}. Sequences with identical names
+in source and target are always added automatically regardless of this argument.}
 
 \item{source_positions}{Named list of position vectors to convert (alternative input when
 \code{type='positionset'}).}
@@ -49,8 +49,8 @@ writes two CSV files analogous to those from \code{ARF_parse_PDB_ribosome()}. If
 }
 \description{
 Aligns rRNAs from the source organism (used to generate the distance file) and a target
-organism, then lifts over source-species 3D ribosome data to target-organism rRNA coordinates via
-pairwise ClustalW alignment. Short gaps (< 5 positions) in the target coordinates are filled by
+organism, then lifts over source-species 3D ribosome data to target-organism rRNA coordinates
+via pairwise alignment. Short gaps (< 5 positions) in the target coordinates are filled by
 linear interpolation of adjacent distances.
 }
 \examples{

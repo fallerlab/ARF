@@ -56,9 +56,15 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
   final_coll <- final_coll %>% dplyr::filter(!Description%in%c( "sc_6I7O_Col.Int.", "sc_6T83_Col.Int.", "hs_7QVP_Col.Int."))
   
   cols <- c("#ECCBAE", "#046C9A", "#D69C4E", "#ABDDDE", "#000000")
+  strip_theme <- ggplot2::theme(
+    strip.text.y       = ggplot2::element_text(angle = 0, hjust = 0.5, size = 7),
+    plot.margin        = ggplot2::margin(0.2, 1.8, 0.2, 0.2, "cm")
+  )
+
   g1 <- (ggplot2::ggplot(NULL, ggplot2::aes(x=RPSEA.NES_randZ, y=RPSEA.NES))+
-     ggplot2::geom_hline(yintercept = 0) + ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
-     ggplot2::geom_vline(xintercept = 0, col=cols[5])+ggplot2::facet_grid(comp~.)+
+     ggplot2::geom_hline(yintercept = 0) + ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) +
+     ggplot2::geom_vline(xintercept = 0, col=cols[5])+
+     ggplot2::facet_grid(comp~., labeller = ggplot2::labeller(comp = ggplot2::label_wrap_gen(25)))+
      ggplot2::geom_point(data=RP_results, ggplot2::aes(shape=RPSEA.padj<RPSEA_adjP_thr), col=cols[4], size=1)+
      ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=3)+
      ggplot2::geom_point(data=final_coll%>%dplyr::filter(RPSEA.padj<RPSEA_adjP_thr), ggplot2::aes(color=Description), alpha=.6,size=2.5,shape=10)+
@@ -70,13 +76,17 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
      ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                  breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
      ggplot2::scale_shape_manual(values = c(16,18), breaks = c(TRUE,FALSE))+
-     ggplot2::theme_bw()+
+     ggplot2::theme_bw() + strip_theme +
      ggplot2::labs(col="Collision Prediction", shape=paste0("RPSEA.padj < ",as.character(RPSEA_adjP_thr)))+
      ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
      ggplot2::ylab("Enrichment Score 1 (RPSEA NES)"))
   
+  n_comp        <- length(unique(dricARF_results$comp))
+  inline_height <- 3 + ceiling(n_comp * 2)
+  if (requireNamespace("knitr", quietly = TRUE) && !is.null(knitr::current_input()))
+    knitr::opts_current$set(fig.height = inline_height, fig.width = 8)
   print(g1)
-  
+
   g2 <- (ggplot2::ggplot(RP_results, ggplot2::aes(x=RPSEA.NES_randZ, y=-log10(RPSEA.padj)))+
            ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-log10(RPSEA_adjP_thr),ymax=Inf), alpha=0.1, fill="green")+
            ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=-Inf,xmax=1,ymin=-log10(RPSEA_adjP_thr),ymax=Inf), alpha=0.1, fill="red")+
@@ -84,7 +94,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
            ggplot2::geom_rect(data = data.frame(comp=unique(RP_results$comp)),inherit.aes = F, ggplot2::aes(xmin=1,xmax=Inf,ymin=-Inf,ymax=-log10(RPSEA_adjP_thr)), alpha=0.3, fill="darkolivegreen3")+
            ggplot2::geom_hline(yintercept = c(-log10(RPSEA_adjP_thr)), linetype="dashed", col=cols[5]) + 
            ggplot2::geom_vline(xintercept = c(randZscore_thr), linetype="dashed", col=cols[5]) + 
-           ggplot2::facet_grid(comp~.)+
+           ggplot2::facet_grid(comp~., labeller = ggplot2::labeller(comp = ggplot2::label_wrap_gen(25)))+
            ggplot2::geom_point(col=cols[2], size=1.5, alpha=.5, shape=18)+
            ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), alpha=.5,size=1.5, shape=20)+
            ggplot2::geom_point(data=final_coll, ggplot2::aes(color=Description), size=2.5, shape=10)+
@@ -94,17 +104,19 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
                                      inherit.aes = TRUE, ggplot2::aes(label=Description), color="#000000", show.legend = F)+
            ggplot2::scale_color_manual(values = c("#e41a1c",  "#fb9a99",        "#d95f02", "#1a9641",           "#1f78b4", "#fb2ae9",          "#ab1be7", "#000000", "#fb9a99", rep("#110134",length(addedRPs))),
                                        breaks = c( "hs_7QVP_SAS", "hs_7QVP_Col.Int.","sc_6I7O_SAS", "sc_6I7O_Col.Int.", "sc_6T83_SAS", "sc_6T83_Col.Int.", "sc_6SV4_SAS", "Rib.Col.","Col.Int.", addedRPs))+
-           ggplot2::theme_bw()+
+           ggplot2::theme_bw() + strip_theme +
            ggplot2::labs(col="Collision Prediction")+
            ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+
            ggplot2::ylab("-log10(RPSEA.padj)"))
   
+  if (requireNamespace("knitr", quietly = TRUE) && !is.null(knitr::current_input()))
+    knitr::opts_current$set(fig.height = inline_height, fig.width = 8)
   print(g2)
-  
+
   gcombine <- cowplot::plot_grid(g1+ggplot2::theme(legend.position = "none"),g2,ncol=2,nrow=1,rel_widths = c(2,3))
-  
+
   ggplot2::ggsave(plot = gcombine, filename = paste(targetDir, "/", title, ".pdf",sep=""),
-                  width = 8, height = 3+(ceiling(length(unique(dricARF_results$comp)))*2),limitsize = FALSE)
+                  width = 8, height = inline_height, limitsize = FALSE)
   
   return(gcombine)
 }
@@ -121,7 +133,8 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @param rRNAs_fasta FASTA file for the rRNAs of the organism.
 #' @param samples_df Pre-loaded samples data.frame from \code{read_ARF_samples_file()} (optional).
 #' @param organism Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-#'   \code{"sc"} for yeast.
+#'   \code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply all three of
+#'   \code{RP_proximity_df}, \code{gsea_sets_RP}, and \code{gsea_sets_Collision} explicitly.
 #' @param compare Column name in the samples file to use as the grouping variable (default:
 #'   \code{"group"}).
 #' @param QCplot \code{TRUE} or \code{FALSE}, whether to generate QC plots (default: \code{TRUE}).
@@ -137,6 +150,11 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' @param gsea_sets_Collision Ribosome collision GSEA sets for dricARF enrichments (preset for
 #'   \code{hs} and \code{sc}; provide for other organisms via
 #'   \code{dricARF_liftover_collision_sets()}).
+#' @param rRNA_pairs Optional. List of two-element character vectors pairing source rRNA IDs to
+#'   rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+#'   Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+#'   system and you want to control the auto-pairing step. If \code{NULL} (the default) and a
+#'   mismatch is detected, \code{auto_pair_rRNAs()} is used automatically.
 #' @return A data.frame in the same format as returned by \code{dripARF_predict_heterogenity()},
 #'   with additional rows for the collision set enrichments (SAS, Col.Int., Rib.Col., etc.). A
 #'   scatterplot PDF is also saved to \code{targetDir}.
@@ -148,102 +166,95 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
 #' \dontrun{
 #' dricARF("samples.txt", "rRNAs.fa", organism="hs", targetDir="/target/directory/to/save/results")
 #' }
-dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE,  targetDir=NA,
-                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE, gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL){
-  
-  if(is.null(RP_proximity_df)){
-    # Check organism first
-    if (!ARF_check_organism(organism))
-      return(NA)
-    # preset organisms
-    if (organism=="hs"){
-      RP_proximity_df <- ARF:::RP_proximity_human_df
-    } else if (organism=="mm") {
-      RP_proximity_df <- ARF:::RP_proximity_mouse_df
-    } else if (organism=="sc") {
-      RP_proximity_df <- ARF:::RP_proximity_yeast_df
-    } else {
-      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
-                    collapse = " "))
-      return(NULL)
-    }
+dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, compare="group", QCplot=TRUE, targetDir=NA,
+                    comparisons=NULL, exclude=NULL, ssRPSEAplots=FALSE,
+                    gsea_sets_RP=NULL, RP_proximity_df=NULL, gsea_sets_Collision=NULL,
+                    rRNA_pairs=NULL) {
+
+  .preset_organisms <- c("hs", "mm", "sc")
+
+  # --- Load preset data for any dataset the user has not provided ---
+  .need_preset <- is.null(RP_proximity_df) || is.null(gsea_sets_RP) || is.null(gsea_sets_Collision)
+  if (.need_preset && !organism %in% .preset_organisms) {
+    stop(
+      "organism '", organism, "' is not a preset (hs / mm / sc). ",
+      "Please provide all three of RP_proximity_df, gsea_sets_RP, and gsea_sets_Collision, ",
+      "or generate them with dricARF_liftover_collision_sets() + dripARF_get_RP_proximity_sets().",
+      call. = FALSE
+    )
   }
-  
-  if(is.null(gsea_sets_RP)){
-    # Check organism first
-    if (!ARF_check_organism(organism))
-      return(NA)
-    # preset organisms
-    if (organism=="hs"){
-      gsea_sets_RP <- ARF:::human_gsea_sets_RP
-    } else if (organism=="mm") {
-      gsea_sets_RP <- ARF:::mouse_gsea_sets_RP
-    } else if (organism=="sc") {
-      gsea_sets_RP <- ARF:::yeast_gsea_sets_RP
-    } else {
-      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
-                    collapse = " "))
-      return(NULL)
-    }
+
+  if (is.null(RP_proximity_df))
+    RP_proximity_df <- switch(organism,
+      hs = ARF:::RP_proximity_human_df,
+      mm = ARF:::RP_proximity_mouse_df,
+      sc = ARF:::RP_proximity_yeast_df)
+
+  if (is.null(gsea_sets_RP))
+    gsea_sets_RP <- switch(organism,
+      hs = ARF:::human_gsea_sets_RP,
+      mm = ARF:::mouse_gsea_sets_RP,
+      sc = ARF:::yeast_gsea_sets_RP)
+
+  if (is.null(gsea_sets_Collision))
+    gsea_sets_Collision <- switch(organism,
+      hs = ARF:::human_gsea_sets_Collision,
+      mm = ARF:::mouse_gsea_sets_Collision,
+      sc = ARF:::yeast_gsea_sets_Collision)
+
+  # --- Detect rRNA name mismatch and auto-liftover when needed ---
+  if (organism %in% .preset_organisms && .detect_rRNA_mismatch(RP_proximity_df, rRNAs_fasta)) {
+    message(
+      "rRNA names in '", basename(rRNAs_fasta), "' do not match the '", organism, "' preset. ",
+      "Running alignment-based liftover to remap coordinates. ",
+      "Supply rRNA_pairs = list(c('28S','your_name'), ...) to override auto-pairing."
+    )
+    remapped        <- .remap_rp_proximity_to_fasta(organism, RP_proximity_df, gsea_sets_RP,
+                                                     rRNAs_fasta, rRNA_pairs)
+    RP_proximity_df <- remapped$RP_proximity_df
+    gsea_sets_RP    <- remapped$gsea_sets_RP
+    gsea_sets_Collision <- dricARF_liftover_collision_sets(
+      target_species     = organism,
+      target_rRNAs_fasta = rRNAs_fasta,
+      rRNA_pairs         = remapped$rRNA_pairs_used,
+      RP_proximity_df    = RP_proximity_df
+    )
   }
-  
-  if(is.null(gsea_sets_Collision)){
-    # Check organism first
-    if (!ARF_check_organism(organism))
-      return(NA)
-    # preset organisms
-    if (organism=="hs"){
-      gsea_sets_Collision <- ARF:::human_gsea_sets_Collision
-    } else if (organism=="mm") {
-      gsea_sets_Collision <- ARF:::mouse_gsea_sets_Collision
-    } else if (organism=="sc") {
-      gsea_sets_Collision <- ARF:::yeast_gsea_sets_Collision
-    } else {
-      message(paste(c("Organism", organism, "is not preset/implemented yet! Please generate your own set of proximity matrix, RP-rRNA and ribosome collision sets using ARF.\n"), 
-                    collapse = " "))
-      return(NULL)
-    }
-  } else{ # Add random sets for randZ the input gsea_sets_Collision
-    
-  }
-  
-  # Maybe check for coherence of rRNA ids ??
-  ## TODOwork
-  
-  ## Lets integrate it all 
+
+  # --- Integrate collision sets into RP proximity matrix ---
   added_sets <- unique(gsea_sets_Collision$ont)
-  added_sets <- added_sets[!grepl("Rand",added_sets)]
-  for (colset in added_sets){
-    RP_proximity_df[,colset] <- 100
-    RP_proximity_df[gsea_sets_Collision$gene[gsea_sets_Collision$ont==colset], colset] <- 1
+  added_sets <- added_sets[!grepl("Rand", added_sets)]
+  for (colset in added_sets) {
+    RP_proximity_df[, colset] <- 100
+    RP_proximity_df[gsea_sets_Collision$gene[gsea_sets_Collision$ont == colset], colset] <- 1
   }
   gsea_sets_RP <- rbind(gsea_sets_RP, gsea_sets_Collision)
 
   # Assign target directory
-  if (is.na(targetDir)){
-    targetDir=getwd()
-  }
+  if (is.na(targetDir))
+    targetDir <- getwd()
   .check_targetDir(targetDir)
 
-  if(is.null(samples_df))
+  if (is.null(samples_df))
     samples_df <- read_ARF_samples_file(samplesFile)
-  
-  if(!is.null(exclude))
-    samples_df <- samples_df[!samples_df[,1]%in%exclude,]
-  
-  rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, rRNAs_fasta=rRNAs_fasta, organism = organism, 
-                                                QCplot = QCplot, targetDir = targetDir)
-  
-  results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta=rRNAs_fasta, rRNA_counts = rRNA_counts_df,
-                               compare=compare, organism=organism, QCplot=QCplot, targetDir=targetDir,
-                               comparisons = comparisons, ssRPSEAplots=ssRPSEAplots,
+
+  if (!is.null(exclude))
+    samples_df <- samples_df[!samples_df[, 1] %in% exclude, ]
+
+  rRNA_counts_df <- dripARF_read_rRNA_fragments(samples = samples_df, rRNAs_fasta = rRNAs_fasta,
+                                                organism = organism, QCplot = QCplot, targetDir = targetDir)
+
+  results <- dripARF_predict_heterogenity(samples = samples_df, rRNAs_fasta = rRNAs_fasta,
+                               rRNA_counts = rRNA_counts_df,
+                               compare = compare, organism = organism, QCplot = QCplot,
+                               targetDir = targetDir, comparisons = comparisons,
+                               ssRPSEAplots = ssRPSEAplots,
                                gsea_sets_RP = gsea_sets_RP, RP_proximity_df = RP_proximity_df,
-                               measureID = "abs_GSEA_measure_with_dynamic_p", runID="dricARF")
-  
-  dricARF_result_scatterplot(dricARF_results = results, targetDir = targetDir, title = "dricARF (highlighted) & dripARF predictions")
-  # dripARF_result_heatmap(dripARF_results = results, targetDir = targetDir, title = "ALL dripARF predictions",
-  #                        randZscore_thr = c(1), ORA_adjP_thr = c(0.05), RPSEA_adjP_thr = c(0.05), ORA_sig_n = 1)
-  
+                               measureID = "abs_GSEA_measure_with_dynamic_p", runID = "dricARF")
+
+  dricARF_result_scatterplot(dricARF_results = results, targetDir = targetDir,
+                             title = "dricARF (highlighted) & dripARF predictions")
+
   return(results)
 }
 
@@ -259,7 +270,13 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 #'   file used in rRNA fragment alignment.
 #' @param rRNA_pairs List of 2-element character vectors matching source rRNA IDs to target rRNA
 #'   IDs. Use \code{"28S"}, \code{"18S"}, \code{"5.8S"}, \code{"5S"} as source IDs. Example:
-#'   \code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}.
+#'   \code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}. If \code{NULL} or empty,
+#'   \code{auto_pair_rRNAs()} is called automatically.
+#' @param RP_proximity_df RP-rRNA proximity matrix used to build the 99 circular-shift randomised
+#'   control sets. If \code{NULL} (the default), the matrix is taken from the calling environment
+#'   — this is the normal usage when \code{dricARF_liftover_collision_sets()} is called from
+#'   within \code{dricARF()} or the \code{dricARF} vignette. Pass explicitly only when calling
+#'   this function in isolation.
 #' @return A data.frame with two columns (\code{ont}, \code{gene}) containing lifted-over collision
 #'   sets (e.g. \code{Rib.Col.}, \code{Col.Int.}, \code{sc_6I7O_SAS}, etc.) and their 99
 #'   randomised control sets, ready for use as the \code{gsea_sets_Collision} argument in
@@ -273,7 +290,10 @@ dricARF <- function(samplesFile, rRNAs_fasta, samples_df=NULL, organism=NULL, co
 #'   rRNA_pairs=list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"),
 #'   c("5.8S","dm_rRNA_5.8S"), c("5S","dm_rRNA_5S")))
 #' }
-dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, rRNA_pairs=list()) {
+dricARF_liftover_collision_sets <- function(target_species, target_rRNAs_fasta, rRNA_pairs=list(),
+                                            RP_proximity_df=NULL) {
+  if (is.null(RP_proximity_df))
+    RP_proximity_df <- get("RP_proximity_df", envir = parent.frame(), inherits = TRUE)
   # dplyr hack for %>%
   `%>%` <- magrittr::`%>%`
   

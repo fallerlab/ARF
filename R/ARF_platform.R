@@ -249,21 +249,251 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
 }
 
 
-#' Convert 3D Ribosome distance file to target organism through rRNA alignments
-#' @description Aligns rRNAs from the source organism (used to generate the distance file) and a target
-#'   organism, then lifts over source-species 3D ribosome data to target-organism rRNA coordinates via
-#'   pairwise ClustalW alignment. Short gaps (< 5 positions) in the target coordinates are filled by
-#'   linear interpolation of adjacent distances.
+# --- internal helpers for preset rRNA name ↔ extdata FASTA name mapping ------
+
+# preset RP_proximity_df rRNA name → extdata FASTA sequence name
+.preset_rRNA_to_extdata <- function(organism) {
+  switch(organism,
+    hs = c(rRNA_28S  = "human_28S",  rRNA_18S  = "human_18S",
+           rRNA_5.8S = "human_5.8S", rRNA_5S   = "human_5S"),
+    mm = c(`NR_003279.1` = "NR_003279.1", `NR_003278.3` = "NR_003278.3",
+           `NR_003280.2` = "NR_003280.2", `NR_030686.1` = "NR_030686.1"),
+    sc = c(rRNA_25S  = "rRNA_25S",   rRNA_18S  = "rRNA_18S",
+           rRNA_5.8S = "rRNA_5.8S",  rRNA_5S   = "rRNA_5S"),
+    NULL
+  )
+}
+
+# extdata FASTA name → standard liftover ID used by dricARF_liftover_collision_sets
+.extdata_to_standard_id <- function(organism) {
+  switch(organism,
+    hs = c(human_28S  = "28S",  human_18S  = "18S",
+           human_5.8S = "5.8S", human_5S   = "5S"),
+    mm = c(`NR_003279.1` = "28S",  `NR_003278.3` = "18S",
+           `NR_003280.2` = "5.8S", `NR_030686.1` = "5S"),
+    sc = c(rRNA_25S  = "28S",   rRNA_18S  = "18S",
+           rRNA_5.8S = "5.8S",  rRNA_5S   = "5S"),
+    NULL
+  )
+}
+
+# Returns TRUE when user FASTA rRNA names do not appear in RP_proximity_df$rRNA
+.detect_rRNA_mismatch <- function(RP_proximity_df, rRNAs_fasta) {
+  preset_rRNAs <- unique(na.omit(RP_proximity_df$rRNA))
+  preset_rRNAs <- preset_rRNAs[!preset_rRNAs %in% "tRNA"]
+  user_rRNAs   <- sapply(
+    sapply(names(Biostrings::readBStringSet(rRNAs_fasta, use.names = TRUE)),
+           strsplit, split = " ", fixed = TRUE),
+    "[", 1
+  )
+  !any(user_rRNAs %in% preset_rRNAs)
+}
+
+# Remap RP_proximity_df and gsea_sets_RP from preset coordinates to user FASTA
+# coordinates via ClustalW alignment of the bundled extdata rRNAs.
+# rRNA_pairs (optional): list of c(standard_id, user_rRNA_name), e.g. c("28S","myOrg_28S").
+# Returns list(RP_proximity_df, gsea_sets_RP).
+.remap_rp_proximity_to_fasta <- function(organism, RP_proximity_df, gsea_sets_RP,
+                                          rRNAs_fasta, rRNA_pairs = NULL) {
+
+  preset_to_extdata <- .preset_rRNA_to_extdata(organism)
+  extdata_to_std    <- .extdata_to_standard_id(organism)
+
+  extdata_fa <- system.file("extdata", switch(organism,
+    hs = "4V6X_human_rRNAs.fa",
+    mm = "mouse_rRNAs.fa",
+    sc = "6T7I_yeast_rRNAs.fa"
+  ), package = "ARF")
+
+  src_rRNAs <- Biostrings::readBStringSet(extdata_fa, use.names = TRUE)
+  names(src_rRNAs) <- sapply(sapply(names(src_rRNAs), strsplit, split = " ", fixed = TRUE), "[", 1)
+  src_rRNAs <- Biostrings::RNAStringSet(chartr("TtXx", "UuNn", as.character(src_rRNAs)))
+  src_rRNAs <- src_rRNAs[names(src_rRNAs) %in% names(extdata_to_std)]
+
+  tgt_rRNAs <- Biostrings::readBStringSet(rRNAs_fasta, use.names = TRUE)
+  names(tgt_rRNAs) <- sapply(sapply(names(tgt_rRNAs), strsplit, split = " ", fixed = TRUE), "[", 1)
+  tgt_rRNAs <- Biostrings::RNAStringSet(chartr("TtXx", "UuNn", as.character(tgt_rRNAs)))
+
+  # Build pairs in extdata-name format
+  if (is.null(rRNA_pairs) || length(rRNA_pairs) == 0L) {
+    src_tmp <- tempfile(fileext = ".fa")
+    on.exit(unlink(src_tmp), add = TRUE)
+    Biostrings::writeXStringSet(src_rRNAs, src_tmp)
+    pairs_raw <- auto_pair_rRNAs(src_tmp, rRNAs_fasta)
+  } else {
+    # user passed standard IDs (28S, 18S, …) — convert to extdata names
+    std_to_extdata <- setNames(names(extdata_to_std), extdata_to_std)
+    pairs_raw <- lapply(rRNA_pairs, function(p) {
+      ext_nm <- std_to_extdata[p[1]]
+      if (is.na(ext_nm)) return(NULL)
+      c(unname(ext_nm), p[2])
+    })
+    pairs_raw <- pairs_raw[!sapply(pairs_raw, is.null)]
+  }
+
+  # Build alignment-based position vectors via ClustalW
+  pos_vec  <- list()  # extdata_name → integer vec indexed by src position
+  name_vec <- c()     # extdata_name → user rRNA name
+
+  for (pair in pairs_raw) {
+    src_nm <- pair[1]; tgt_nm <- pair[2]
+    if (!src_nm %in% names(src_rRNAs)) {
+      warning("Liftover: source '", src_nm, "' not in extdata FASTA — skipped.", call. = FALSE)
+      next
+    }
+    if (!tgt_nm %in% names(tgt_rRNAs)) {
+      warning("Liftover: target '", tgt_nm, "' not in user FASTA — skipped.", call. = FALSE)
+      next
+    }
+    aln <- strsplit(as.character(
+      msa::msaClustalW(Biostrings::RNAStringSet(c(src_rRNAs[src_nm], tgt_rRNAs[tgt_nm])))@unmasked
+    ), split = "")
+    vec <- integer(length(aln[[1]])); spos <- 0L; tpos <- 0L
+    for (i in seq_along(aln[[1]])) {
+      if (aln[[2]][i] != "-") tpos <- tpos + 1L
+      if (aln[[1]][i] != "-") {
+        spos <- spos + 1L
+        vec[spos] <- if (aln[[2]][i] != "-") tpos else NA_integer_
+      }
+    }
+    pos_vec[[src_nm]]  <- vec[seq_len(spos)]
+    name_vec[[src_nm]] <- tgt_nm
+  }
+
+  if (length(pos_vec) == 0L) {
+    warning("rRNA liftover produced no aligned pairs; preset data used unchanged.", call. = FALSE)
+    return(list(RP_proximity_df = RP_proximity_df, gsea_sets_RP = gsea_sets_RP))
+  }
+
+  extdata_to_preset <- setNames(names(preset_to_extdata), unname(preset_to_extdata))
+
+  # Remap RP_proximity_df rows
+  remapped_rows <- lapply(names(pos_vec), function(ext_nm) {
+    preset_nm <- extdata_to_preset[[ext_nm]]
+    tgt_nm    <- name_vec[[ext_nm]]
+    rows <- RP_proximity_df[!is.na(RP_proximity_df$rRNA) & RP_proximity_df$rRNA == preset_nm,
+                            , drop = FALSE]
+    if (nrow(rows) == 0L) return(NULL)
+    pv      <- pos_vec[[ext_nm]]
+    new_res <- pv[rows$resno]
+    keep    <- !is.na(new_res)
+    rows    <- rows[keep, , drop = FALSE]
+    rows$resno <- new_res[keep]
+    rows$rRNA  <- tgt_nm
+    rows
+  })
+
+  rna_preset_names <- names(preset_to_extdata)
+  non_rRNA_rows <- RP_proximity_df[
+    is.na(RP_proximity_df$rRNA) | !RP_proximity_df$rRNA %in% rna_preset_names,
+    , drop = FALSE
+  ]
+  new_RP <- do.call(rbind, c(list(non_rRNA_rows), remapped_rows[!sapply(remapped_rows, is.null)]))
+  rownames(new_RP) <- paste(new_RP$rRNA, new_RP$resno, sep = "_")
+
+  # Remap gsea_sets_RP gene names (format: rRNA_name_position)
+  gene_map <- unlist(lapply(names(pos_vec), function(ext_nm) {
+    preset_nm <- extdata_to_preset[[ext_nm]]
+    tgt_nm    <- name_vec[[ext_nm]]
+    pv        <- pos_vec[[ext_nm]]
+    valid     <- !is.na(pv)
+    setNames(paste0(tgt_nm,    "_", pv[valid]),
+             paste0(preset_nm, "_", which(valid)))
+  }))
+
+  new_gsea_RP <- gsea_sets_RP
+  idx <- new_gsea_RP$gene %in% names(gene_map)
+  new_gsea_RP$gene[idx] <- gene_map[new_gsea_RP$gene[idx]]
+  # Drop entries that are rRNA-position genes but had no aligned target position
+  # (gap positions that keep their stale preset name and would never match coverage data)
+  preset_rRNA_prefix_re <- paste0(
+    "^(", paste(gsub(".", "\\.", names(preset_to_extdata), fixed = TRUE), collapse = "|"), ")_[0-9]+$"
+  )
+  unmapped_rRNA <- !idx & grepl(preset_rRNA_prefix_re, new_gsea_RP$gene)
+  new_gsea_RP   <- new_gsea_RP[!unmapped_rRNA, , drop = FALSE]
+
+  # Return pairs used (standard-ID format) so callers can avoid re-running alignment
+  pairs_used <- lapply(names(name_vec), function(ext_nm) {
+    c(extdata_to_std[[ext_nm]], name_vec[[ext_nm]])
+  })
+
+  list(RP_proximity_df = new_RP, gsea_sets_RP = new_gsea_RP, rRNA_pairs_used = pairs_used)
+}
+
+
+#' Automatically pair rRNA sequences between two FASTAs by alignment score
+#'
+#' For each rRNA in \code{source_fasta}, aligns it against every sequence in
+#' \code{target_fasta} using global pairwise alignment and returns the
+#' best-matching target as a pair. Used as the default when \code{rRNA_pairs = NULL}
+#' in \code{\link{ARF_build_collision_sets}}, \code{\link{dricARF_build_SASA_set}},
+#' and \code{\link{ARF_convert_Ribo3D_pos}}.
+#'
+#' @param source_fasta Character. Path to the source rRNA FASTA file.
+#' @param target_fasta Character. Path to the target rRNA FASTA file.
+#'
+#' @return A list of two-element character vectors \code{c(source_name, target_name)},
+#'   one per sequence in \code{source_fasta}, in the same format as the
+#'   \code{rRNA_pairs} argument accepted by the pipeline functions.
+#'
+#' @export
+auto_pair_rRNAs <- function(source_fasta, target_fasta) {
+    source_seqs <- Biostrings::readBStringSet(source_fasta)
+    target_seqs <- Biostrings::readBStringSet(target_fasta)
+
+    names(source_seqs) <- vapply(
+        strsplit(names(source_seqs), " ", fixed = TRUE), `[`, character(1L), 1L
+    )
+    names(target_seqs) <- vapply(
+        strsplit(names(target_seqs), " ", fixed = TRUE), `[`, character(1L), 1L
+    )
+
+    to_rna <- function(x) {
+        Biostrings::RNAStringSet(
+            gsub("[^ACGUacguRYSWKMBDHVNryswkmbdhvn]", "N",
+                 chartr("TtXx", "UuNn", as.character(x)))
+        )
+    }
+    source_rna <- to_rna(source_seqs)
+    target_rna <- to_rna(target_seqs)
+
+    pairs <- lapply(names(source_rna), function(src) {
+        scores <- vapply(names(target_rna), function(tgt) {
+            Biostrings::pairwiseAlignment(
+                pattern   = source_rna[[src]],
+                subject   = target_rna[[tgt]],
+                type      = "global",
+                scoreOnly = TRUE
+            )
+        }, numeric(1L))
+        best <- names(scores)[which.max(scores)]
+        c(src, best)
+    })
+
+    message("Auto-paired rRNAs:")
+    for (p in pairs) message("  ", p[1L], " ↔ ", p[2L])
+
+    pairs
+}
+
+
+#' Convert 3D ribosome distance file to target organism through rRNA alignments
+#'
+#' Aligns rRNAs from the source organism (used to generate the distance file) and a target
+#' organism, then lifts over source-species 3D ribosome data to target-organism rRNA coordinates
+#' via pairwise alignment. Short gaps (< 5 positions) in the target coordinates are filled by
+#' linear interpolation of adjacent distances.
+#'
 #' @param source_distance_file Path to the \code{XXX.ARF.minimum_distances.csv} file generated by
 #'   \code{ARF_parse_PDB_ribosome()} for the source 3D ribosome.
 #' @param source_rRNAs_fasta FASTA file containing the rRNA sequences of the source organism.
 #' @param target_species ID string for the target species, e.g. \code{"mm"}, \code{"sc"}, \code{"dm"}.
 #' @param target_rRNAs_fasta FASTA file for the rRNAs of the target organism. Should be the same file
 #'   used in rRNA fragment alignment.
-#' @param rRNA_pairs List of 2-element character vectors matching source rRNA IDs to target rRNA IDs
-#'   (necessary for lift-over). Example:
-#'   \code{list(c("rRNA_28S", "dm_28S"), c("rRNA_18S", "dm_18S"))}. Pairs for rRNAs with identical
-#'   names in source and target are added automatically.
+#' @param rRNA_pairs List of 2-element character vectors matching source rRNA IDs to target rRNA IDs,
+#'   e.g. \code{list(c("rRNA_28S", "dm_28S"), c("rRNA_18S", "dm_18S"))}. When \code{NULL} (default),
+#'   pairs are detected automatically via \code{\link{auto_pair_rRNAs}}. Sequences with identical names
+#'   in source and target are always added automatically regardless of this argument.
 #' @param source_positions Named list of position vectors to convert (alternative input when
 #'   \code{type='positionset'}).
 #' @param source_sets GSEA sets data.frame to convert, with \code{"ont"} and \code{"gene"} columns
@@ -284,9 +514,9 @@ ARF_parse_PDB_ribosome <- function(species, PDBid, PDB_file=NULL, rRNAs_file=NUL
 #'   "drosophila_rRNAs.fa", rRNA_pairs=list(c("rRNA_28S","dm_rRNA_28S"),
 #'   c("rRNA_18S","dm_rRNA_18S"), c("rRNA_5.8S","dm_rRNA_5.8S"), c("rRNA_5S","dm_rRNA_5S")))
 #' }
-ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta, 
-                                   target_species, target_rRNAs_fasta, rRNA_pairs=list(), 
-                                   source_positions=NULL, source_sets=NULL, type="distances") {
+ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
+                                   target_species, target_rRNAs_fasta, rRNA_pairs = NULL,
+                                   source_positions = NULL, source_sets = NULL, type = "distances") {
   # dplyr hack for %>%
   `%>%` <- magrittr::`%>%`
   
@@ -296,11 +526,16 @@ ARF_convert_Ribo3D_pos <- function(source_distance_file, source_rRNAs_fasta,
   names(target_rRNAs) <- sapply(sapply(names(target_rRNAs),strsplit,split=" ",fixed=T),"[",1)
   source_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(source_rRNAs)))
   target_rRNAs <- Biostrings::BStringSet(chartr("TtXx", "UuNn", as.character(target_rRNAs)))
-  
-  # Add missing rRNA pairs with the same name
-  for (rRNA in names(target_rRNAs)){
-    if ((!rRNA%in%unlist(rRNA_pairs)) && (rRNA%in%names(source_rRNAs)))
-      rRNA_pairs <- append(rRNA_pairs, list(c(rRNA,rRNA)))
+
+  # Auto-detect pairs when not supplied
+  if (is.null(rRNA_pairs)) {
+      rRNA_pairs <- auto_pair_rRNAs(source_rRNAs_fasta, target_rRNAs_fasta)
+  } else {
+      # Add same-name sequences not already covered by the supplied pairs
+      for (rRNA in names(target_rRNAs)) {
+          if ((!rRNA %in% unlist(rRNA_pairs)) && (rRNA %in% names(source_rRNAs)))
+              rRNA_pairs <- append(rRNA_pairs, list(c(rRNA, rRNA)))
+      }
   }
   rRNA_s2t <- sapply(rRNA_pairs,"[",2)
   names(rRNA_s2t) <- sapply(rRNA_pairs,"[",1)

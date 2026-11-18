@@ -14,7 +14,7 @@ ARF_build_ColInt_set(
   duplication_resolve = min,
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs
+  rRNA_pairs = NULL
 )
 }
 \arguments{
@@ -47,5 +47,7 @@ data.frame with columns \code{ont} and \code{gene}.
 Orchestrates \code{\link{ARF_build_ColInt_proximity}},
 \code{\link[ARF]{ARF_convert_Ribo3D_pos}}, and
 \code{\link{dripARF_get_collision_proximity_sets}} to produce the final
-collision-interface GSEA gene set for a target species.
+collision-interface GSEA gene set for a target species.  Selected positions
+(5th-percentile RP distance threshold) are extended by ±1 nt in rRNA
+coordinate space before building GSEA sets.
 }

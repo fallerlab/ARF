@@ -17,6 +17,13 @@
     that runs the entire collision-interface pipeline (download → SASA → FASTA
     parsing → SASA candidates → Rib.Col. sets → Col.Int. sets) and returns a
     combined `gsea_sets_Collision` data.frame ready for `dricARF()`.
+  - `ARF_platform.R`: `auto_pair_rRNAs(source_fasta, target_fasta)` — pairs
+    each rRNA in `source_fasta` with its best-matching rRNA in `target_fasta`
+    via global pairwise alignment (`Biostrings::pairwiseAlignment`). Used
+    internally as the default `rRNA_pairs = NULL` behaviour in
+    `ARF_build_collision_sets()`, `dricARF_build_SASA_set()`,
+    `ARF_build_ColInt_set()`, and `ARF_convert_Ribo3D_pos()`; can also be
+    called directly.
   - `docs/ARF_collision_sets.Rmd`: user guide for the collision interface
     pipeline; includes a Quick Start section (`ARF_build_collision_sets()`),
     a step-by-step walkthrough, and a prediction section using `dricARF()`.
@@ -81,6 +88,14 @@
     gene-ID mismatch in the GSVA step.
   - `docs/ARF_collision_sets.Rmd` (prediction section): example updated to use
     `Escherichia_coli_PRJNA1126309` test data (WT / hrpA / hrpA_smrB groups).
+  - `collision_set_builder.R`, `ARF_platform.R`: `rRNA_pairs` argument now
+    defaults to `NULL` in `ARF_build_collision_sets()`, `dricARF_build_SASA_set()`,
+    `ARF_build_ColInt_set()`, and `ARF_convert_Ribo3D_pos()`; auto-pairing via
+    `auto_pair_rRNAs()` runs when no explicit pairs are supplied.
+  - `docs/ARF_collision_sets.Rmd`, `docs/ARF_use_cases.Rmd`, `README.md`:
+    `rRNA_pairs` removed from all running code examples; function-reference
+    signatures and step-by-step sections updated to reflect the optional
+    argument and document when manual override is needed.
   - `python_backend.R` (`configure_sasa_python`): when a direct Python path is
     supplied via `python = ...`, packages are checked via `system2()` (no
     reticulate touch); if already present, the path is stored in
@@ -102,6 +117,47 @@
     corrected ("consists of", "heterogeneity", "Both"); `LazyData: true` and
     `RoxygenNote: 7.3.2` added; `Config/roxygen2/version` removed (generated
     field).
+  - `ARF_platform.R`: four internal helpers for auto-liftover when a preset
+    organism is used with a custom rRNA FASTA whose names differ from the preset
+    coordinate system: `.preset_rRNA_to_extdata()`, `.extdata_to_standard_id()`,
+    `.detect_rRNA_mismatch()`, `.remap_rp_proximity_to_fasta()`. Not exported.
+  - `dricARF.R` / `dripARF.R`: `rRNA_pairs` parameter added to `dricARF()`,
+    `dripARF()`, `dripARF_predict_heterogenity()`, and
+    `dripARF_report_RPset_group_counts()`. Allows callers to supply explicit
+    source→target rRNA pairings for the auto-liftover step; when `NULL` and a
+    mismatch is detected, `auto_pair_rRNAs()` is used automatically.
+  - `dricARF.R`: `RP_proximity_df` parameter added to
+    `dricARF_liftover_collision_sets()` with a `parent.frame()` fallback for
+    backward compatibility.
+  - `tests/testthat/test-auto_pair_rRNAs.R` (5 tests),
+    `tests/testthat/test-ARF_parse_structure_fasta.R` (6 tests),
+    `tests/testthat/test-ARF_build_SASA_candidates.R` (5 tests), and
+    `tests/testthat/test-dricARF_liftover_collision_sets.R` (3 tests) added.
+
+### Changed
+  - `dricARF()`, `dripARF()`, `dripARF_predict_heterogenity()`,
+    `dripARF_report_RPset_group_counts()`: when a preset organism (`hs`, `mm`,
+    or `sc`) is specified but the rRNA sequence names in the user-supplied FASTA
+    do not match those in the preset `RP_proximity_df`, ARF now automatically
+    lifts over the preset coordinate data to the user FASTA via ClustalW
+    alignment and emits an informational `message()`. Previously, this mismatch
+    would silently produce zero matches and empty results. No change in behaviour
+    when the FASTA names already match the preset.
+  - `ARF_platform.R` (`.remap_rp_proximity_to_fasta`): row names of the
+    remapped `RP_proximity_df` are now set as `paste(rRNA, resno, sep="_")`,
+    consistent with the convention used throughout the package. Previously they
+    were cleared to `NULL`, which caused row-name indexing in `dricARF()` to
+    silently append rows instead of updating them.
+  - `ARF_platform.R` (`.remap_rp_proximity_to_fasta`): rRNA-position gene
+    entries that could not be mapped to an aligned target position (gap positions)
+    are now dropped from `gsea_sets_RP` rather than kept with their stale preset
+    name, preventing silent set-size inflation.
+  - `ARF_platform.R` (`.remap_rp_proximity_to_fasta`): now returns
+    `rRNA_pairs_used` alongside the remapped objects so callers can pass the
+    already-computed pairs onward without re-running alignment.
+  - `dricARF()`: passes `remapped$rRNA_pairs_used` to
+    `dricARF_liftover_collision_sets()` after auto-liftover, avoiding a redundant
+    second ClustalW alignment run.
 
 ## v2.2.1 — 2026-09-08
 

@@ -49,6 +49,8 @@ This notebook provides working use-case examples for the **ARF** pipeline. All p
 The repository includes mouse Ribo-seq test data aligned to the built-in mouse rRNA sequences.
 No PDB download or custom structural setup is needed.
 
+> **Custom FASTA with a preset organism:** if you supply `organism = "mm"` (or `"hs"` / `"sc"`) but your `rRNAs_fasta` has sequence names that differ from the bundled preset — for example a custom ENSEMBL-derived FASTA — ARF detects the mismatch and lifts the preset coordinate data to your FASTA automatically via ClustalW alignment. An informational message is printed; no extra parameters are required. Supply `rRNA_pairs` only if you want to override the automatic pairing.
+
 ```{r mouse-drip, cache=TRUE}
 dripARF_results <- ARF::dripARF(
   samplesFile    = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv",
@@ -105,7 +107,7 @@ RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
 head(RP_proximity_df[, 1:8])
 ```
 
-The rRNA names in this FASTA (used as keys in `rRNA_pairs`):
+The rRNA names in this FASTA (used as keys if overriding `rRNA_pairs`):
 
 ```{r ecoli-rna-names}
 ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
@@ -123,14 +125,9 @@ LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
   source_rRNAs_fasta   = ecoli_rRNAs_fasta,
   target_species       = "ec",
   target_rRNAs_fasta   = ecoli_rRNAs_fasta,
-  rRNA_pairs           = list(
-    c("rRNA_16S", "rRNA_16S"),
-    c("rRNA_23S", "rRNA_23S"),
-    c("rRNA_5S",  "rRNA_5S")
-  ),
-  source_positions = NULL,
-  source_sets      = NULL,
-  type             = "distances"
+  source_positions     = NULL,
+  source_sets          = NULL,
+  type                 = "distances"
 )
 
 head(LO.RP_proximity_df[, 1:8])
@@ -163,7 +160,8 @@ gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
     c("16S", "rRNA_16S"),
     c("28S", "rRNA_23S"),
     c("5S",  "rRNA_5S")
-  )
+  ),
+  RP_proximity_df    = LO.RP_proximity_df
 )
 
 tail(gsea_sets_Collision)
@@ -243,6 +241,16 @@ With the rRNA FASTA available, collision-set liftover from human/yeast to the ta
 organism runs without requiring the full structural pipeline.
 
 ```{r arabidopsis-colsets, cache=TRUE}
+# A minimal RP_proximity_df stub with the target rRNA names is enough for
+# the randomised-control set sizes. Replace with the real ARF_parse_PDB_ribosome()
+# output once the structural pipeline has been run for Arabidopsis.
+at_rRNA_names <- names(Biostrings::readBStringSet(at_rRNAs_fasta))
+at_stub_RP_proximity_df <- data.frame(
+  rRNA  = rep(at_rRNA_names, each = 10),
+  resno = rep(seq_len(10), length(at_rRNA_names)),
+  stringsAsFactors = FALSE
+)
+
 at_gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
   target_species     = "AT",
   target_rRNAs_fasta = at_rRNAs_fasta,
@@ -250,7 +258,8 @@ at_gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
     c("18S", "rRNA_18S"),
     c("25S", "rRNA_25S"),
     c("5S",  "rRNA_5S")
-  )
+  ),
+  RP_proximity_df    = at_stub_RP_proximity_df
 )
 
 tail(at_gsea_sets_Collision)
@@ -354,14 +363,9 @@ LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
   source_rRNAs_fasta   = file.path(at_outdir, "8B2L.rRNAs.fasta"),
   target_species       = "AT",
   target_rRNAs_fasta   = at_rRNAs_fasta,
-  rRNA_pairs           = list(
-    c("rRNA_18S", "rRNA_18S"),
-    c("rRNA_25S", "rRNA_25S"),
-    c("rRNA_5S",  "rRNA_5S")
-  ),
-  source_positions = NULL,
-  source_sets      = NULL,
-  type             = "distances"
+  source_positions     = NULL,
+  source_sets          = NULL,
+  type                 = "distances"
 )
 
 gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(

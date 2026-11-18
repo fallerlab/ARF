@@ -4,7 +4,12 @@
 \alias{dricARF_build_SASA_set}
 \title{Build SASA-based GSEA sets via rRNA liftover alignment}
 \usage{
-dricARF_build_SASA_set(sasa_df, rRNAs_file, target_rRNAs_fasta, rRNA_pairs)
+dricARF_build_SASA_set(
+  sasa_df,
+  rRNAs_file,
+  target_rRNAs_fasta,
+  rRNA_pairs = NULL
+)
 }
 \arguments{
 \item{sasa_df}{data.frame produced by
@@ -22,6 +27,7 @@ data.frame with columns \code{ont} and \code{gene}.
 }
 \description{
 Aligns source and target rRNA sequences with ClustalW to lift over the SASA
-candidate positions, then builds foreground and 99 circular-shift
-randomisation GSEA sets.
+candidate positions (z-transformed differential SASA > 1.64), extends each
+selected position by ±1 nt in rRNA coordinate space, then builds foreground
+and 99 circular-shift randomisation GSEA sets.
 }

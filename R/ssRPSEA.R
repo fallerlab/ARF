@@ -84,6 +84,11 @@ run_DESeq2_norm <- function(norm_counts, gsea_sets_RP) {
   geneSets <- split(geneSets_df$gene, geneSets_df$ont)
 
   ## compute ssGSEA scores (API differs between GSVA < 1.50 and >= 1.50)
+  ## matrixStats >= 1.2.0 makes useNames = NA defunct; GSVA has not yet updated
+  ## its internal calls, so temporarily downgrade the error to a warning.
+  old_ms_opt <- options(matrixStats.useNames.NA = "deprecated")
+  on.exit(options(old_ms_opt), add = TRUE)
+
   if (utils::packageVersion("GSVA") >= "1.50") {
     ssgsea_param <- GSVA::ssgseaParam(
         exprData = logcounts, geneSets = geneSets,

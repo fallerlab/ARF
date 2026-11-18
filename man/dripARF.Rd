@@ -16,7 +16,8 @@ dripARF(
   exclude = NULL,
   ssRPSEAplots = FALSE,
   gsea_sets_RP = NULL,
-  RP_proximity_df = NULL
+  RP_proximity_df = NULL,
+  rRNA_pairs = NULL
 )
 }
 \arguments{
@@ -30,7 +31,8 @@ details.}
 read from \code{samplesFile} if \code{NULL}).}
 
 \item{organism}{Organism abbreviation. Pass \code{"hs"} for human, \code{"mm"} for mouse, and
-\code{"sc"} for yeast.}
+\code{"sc"} for yeast. For other organisms, leave \code{NULL} and supply \code{RP_proximity_df}
+and \code{gsea_sets_RP} explicitly.}
 
 \item{compare}{Column name in the samples file to use as the grouping variable (default:
 \code{"group"}).}
@@ -49,6 +51,12 @@ provide for custom organisms via \code{dripARF_get_RP_proximity_sets()}).}
 
 \item{RP_proximity_df}{RP-rRNA proximity matrix (preset for \code{hs}, \code{mm}, and \code{sc};
 provide for custom organisms via \code{ARF_parse_PDB_ribosome()}).}
+
+\item{rRNA_pairs}{Optional. List of two-element character vectors pairing source rRNA IDs to
+rRNA names in \code{rRNAs_fasta}, e.g. \code{list(c("28S", "my_28S"), c("18S", "my_18S"))}.
+Supply this when the rRNA names in \code{rRNAs_fasta} do not match the preset coordinate
+system and you want to control the auto-pairing step. If \code{NULL} and a mismatch is
+detected, \code{auto_pair_rRNAs()} is used automatically.}
 }
 \value{
 A data.frame -- the same as returned by \code{dripARF_predict_heterogenity()}. Scatter

@@ -7,7 +7,8 @@
 dricARF_liftover_collision_sets(
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs = list()
+  rRNA_pairs = list(),
+  RP_proximity_df = NULL
 )
 }
 \arguments{
@@ -19,7 +20,14 @@ file used in rRNA fragment alignment.}
 
 \item{rRNA_pairs}{List of 2-element character vectors matching source rRNA IDs to target rRNA
 IDs. Use \code{"28S"}, \code{"18S"}, \code{"5.8S"}, \code{"5S"} as source IDs. Example:
-\code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}.}
+\code{list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"))}. If \code{NULL} or empty,
+\code{auto_pair_rRNAs()} is called automatically.}
+
+\item{RP_proximity_df}{RP-rRNA proximity matrix used to build the 99 circular-shift randomised
+control sets. If \code{NULL} (the default), the matrix is taken from the calling environment
+— this is the normal usage when \code{dricARF_liftover_collision_sets()} is called from
+within \code{dricARF()} or the \code{dricARF} vignette. Pass explicitly only when calling
+this function in isolation.}
 }
 \value{
 A data.frame with two columns (\code{ont}, \code{gene}) containing lifted-over collision
