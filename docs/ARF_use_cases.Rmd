@@ -111,7 +111,6 @@ The rRNA names in this FASTA (used as keys if overriding `rRNA_pairs`):
 
 ```{r ecoli-rna-names}
 ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
-(ecoli_rRNA_names <- names(Biostrings::readBStringSet(ecoli_rRNAs_fasta)))
 ```
 
 ## Liftover distances to study organism: `ARF_convert_Ribo3D_pos`
@@ -150,7 +149,14 @@ head(gsea_sets_RP)
 ## Generating collision sets: `dricARF_liftover_collision_sets`
 
 The pair list maps built-in collision-set rRNA keys ("16S", "28S", "5S") to the
-target organism's rRNA names as they appear in the study FASTA.
+target organism's rRNA names as they appear in the study FASTA. Here the built-in
+human sets are lifted to E. coli coordinates via global alignment.
+
+> **Note:** since E. coli disome structures are available (e.g. 9GFT, 9GGR), building
+> species-specific collision sets with `ARF_build_collision_sets()` is preferred over this
+> cross-kingdom liftover. See `ARF_collision_sets.Rmd` for the end-to-end pipeline. The
+> liftover approach shown here remains useful when no disome structure exists for the
+> organism of interest.
 
 ```{r ecoli-colsets, cache=TRUE}
 gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
@@ -264,6 +270,29 @@ at_gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
 
 tail(at_gsea_sets_Collision)
 ```
+
+## Building collision sets from a disome structure
+
+If a disome structure for the organism is available, `ARF_build_ColInt_set()` can compute cross-ribosome Col.Int. distances directly — no manual chain annotation is required. Set `n_copies = 2L` (the default); the two ribosome copies are detected automatically by k-means clustering of chain centroids.
+
+```{r arabidopsis-disome-colint, eval=FALSE}
+# Example: replace "8XYZ" with the actual disome PDB ID for your organism
+Col.gsea_set <- ARF::ARF_build_ColInt_set(
+  rRNAs_file          = at_rRNAs_fasta,
+  PDB_file            = file.path(at_outdir, "8XYZ.cif"),
+  conversion_table    = final_conversion_df,
+  PDBid               = "8XYZ",
+  out_prefix          = file.path(at_outdir, "Ribosome.3D"),
+  rRNAs               = paste("AT", names(rRNA_seqs), sep = "_"),
+  target_species      = "AT",
+  target_rRNAs_fasta  = at_rRNAs_fasta,
+  n_copies            = 2L   # default; chains auto-clustered into two copies
+)
+```
+
+For the full end-to-end pipeline (download → SASA → Rib.Col. + Col.Int. in one call), see `ARF_build_collision_sets()` in `ARF_collision_sets.Rmd`.
+
+---
 
 ## Building a conversion table for protein chains (requires nomenclature data)
 

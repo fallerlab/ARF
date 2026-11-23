@@ -16,7 +16,13 @@
   - `collision_set_builder.R`: `ARF_build_collision_sets()` — one-call wrapper
     that runs the entire collision-interface pipeline (download → SASA → FASTA
     parsing → SASA candidates → Rib.Col. sets → Col.Int. sets) and returns a
-    combined `gsea_sets_Collision` data.frame ready for `dricARF()`.
+    combined `gsea_sets_Collision` data.frame ready for `dricARF()`. Accepts
+    an optional `set_name` parameter (or vector of names matching `PDBid`) to
+    prefix per-structure `ont` values. When `PDBid` is a vector and `set_name`
+    is supplied, the wrapper loops over structures, combines individual named
+    sets, and automatically appends joint `Rib.Col.` and `Col.Int.` sets whose
+    Rand null sets are generated fresh from the union foreground over the full
+    rRNA position space (not merged from per-structure Rands).
   - `ARF_platform.R`: `auto_pair_rRNAs(source_fasta, target_fasta)` — pairs
     each rRNA in `source_fasta` with its best-matching rRNA in `target_fasta`
     via global pairwise alignment (`Biostrings::pairwiseAlignment`). Used
@@ -135,6 +141,12 @@
     `tests/testthat/test-dricARF_liftover_collision_sets.R` (3 tests) added.
 
 ### Changed
+  - `collision_set_builder.R` (`ARF_build_SASA_candidates`, `dricARF_build_SASA_set`):
+    Rib.Col. threshold changed from a raw-SASA percentile cut to a log-transform
+    z-score. Positions with `sasa_A2_diff > 0` are log-transformed and z-scored;
+    those with z > 1.0 are retained. Threshold chosen to maximise F1 against
+    reference sets across four validated disome/trisome structures (7QVP, 6I7O,
+    6T83, 6SV4); Jaccard 0.785–0.928, Recall 0.932–1.000, Precision 0.785–0.986.
   - `dricARF()`, `dripARF()`, `dripARF_predict_heterogenity()`,
     `dripARF_report_RPset_group_counts()`: when a preset organism (`hs`, `mm`,
     or `sc`) is specified but the rRNA sequence names in the user-supplied FASTA

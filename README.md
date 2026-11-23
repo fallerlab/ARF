@@ -13,7 +13,11 @@ Both methods use DESeq2 for normalisation, GSEA-based enrichment testing (RPSEA)
 
 For detailed worked examples including non-model organisms, see:
 
-**[docs/dricARF_use_cases_documentation.md](docs/dricARF_use_cases_documentation.md)**
+**[docs/ARF_use_cases.Rmd](docs/ARF_use_cases.Rmd)**
+
+For the collision interface pipeline (SASA, Rib.Col., Col.Int. set building), see:
+
+**[docs/ARF_collision_sets.Rmd](docs/ARF_collision_sets.Rmd)**
 
 ---
 
@@ -206,7 +210,7 @@ RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
 )
 ```
 
-> **Note:** For PDB structures not in the ARF database, chain names must be manually mapped to standard RP nomenclature via the `PDB_chains_2_RP_nomenclature` argument. See [docs/dricARF_use_cases_documentation.md](docs/dricARF_use_cases_documentation.md) for a helper function that automates this.
+> **Note:** For PDB structures not in the ARF database, chain names must be manually mapped to standard RP nomenclature via the `PDB_chains_2_RP_nomenclature` argument. See [docs/ARF_use_cases.Rmd](docs/ARF_use_cases.Rmd) for a helper function that automates this.
 
 **Step 2 — Liftover coordinates to your organism's rRNA (if needed)**
 
@@ -233,16 +237,18 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 )
 
 # For dricARF: liftover built-in collision structure sets
+# rRNA_pairs maps built-in keys ("16S", "28S", "5S") to headers in your FASTA
 gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
   target_species     = "ec",
   target_rRNAs_fasta = "./my_organism/rRNAs.fa",
-  rRNA_pairs         = list(c("18S", "ec_rRNA_16S"),
-                            c("28S", "ec_rRNA_23S"),
-                            c("5S",  "ec_rRNA_5S"))
+  rRNA_pairs         = list(c("16S", "rRNA_16S"),
+                            c("28S", "rRNA_23S"),
+                            c("5S",  "rRNA_5S")),
+  RP_proximity_df    = LO.RP_proximity_df
 )
 ```
 
-> **Note:** The rRNA FASTA headers must match the position IDs in `gsea_sets_RP$gene` (e.g. `>ec_rRNA_23S`). Check this carefully before running.
+> **Note:** The rRNA FASTA headers and the position IDs in `gsea_sets_RP$gene` must use the same names (e.g. `>rRNA_23S` → gene IDs like `rRNA_23S_145`). The names are determined by the FASTA you supply; check they match before running.
 
 **Step 4 — Run dripARF or dricARF with custom data**
 
@@ -258,9 +264,9 @@ dricARF_results <- ARF::dricARF(
 )
 ```
 
-For complete worked examples with *Escherichia coli* and *Pseudomonas savastanoi*, including custom PDB nomenclature table generation, see:
+For complete worked examples with *Escherichia coli* and *Arabidopsis thaliana*, including custom PDB nomenclature table generation, see:
 
-**[docs/dricARF_use_cases_documentation.md](docs/dricARF_use_cases_documentation.md)**
+**[docs/ARF_use_cases.Rmd](docs/ARF_use_cases.Rmd)**
 
 ---
 
@@ -300,6 +306,23 @@ dricARF uses the full dripARF stack internally and adds:
 | `ARF_parse_PDB_ribosome()` | Compute RP–rRNA minimum Euclidean distances from a PDB/CIF structure |
 | `ARF_convert_Ribo3D_pos()` | Liftover 3D distance coordinates to a target organism via rRNA alignment |
 | `dripARF_get_RP_proximity_sets()` | Convert proximity matrix to GSEA gene sets with random controls |
+| `auto_pair_rRNAs()` | Auto-pair source and target rRNAs by global alignment score |
+
+### Collision interface pipeline (v2.2.2+)
+
+Requires a Python environment with FreeSASA and Gemmi (`configure_sasa_python()`).
+
+| Function | Purpose |
+|---|---|
+| `ARF_build_collision_sets()` | One-call wrapper: download → SASA → Rib.Col. + Col.Int. sets |
+| `ARF_run_SASA()` | Download structure and compute per-residue SASA via Python backend |
+| `ARF_download_structure_files()` | Download PDB mmCIF and FASTA for a given PDB ID |
+| `ARF_parse_structure_fasta()` | Parse RCSB FASTA into conversion table and rRNA `BStringSet` |
+| `ARF_build_SASA_candidates()` | Compute per-residue burial metrics from cleaned SASA table |
+| `dricARF_build_SASA_set()` | Build **Rib.Col.** gene sets from SASA burial data |
+| `ARF_build_ColInt_set()` | Build **Col.Int.** gene sets from cross-ribosome 3D proximity |
+| `configure_sasa_python()` | Create/register the Python environment (run once) |
+| `check_sasa_python()` | Verify the Python environment is working |
 
 ---
 

@@ -57,7 +57,7 @@ dricARF_result_scatterplot <- function(dricARF_results, targetDir,
   
   cols <- c("#ECCBAE", "#046C9A", "#D69C4E", "#ABDDDE", "#000000")
   strip_theme <- ggplot2::theme(
-    strip.text.y       = ggplot2::element_text(angle = 0, hjust = 0.5, size = 7),
+    strip.text.y       = ggplot2::element_text(hjust = 0.5, size = 7),
     plot.margin        = ggplot2::margin(0.2, 1.8, 0.2, 0.2, "cm")
   )
 

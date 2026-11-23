@@ -902,7 +902,7 @@ dripARF_result_scatterplot <- function(dripARF_results, targetDir,
     ggplot2::scale_color_manual(values = c(cols[3],cols[2],cols[5]))+
     ggplot2::scale_shape_manual(values = c(16,17),breaks = c(TRUE,FALSE))+
     ggplot2::theme_bw()+
-    ggplot2::theme(strip.text.y  = ggplot2::element_text(angle = 0, hjust = 0.5, size = 7),
+    ggplot2::theme(strip.text.y  = ggplot2::element_text(hjust = 0.5, size = 7),
                    plot.margin   = ggplot2::margin(0.2, 1.8, 0.2, 0.2, "cm"))+
     ggplot2::labs(col=paste0("ORA \n padj<",as.character(ORA_adjP_thr)), shape=paste0("RPSEA\n padj<",as.character(RPSEA_adjP_thr)))+
     ggplot2::xlab("Enrichment Score 2\n(NES->Z-score within random sets)")+

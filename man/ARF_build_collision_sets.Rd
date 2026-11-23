@@ -12,6 +12,7 @@ ARF_build_collision_sets(
   PDB_file = NULL,
   fasta_file = NULL,
   output_dir = getwd(),
+  set_name = NULL,
   overwrite = FALSE,
   algorithm = "LeeRichards",
   probe_radius = 10,
@@ -24,6 +25,7 @@ ARF_build_collision_sets(
   zero_tolerance = 1e-08,
   precision = 4L,
   duplication_resolve = min,
+  n_copies = 2L,
   envname = getOption("ARF.python.envname", "sasa-python"),
   env_type = getOption("ARF.python.env_type", "virtualenv"),
   python_version = "3.11",
@@ -52,6 +54,12 @@ rRNA FASTA; the second must match a header in \code{target_rRNAs_fasta}.}
 \item{output_dir}{Character. Directory for all outputs.
 Default: \code{getwd()}.}
 
+\item{set_name}{Character or \code{NULL}. When supplied, all \code{ont}
+values in the returned sets are prefixed with this string (e.g.
+\code{"ec_9gft_disome"} turns \code{"Rib.Col."} into
+\code{"ec_9gft_disome_Rib.Col."}). Useful when combining sets from
+multiple structures with \code{dplyr::bind_rows()}.}
+
 \item{overwrite}{Logical. Overwrite existing intermediate files.}
 
 \item{algorithm}{SASA algorithm: \code{"LeeRichards"} (default) or
@@ -73,6 +81,11 @@ Default: \code{getwd()}.}
 
 \item{duplication_resolve}{Function for resolving duplicate distances.
 Default: \code{min}.}
+
+\item{n_copies}{Integer. Passed to \code{\link{ARF_build_ColInt_set}}.
+\code{2L} (default) treats the structure as a disome and computes true
+cross-ribosome contact distances; use this when \code{PDBid} refers to a
+disome structure.  Set to \code{1L} to use the monosome RP-proximity method.}
 
 \item{envname}{Python environment name.}
 

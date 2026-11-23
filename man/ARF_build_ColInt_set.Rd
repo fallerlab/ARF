@@ -14,7 +14,8 @@ ARF_build_ColInt_set(
   duplication_resolve = min,
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs = NULL
+  rRNA_pairs = NULL,
+  n_copies = 2L
 )
 }
 \arguments{
@@ -39,6 +40,11 @@ Default: \code{min}.}
 
 \item{rRNA_pairs}{List of two-element character vectors
 \code{c(source_rRNA, target_rRNA)} for liftover alignment.}
+
+\item{n_copies}{Integer. \code{2L} (default) treats the structure
+as a disome and computes cross-ribosome distances; chains are assigned to
+copies automatically via k-means clustering.  Set to \code{1L} to use the
+monosome RP-proximity method instead.}
 }
 \value{
 data.frame with columns \code{ont} and \code{gene}.

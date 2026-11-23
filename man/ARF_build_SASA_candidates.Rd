@@ -20,5 +20,5 @@ data.frame with columns \code{rRNA}, \code{auth_seq_id},
 \description{
 Reads the TSV produced by \code{\link{ARF_run_SASA}}, labels each residue
 with its rRNA identity, and returns residues where the z-transformed
-differential SASA (max - min across chains) exceeds 1.64 (top ~5 \%).
+differential SASA (max - min across chains), log-transformed, exceeds 1.0 (F1-optimised threshold).
 }

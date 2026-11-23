@@ -36,6 +36,7 @@ outdir       <- "testrun/collision_sets/9GFT"
 ecoli_outdir <- "testrun/ecoli"
 dir.create(outdir,       showWarnings = FALSE, recursive = TRUE)
 dir.create(ecoli_outdir, showWarnings = FALSE, recursive = TRUE)
+dir.create("testrun/collision_sets", showWarnings = FALSE, recursive = TRUE)
 ```
 
 ```{r python-config, include=FALSE, message=TRUE}
@@ -75,9 +76,9 @@ if (is.null(getOption("ARF.python.env_type")) &&
 
 ARF builds gene sets that capture which parts of the rRNA are positioned at the collision interface of collided ribosomes. Two complementary approaches are used:
 
-**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. For each rRNA residue the differential SASA (max − min across the two chains) is z-transformed; positions with z > 1.64 (top ~5 %) are selected as buried at the interface. Each selected position is then extended by ±1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
+**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. For each rRNA residue the differential SASA (max − min across the two chains) is z-transformed; the differential SASA is log-transformed and z-scored; positions with z > 1.0 are selected as buried at the interface (threshold chosen to maximise F1 against reference sets across four validated structures). Each selected position is then extended by ±1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
 
-**Col.Int. sets** are based on **3D proximity**. For each rRNA residue the minimum distance to any ribosomal-protein atom is computed. Residues in the closest 5th percentile are selected, then extended by ±1 nt in rRNA coordinate space. This is a direct geometric measurement.
+**Col.Int. sets** are based on **cross-ribosome 3D proximity**. The structure is treated as a disome: chains are automatically partitioned into two ribosome copies via k-means clustering of chain centroids. For each rRNA nucleotide (N1 atom) in one copy, the minimum distance to all ribosomal-protein Cα atoms and rRNA N1 atoms of the other copy is computed. The selection threshold is the 5th percentile of within-copy rRNA-to-RP distances, so it is calibrated to the same structural scale. Positions below this threshold are extended by ±1 nt in rRNA coordinate space. This is a direct measurement of the inter-ribosomal contact surface. Pass `n_copies = 1L` to fall back to the monosome RP-proximity method (not recommended for Col.Int.).
 
 Both sets are expressed in GSEA format — a `data.frame` with columns `ont` (set name) and `gene` (residue identifier such as `ec_23S_rRNA_145`) — and are designed to be passed to `dricARF()` as `gsea_sets_Collision`.
 
@@ -143,6 +144,8 @@ ARF::check_sasa_python()
 
 `ARF_build_collision_sets()` runs the entire pipeline — download, SASA, FASTA parsing, candidate selection, and set building — in one call. All intermediate files are written to `output_dir`.
 
+### Single structure
+
 ```{r quickstart, cache=TRUE}
 # Reference rRNA FASTA used for Ribo-seq mapping (shipped with the package)
 target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "ARF")
@@ -156,7 +159,8 @@ collision_sets <- ARF::ARF_build_collision_sets(
   output_dir         = outdir,
   algorithm          = "LeeRichards",
   probe_radius       = 10,
-  n_threads          = 1L   # LeeRichards is single-threaded
+  n_threads          = 1L,  # LeeRichards is single-threaded
+  n_copies           = 2L   # disome cross-ribosome distances for Col.Int. (default)
 )
 
 # The combined set is ready for dricARF()
@@ -174,7 +178,57 @@ All files are saved under `outdir` (here `testrun/collision_sets/9GFT/`):
 | `input_sasa.tsv` | Cleaned SASA table used for candidate selection |
 | `9GFT.Ribosome.3D.*.csv` | Intermediate 3D distance files |
 
-See **[Using collision sets for prediction](#using-collision-sets-for-prediction)** for how to pass `gsea_sets_Collision` to `dricARF()`.
+Inspect the output:
+
+```{r quickstart-inspect}
+# Set names present in the output
+unique(gsea_sets_Collision$ont)
+
+# Number of positions per set (foreground only)
+gsea_sets_Collision |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
+```
+
+---
+
+### Multiple structures
+
+Pass a vector of PDB IDs with a matching `set_name` vector. Each structure gets its own labelled sets (e.g. `"ec_9gft_disome_Rib.Col."`). Because both structures share the same rRNA coordinates, `ARF_build_collision_sets()` automatically adds joint `Rib.Col.` and `Col.Int.` sets representing the union of positions across all structures, with fresh circular-shift Rand sets generated from that union — identical to what the built-in organism presets use.
+
+The expensive SASA step is skipped for 9GFT because `overwrite = FALSE` reuses the existing TSV from the single-structure run above.
+
+```{r quickstart-multi, cache=TRUE}
+multi_outdir <- "testrun/collision_sets"
+
+multi_sets <- ARF::ARF_build_collision_sets(
+  PDBid              = c("9GFT", "9GGR"),
+  target_species     = "ec",
+  target_rRNAs_fasta = target_rRNAs_fasta,
+  output_dir         = multi_outdir,   # expands to multi_outdir/9GFT, multi_outdir/9GGR
+  set_name           = c("ec_9gft_disome", "ec_9ggr_disome"),
+  probe_radius       = 10,
+  overwrite          = FALSE
+)
+
+gsea_sets_Collision_multi <- multi_sets$gsea_sets_Collision
+```
+
+Inspect the output:
+
+```{r quickstart-multi-inspect}
+# All set names — per-structure and joint
+unique(gsea_sets_Collision_multi$ont)
+
+# Position counts for foreground sets only
+gsea_sets_Collision_multi |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
+```
+
+The joint `Rib.Col.` and `Col.Int.` sets (without a structure-specific prefix) are the ones to pass to `dricARF()`. Per-structure sets are available via `multi_sets$structures[["9GFT"]]` and `multi_sets$structures[["9GGR"]]` for downstream inspection.
+
+See **[Using collision sets for prediction](#using-collision-sets-for-prediction)** for a full prediction workflow.
 
 ---
 
@@ -308,6 +362,8 @@ The result is a `data.frame` with `ont` values like `"Rib.Col."` and `"Rand1_Rib
 
 ### Step 4 — Build Col.Int. gene sets
 
+By default (`n_copies = 2L`) the structure is treated as a disome: chains are automatically split into two ribosome copies and cross-ribosome distances drive the set. The structure at `PDB_file` must therefore contain two ribosome copies. Pass `n_copies = 1L` only if you have a monosome structure and want to fall back to the within-ribosome RP-proximity method.
+
 ```{r eval=FALSE}
 Col.gsea_set <- ARF_build_ColInt_set(
   rRNAs_file          = rRNAs_file_clean,
@@ -316,13 +372,14 @@ Col.gsea_set <- ARF_build_ColInt_set(
   PDBid               = sub("\\.cif$", "", basename(PDB_file)),
   out_prefix          = file.path(outdir, "Ribosome.3D"),
   rRNAs               = paste(target_species, rRNAs, sep = "_"),
-  duplication_resolve = min,          # how to merge multiple chains per RP
+  duplication_resolve = min,          # how to merge two copies per rRNA position
   target_species      = target_species,
-  target_rRNAs_fasta  = target_rRNAs_fasta
+  target_rRNAs_fasta  = target_rRNAs_fasta,
+  n_copies            = 2L            # disome cross-ribosome distances (default)
 )
 ```
 
-`duplication_resolve` handles RPs that have more than one chain in the structure. Use `min` (the closest contact wins), `max`, or `mean` depending on your analysis.
+`duplication_resolve` controls how distances from the two ribosome copies are merged into one value per rRNA position. `min` (the default) keeps the shorter of the two cross-ribosome distances, giving the most sensitive detection of interface contacts.
 
 ---
 
@@ -344,15 +401,17 @@ gene_sets <- split(gsea_sets_Collision$gene, gsea_sets_Collision$ont)
 
 To run `dricARF()`, three inputs must share the same rRNA coordinate system — specifically the FASTA whose sequence names appear as chromosomes in the Ribo-seq bedGraph files:
 
-- `gsea_sets_Collision` — built here from 9GFT
-- `gsea_sets_RP` — built from a standard 70S structure (6XZA)
+- `gsea_sets_Collision` — collision interface sets (Rib.Col. + Col.Int.), built from one or more disome structures
+- `gsea_sets_RP` — ribosomal protein proximity sets
 - `RP_proximity_df` — the RP-rRNA distance matrix
 
-The E. coli test data (`test_data/Escherichia_PRJNA906596`) was aligned to `6XZA.rRNAs.fasta` (sequence names `rRNA_16S`, `rRNA_23S`, `rRNA_5S`). All three inputs must use this same reference.
+The E. coli test data (`test_data/Escherichia_coli_PRJNA1126309`) was aligned to `6XZA.rRNAs.fasta` (sequence names `rRNA_16S`, `rRNA_23S`, `rRNA_5S`). All three inputs must use this same reference.
 
 > **Preset organisms (hs / mm / sc):** if you are using a preset organism but your `rRNAs_fasta` has different sequence names from the built-in preset, `dricARF()` and `dripARF()` detect this automatically and lift the preset coordinate data to your FASTA via ClustalW alignment. You will see an informational message; no manual step is needed.
 
 ### Build RP proximity sets
+
+These are shared by both the single- and multi-structure prediction runs below.
 
 ```{r ecoli-rp-proximity, cache=TRUE}
 ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
@@ -380,26 +439,76 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 )
 ```
 
-### Build collision sets in the same coordinate system
+---
 
-The Quick Start built `gsea_sets_Collision` targeting `EscherichiaColi.fa` (gene names like `ec_23S_rRNA_489`). For prediction the bedGraph chromosome names are `rRNA_16S`, `rRNA_23S`, `rRNA_5S` — so the gene sets must use those names too. Rebuild targeting `6XZA.rRNAs.fasta`; the slow SASA step is skipped automatically because `overwrite = FALSE` reuses the existing TSV:
+### Single structure
 
-```{r collision-sets-pred}
-collision_sets_pred <- ARF::ARF_build_collision_sets(
+The Quick Start built sets targeting `EscherichiaColi.fa`. For prediction the bedGraph chromosome names are `rRNA_16S`, `rRNA_23S`, `rRNA_5S` — so sets must target `6XZA.rRNAs.fasta` instead. The SASA step is skipped automatically (`overwrite = FALSE` reuses the existing TSV). No `set_name` is supplied, so the output uses the plain `Rib.Col.` / `Col.Int.` names that `dricARF()` expects.
+
+```{r collision-sets-single, cache=TRUE}
+collision_sets_single <- ARF::ARF_build_collision_sets(
   PDBid              = "9GFT",
   target_species     = "ec",
   target_rRNAs_fasta = ecoli_rRNAs_fasta,
-  output_dir         = outdir,
+  output_dir         = "testrun/collision_sets/9GFT",
+  overwrite          = FALSE
+)
+
+gsea_sets_Collision_single <- collision_sets_single$gsea_sets_Collision
+unique(gsea_sets_Collision_single$ont)
+```
+
+```{r ecoli-dricarf-single}
+dricarf_single_outdir <- "testrun/dricARF_single"
+dir.create(dricarf_single_outdir, showWarnings = FALSE, recursive = TRUE)
+
+dricARF_single <- ARF::dricARF(
+  samplesFile         = "test_data/Escherichia_coli_PRJNA1126309/riboseq/samples.tsv",
+  rRNAs_fasta         = ecoli_rRNAs_fasta,
+  organism            = NULL,
+  gsea_sets_Collision = gsea_sets_Collision_single,
+  gsea_sets_RP        = gsea_sets_RP,
+  RP_proximity_df     = LO.RP_proximity_df,
+  targetDir           = dricarf_single_outdir
+)
+```
+
+```{r dricarf-single-results}
+# Collision enrichment rows for the two interface set types
+dricARF_single |>
+  dplyr::filter(Description %in% c("Rib.Col.", "Col.Int.")) |>
+  dplyr::select(Description, comp, RPSEA.NES, RPSEA.NES_randZ, RPSEA.padj) |>
+  dplyr::arrange(Description, comp)
+```
+
+---
+
+### Multiple structures
+
+Using two disome structures (9GFT and 9GGR) produces joint `Rib.Col.` and `Col.Int.` sets whose positions are the union across both structures, with fresh Rand null sets. This is more robust than a single structure because positions present in only one structure due to resolution artefacts or model uncertainty are still captured.
+
+```{r collision-sets-pred, cache=TRUE}
+collision_sets_pred <- ARF::ARF_build_collision_sets(
+  PDBid              = c("9GFT", "9GGR"),
+  target_species     = "ec",
+  target_rRNAs_fasta = ecoli_rRNAs_fasta,
+  output_dir         = "testrun/collision_sets",
+  set_name           = c("ec_9gft_disome", "ec_9ggr_disome"),
   overwrite          = FALSE
 )
 
 gsea_sets_Collision_pred <- collision_sets_pred$gsea_sets_Collision
+
+# Joint sets (plain names) are what dricARF() uses; per-structure sets are also present
+gsea_sets_Collision_pred |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
 ```
 
-### Run dricARF
-
 ```{r ecoli-dricarf}
-dir.create(file.path(outdir, "dricARF"), showWarnings = FALSE)
+dricarf_outdir <- "testrun/dricARF"
+dir.create(dricarf_outdir, showWarnings = FALSE, recursive = TRUE)
+
 dricARF_results <- ARF::dricARF(
   samplesFile         = "test_data/Escherichia_coli_PRJNA1126309/riboseq/samples.tsv",
   rRNAs_fasta         = ecoli_rRNAs_fasta,
@@ -407,8 +516,16 @@ dricARF_results <- ARF::dricARF(
   gsea_sets_Collision = gsea_sets_Collision_pred,
   gsea_sets_RP        = gsea_sets_RP,
   RP_proximity_df     = LO.RP_proximity_df,
-  targetDir           = file.path(outdir, "dricARF")
+  targetDir           = dricarf_outdir
 )
+```
+
+```{r dricarf-multi-results}
+# Collision enrichment rows for the two interface set types
+dricARF_results |>
+  dplyr::filter(Description %in% c("Rib.Col.", "Col.Int.")) |>
+  dplyr::select(Description, comp, RPSEA.NES, RPSEA.NES_randZ, RPSEA.padj) |>
+  dplyr::arrange(Description, comp)
 ```
 
 ---
@@ -467,6 +584,7 @@ ARF_build_collision_sets(
   PDB_file             = NULL,
   fasta_file           = NULL,
   output_dir           = getwd(),
+  set_name             = NULL,
   overwrite            = FALSE,
   algorithm            = "LeeRichards",
   probe_radius         = 10,
@@ -479,6 +597,7 @@ ARF_build_collision_sets(
   zero_tolerance       = 1e-8,
   precision            = 4L,
   duplication_resolve  = min,
+  n_copies             = 2L,   # 2L = disome cross-ribosome distances; 1L = monosome RP-proximity
   envname              = getOption("ARF.python.envname", "sasa-python"),
   env_type             = getOption("ARF.python.env_type", "virtualenv"),
   python_version       = "3.11",
@@ -592,7 +711,8 @@ ARF_build_ColInt_set(
   duplication_resolve,      # function: min / max / mean
   target_species,
   target_rRNAs_fasta,
-  rRNA_pairs = NULL         # auto-detected; supply to override
+  rRNA_pairs = NULL,        # auto-detected; supply to override
+  n_copies   = 2L           # 2L = disome cross-ribosome distances; 1L = monosome RP-proximity
 )
 ```
 
@@ -615,12 +735,24 @@ All set-building functions return (or contribute to) a `data.frame` with two col
 | `Col.Int.` | Real | 3D-proximity interface |
 | `Rand1_Rib.Col.`, `Rand2_Rib.Col.`, … | Null | Randomised Rib.Col. sets |
 | `Rand1_Col.Int.`, `Rand2_Col.Int.`, … | Null | Randomised Col.Int. sets |
+| `{name}_Rib.Col.`, `{name}_Col.Int.` | Real | Per-structure sets when `set_name` is supplied |
+| `Rand1_{name}_Rib.Col.`, … | Null | Per-structure randomised sets |
 
 **Gene identifiers** follow the pattern `{target_species}_{rRNA_molecule}_{position}`, e.g. `ec_23S_rRNA_145`. Positions are expressed in reference rRNA coordinates (aligned via the rRNA pairs).
 
 ---
 
 ## Key parameters
+
+### `n_copies`
+
+Controls whether Col.Int. is computed from a disome (`2L`, default) or a monosome (`1L`).
+
+With `n_copies = 2L` the pipeline expects the structure to contain two ribosome copies. Chains are separated automatically by k-means clustering of chain centroids; no manual annotation is needed. Cross-ribosome distances (rRNA N1 → RP Cα + rRNA N1 of the other copy) are used, calibrated against within-copy RP distances. This is the methodologically correct approach for Col.Int.
+
+With `n_copies = 1L` the pipeline treats the structure as a monosome and measures distances between rRNA nucleotides and ribosomal proteins within the same complex. This is an approximation and is provided for cases where only a monosome structure is available.
+
+---
 
 ### `probe_radius`
 
