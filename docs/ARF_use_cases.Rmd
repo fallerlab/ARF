@@ -51,7 +51,7 @@ No PDB download or custom structural setup is needed.
 
 > **Custom FASTA with a preset organism:** if you supply `organism = "mm"` (or `"hs"` / `"sc"`) but your `rRNAs_fasta` has sequence names that differ from the bundled preset — for example a custom ENSEMBL-derived FASTA — ARF detects the mismatch and lifts the preset coordinate data to your FASTA automatically via ClustalW alignment. An informational message is printed; no extra parameters are required. Supply `rRNA_pairs` only if you want to override the automatic pairing.
 
-```{r mouse-drip, cache=TRUE}
+```{r mouse-drip}
 dripARF_results <- ARF::dripARF(
   samplesFile    = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv",
   rRNAs_fasta    = "rRNAs/mouse_rRNAs.fa",
@@ -66,7 +66,7 @@ dripARF_results <- ARF::dripARF(
 head(dripARF_results[, c("comp","Description","RPSEA.NES","RPSEA.NES_randZ","RPSEA.padj","ORA.padj")])
 ```
 
-```{r mouse-dric, cache=TRUE}
+```{r mouse-dric}
 dricARF_results <- ARF::dricARF(
   samplesFile  = "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv",
   rRNAs_fasta  = "rRNAs/mouse_rRNAs.fa",
@@ -96,7 +96,7 @@ dir.create(ecoli_outdir, showWarnings = FALSE, recursive = TRUE)
 
 ## Computing RP–rRNA distances: `ARF_parse_PDB_ribosome`
 
-```{r ecoli-parse, cache=TRUE}
+```{r ecoli-parse}
 RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
   species            = "ec",
   PDBid              = "6XZA",
@@ -118,7 +118,7 @@ ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
 For a same-species run the source and target FASTAs are identical; the function
 still lifts coordinates through alignment, confirming no positions are lost.
 
-```{r ecoli-liftover, cache=TRUE}
+```{r ecoli-liftover}
 LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
   source_distance_file = file.path(ecoli_outdir, "Ribosome.3D.6XZA.ARF.minimum_distances.csv"),
   source_rRNAs_fasta   = ecoli_rRNAs_fasta,
@@ -134,7 +134,7 @@ head(LO.RP_proximity_df[, 1:8])
 
 ## Generating RP proximity sets: `dripARF_get_RP_proximity_sets`
 
-```{r ecoli-rpsets, cache=TRUE}
+```{r ecoli-rpsets}
 gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
   RP_proximity_df   = LO.RP_proximity_df,
   additional_RPcols = c(),
@@ -158,7 +158,7 @@ human sets are lifted to E. coli coordinates via global alignment.
 > liftover approach shown here remains useful when no disome structure exists for the
 > organism of interest.
 
-```{r ecoli-colsets, cache=TRUE}
+```{r ecoli-colsets}
 gsea_sets_Collision <- ARF::dricARF_liftover_collision_sets(
   target_species     = "ec",
   target_rRNAs_fasta = ecoli_rRNAs_fasta,
@@ -187,7 +187,7 @@ The samples file should look like:
 | RIBO_pH5.8_1 | path/to/SRR22447288.bedGraph | RIBO_pH5.8 |
 | RIBO_pH4.4_1 | path/to/SRR22447286.bedGraph | RIBO_pH4.4 |
 
-```{r ecoli-dric, cache=TRUE}
+```{r ecoli-dric}
 dricARF_results <- ARF::dricARF(
   samplesFile         = "test_data/Escherichia_PRJNA906596/riboseq/samples.tsv",
   rRNAs_fasta         = ecoli_rRNAs_fasta,
@@ -246,7 +246,7 @@ names(rRNA_seqs)
 With the rRNA FASTA available, collision-set liftover from human/yeast to the target
 organism runs without requiring the full structural pipeline.
 
-```{r arabidopsis-colsets, cache=TRUE}
+```{r arabidopsis-colsets}
 # A minimal RP_proximity_df stub with the target rRNA names is enough for
 # the randomised-control set sizes. Replace with the real ARF_parse_PDB_ribosome()
 # output once the structural pipeline has been run for Arabidopsis.

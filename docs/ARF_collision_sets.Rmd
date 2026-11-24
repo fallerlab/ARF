@@ -76,7 +76,7 @@ if (is.null(getOption("ARF.python.env_type")) &&
 
 ARF builds gene sets that capture which parts of the rRNA are positioned at the collision interface of collided ribosomes. Two complementary approaches are used:
 
-**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. For each rRNA residue the differential SASA (max − min across the two chains) is z-transformed; the differential SASA is log-transformed and z-scored; positions with z > 1.0 are selected as buried at the interface (threshold chosen to maximise F1 against reference sets across four validated structures). Each selected position is then extended by ±1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
+**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Å) scans the intact complex. For each rRNA residue the differential SASA (max − min across the two chains) is z-transformed; the differential SASA is z-scored; positions with z > 1.64 are selected as buried at the interface (threshold chosen for perfect precision against validated reference sets). Each selected position is then extended by ±1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
 
 **Col.Int. sets** are based on **cross-ribosome 3D proximity**. The structure is treated as a disome: chains are automatically partitioned into two ribosome copies via k-means clustering of chain centroids. For each rRNA nucleotide (N1 atom) in one copy, the minimum distance to all ribosomal-protein Cα atoms and rRNA N1 atoms of the other copy is computed. The selection threshold is the 5th percentile of within-copy rRNA-to-RP distances, so it is calibrated to the same structural scale. Positions below this threshold are extended by ±1 nt in rRNA coordinate space. This is a direct measurement of the inter-ribosomal contact surface. Pass `n_copies = 1L` to fall back to the monosome RP-proximity method (not recommended for Col.Int.).
 
@@ -146,7 +146,7 @@ ARF::check_sasa_python()
 
 ### Single structure
 
-```{r quickstart, cache=TRUE}
+```{r quickstart}
 # Reference rRNA FASTA used for Ribo-seq mapping (shipped with the package)
 target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "ARF")
 if (!nzchar(target_rRNAs_fasta))
@@ -198,7 +198,7 @@ Pass a vector of PDB IDs with a matching `set_name` vector. Each structure gets 
 
 The expensive SASA step is skipped for 9GFT because `overwrite = FALSE` reuses the existing TSV from the single-structure run above.
 
-```{r quickstart-multi, cache=TRUE}
+```{r quickstart-multi}
 multi_outdir <- "testrun/collision_sets"
 
 multi_sets <- ARF::ARF_build_collision_sets(
@@ -413,7 +413,7 @@ The E. coli test data (`test_data/Escherichia_coli_PRJNA1126309`) was aligned to
 
 These are shared by both the single- and multi-structure prediction runs below.
 
-```{r ecoli-rp-proximity, cache=TRUE}
+```{r ecoli-rp-proximity}
 ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
 
 # Compute RP-rRNA minimum distances from the 6XZA 70S structure (cached if already run)
@@ -445,7 +445,7 @@ gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
 
 The Quick Start built sets targeting `EscherichiaColi.fa`. For prediction the bedGraph chromosome names are `rRNA_16S`, `rRNA_23S`, `rRNA_5S` — so sets must target `6XZA.rRNAs.fasta` instead. The SASA step is skipped automatically (`overwrite = FALSE` reuses the existing TSV). No `set_name` is supplied, so the output uses the plain `Rib.Col.` / `Col.Int.` names that `dricARF()` expects.
 
-```{r collision-sets-single, cache=TRUE}
+```{r collision-sets-single}
 collision_sets_single <- ARF::ARF_build_collision_sets(
   PDBid              = "9GFT",
   target_species     = "ec",
@@ -487,7 +487,7 @@ dricARF_single |>
 
 Using two disome structures (9GFT and 9GGR) produces joint `Rib.Col.` and `Col.Int.` sets whose positions are the union across both structures, with fresh Rand null sets. This is more robust than a single structure because positions present in only one structure due to resolution artefacts or model uncertainty are still captured.
 
-```{r collision-sets-pred, cache=TRUE}
+```{r collision-sets-pred}
 collision_sets_pred <- ARF::ARF_build_collision_sets(
   PDBid              = c("9GFT", "9GGR"),
   target_species     = "ec",

@@ -1,6 +1,6 @@
 Package: ARF
 Title: ARF - Analysis of rRNA Fragments originating from Ribo-seq experiments
-Version: 2.2.2
+Version: 3.0.0
 Authors@R: c(
     person(given = "Ferhat",
            family = "Alkan",
@@ -56,5 +56,4 @@ Config/testthat/edition: 3
 SystemRequirements: Python (>= 3.10), Python packages: gemmi, freesasa
 Depends:
     R (>= 4.1.0)
-Config/roxygen2/version: 8.1.0
 RoxygenNote: 7.3.2

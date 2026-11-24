@@ -1,0 +1,795 @@
+---
+title: "ARF — Mouse ribosome structure comparison"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE)
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r load-arf}
+if (requireNamespace("devtools", quietly = TRUE)) devtools::load_all(".") else library(ARF)
+library(dplyr)
+library(ggplot2)
+```
+
+This notebook runs dripARF on the mouse IP/Total Ribo-seq benchmark dataset using 18 mouse
+ribosome structures from RCSB, plus the built-in mouse preset, and produces an ES2 heatmap
+comparing RP enrichment signals across structures. It demonstrates both **Path 1** (built-in
+mouse preset) and **Path 4** (custom PDB structures with sequence-alignment-based conversion
+tables) from the ARF workflow described in the README.
+
+---
+
+# Settings
+
+```{r settings}
+mouse_rRNAs  <- "rRNAs/mouse_rRNAs.fa"
+samples_file <- "test_data/Rpl10aRps25Rpl22_samples_mouse.tsv"
+target_RPs   <- c("uL1", "eS25", "eL22")
+
+comparisons <- list(
+  c("uL1_FLAG",  "uL1_Total"),
+  c("eS25_FLAG", "eS25_Total"),
+  c("eL22_HA",   "eL22_Total"),
+  c("uL1_FLAG",  "eL22_HA"),
+  c("eS25_FLAG", "eL22_HA"),
+  c("uL1_Total", "eS25_Total")
+)
+comp_labels <- sapply(comparisons, paste, collapse = "_vs_")
+
+pdbs <- c(
+  "31FX", "31FY", "31FZ", "9QZP",
+  "9QWT", "9QQL", "9QQP", "9QSA",
+  "9QOH", "7CPU", "7CPV",
+  "7LS1", "7LS2"
+)
+
+base_dir <- "testrun/mouse_struct_cmp"
+dir.create(base_dir, showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+# Helper functions: chain conversion table
+
+> **Note on nomenclature generation.** The conversion table built below is written
+> specifically for these 18 mouse ribosome structures. It is intended as a worked
+> example and a starting point, not a general-purpose solution. For any new structure
+> the generated mapping must be verified manually: chain descriptions vary across
+> releases, some chains carry non-standard names, and fusion proteins or non-RP
+> binders may receive ambiguous assignments. Always review the table before passing
+> it to `ARF_parse_PDB_ribosome`.
+
+For each structure a chain-to-RP mapping is built from the RCSB FASTA using two
+complementary strategies:
+
+1. **Greedy one-to-one sequence alignment** against a reference AAStringSet built from
+   the three full mouse 80S structures (9QZP / 9QQL / 9QOH). A score matrix is built
+   first using fast scoreOnly local alignments (BLOSUM62, gap open 10, gap extend 0.5).
+   All (query chain, reference RP) pairs are then sorted by score descending. Walking
+   from the top, a pair is accepted — and both the query chain and the reference RP are
+   marked as assigned — when the full alignment PID meets or exceeds `min_pid` (default
+   95 %). Each reference RP is assigned to at most one query chain, so in a monosome
+   structure every RP appears at most once. PID is computed over the aligned region, so
+   truncated or fusion chains (e.g. ubiquitin-RP fusions) still resolve correctly as
+   long as the RP portion aligns well.
+2. **Description string parsing** for chains with no alignment hit above the threshold.
+   When the description contains "protein", "factor", or "initiator", the last
+   whitespace-delimited token is taken as the RP name (RCSB convention places the RP
+   name at the end: "60S ribosomal subunit protein **eL18**"). Otherwise the first
+   token is used (e.g. "**RACK1** 40S ribosomal protein"). A `-like` suffix is stripped
+   (e.g. `uL16-like` becomes `uL16`).
+
+Chains that fail both strategies (zero-length sequence, non-RP ligands) are silently
+dropped. rRNA chains are detected separately by "ribosomal RNA" in the description and
+named `rRNA_28S`, `rRNA_18S`, `rRNA_5.8S`, `rRNA_5S`. Non-ribosomal RNA chains (mRNA,
+tRNA) are excluded from both paths entirely.
+
+```{r conversion-fn}
+# Suppress cat() progress lines (e.g. "Reading the bedgraph file") while keeping
+# message() output and the return value intact.
+.silent <- function(x) {
+  .val <- NULL
+  invisible(capture.output(.val <- x))
+  .val
+}
+
+extract_auth_chains <- function(chain_info) {
+  parts    <- strsplit(chain_info, ",", fixed = TRUE)[[1]]
+  auth_ids <- vapply(trimws(parts), function(p) {
+    if (grepl("auth", p, fixed = TRUE)) gsub(".*auth ([^]]+)\\].*", "\\1", p)
+    else gsub("^Chains*\\s*", "", p)
+  }, character(1))
+  paste(trimws(auth_ids), collapse = ",")
+}
+
+# Build a named AAStringSet: one sequence per RP_new from 9QZP/9QQL/9QOH.
+# Sequences are taken from whichever reference structure first provides a given RP.
+build_ref_aa_seqs <- function(ref_pdbs   = c("9QZP", "9QQL", "9QOH"),
+                               base_dir   = "testrun/mouse_struct_cmp",
+                               all_pdb_rps_file = "data-raw/ALL_PDB_RPS_edited.csv") {
+  all_rps <- read.table(all_pdb_rps_file, sep = ",", header = TRUE)
+  ref_seqs <- list()
+  for (pdb in ref_pdbs) {
+    fasta_path  <- file.path(base_dir, pdb, paste0(pdb, ".fasta"))
+    raw         <- Biostrings::readBStringSet(fasta_path)
+    split_names <- strsplit(names(raw), "|", fixed = TRUE)
+    chain_infos <- vapply(split_names, function(x) if (length(x)>=2L) x[[2L]] else "", character(1))
+    chain_ids   <- vapply(chain_infos, extract_auth_chains, character(1))
+    # For multi-copy entries take the first auth chain ID only
+    first_chain <- sub(",.*", "", chain_ids)
+    # Look up RP_new for each chain from the CSV (this PDB is now in there)
+    pdb_rows    <- dplyr::filter(all_rps, PDB_id == pdb)
+    # chain_info in CSV contains the full "Chain X[auth Y]" string; extract auth ID
+    pdb_rows$auth_id <- sub(",.*", "",
+                             vapply(pdb_rows$chain_info, extract_auth_chains, character(1)))
+    for (i in seq_along(raw)) {
+      cid  <- first_chain[i]
+      rp   <- pdb_rows$RP_new[match(cid, pdb_rows$auth_id)]
+      # keep only well-formed universal RP names (eL/uL/eS/uS + RACK1)
+      if (!is.na(rp) && grepl("^[eu][LS][0-9]|^RACK1", rp) && !(rp %in% names(ref_seqs))) {
+        ref_seqs[[rp]] <- as.character(raw[[i]])
+      }
+    }
+  }
+  Biostrings::AAStringSet(unlist(ref_seqs))
+}
+
+build_conversion_table <- function(fasta_path,
+                                   ref_aa_seqs      = NULL,
+                                   min_pid          = 95,
+                                   all_pdb_rps_file = "data-raw/ALL_PDB_RPS_edited.csv",
+                                   return_pid       = FALSE) {
+  raw         <- Biostrings::readBStringSet(fasta_path)
+  split_names <- strsplit(names(raw), "|", fixed = TRUE)
+  tbl <- data.frame(
+    ID          = vapply(split_names, `[[`, character(1), 1L),
+    chain_info  = vapply(split_names, function(x) if (length(x)>=2L) x[[2L]] else "", character(1)),
+    description = vapply(split_names, function(x) if (length(x)>=3L) x[[3L]] else "", character(1)),
+    stringsAsFactors = FALSE
+  )
+  tbl$chainID <- vapply(tbl$chain_info, extract_auth_chains, character(1))
+  # ribosomal RNA chains: match "ribosomal RNA" or "rRNA" in the description
+  is_rRNA     <- grepl("ribosomal RNA|rRNA", tbl$description, ignore.case = TRUE)
+  # other RNA chains: mRNA, tRNA (incl. "Met-tRNA", "P/E tRNA" etc.) and any
+  # description containing "RNA" that is not ribosomal RNA. "\bRNA\b" misses
+  # "tRNA" because the word boundary fails before the "R", so match "RNA" and
+  # "tRNA" separately. Nascent peptide chains are also excluded — they are not RPs.
+  is_other_RNA <- grepl("RNA|tRNA", tbl$description, ignore.case = TRUE) & !is_rRNA
+  is_nascent   <- grepl("nascent", tbl$description, ignore.case = TRUE)
+
+  # --- rRNA rows: name by size (rRNA_28S, rRNA_18S, etc.) ----------------------
+  # Use stringr::str_extract which returns NA for non-matches (unlike regmatches
+  # which drops non-matching rows and causes vector-length mismatches).
+  rRNA_rows <- tbl[is_rRNA, ]
+  rRNA_rows$RP_name <- paste0("rRNA_",
+    stringr::str_extract(rRNA_rows$description, "[0-9]+\\.?[0-9]*S"))
+  rRNA_rows$RP_new  <- rRNA_rows$RP_name
+  rRNA_rows <- rRNA_rows[, c("ID","RP_name","RP_new","chainID")]
+
+  # --- protein rows ------------------------------------------------------------
+  prot_tbl <- tbl[!is_rRNA & !is_other_RNA & !is_nascent, ]
+
+  # Descriptions that must bypass alignment entirely — they produce false-positive
+  # BLOSUM62 hits against real RPs (e.g. RACK1 -> eS31 at 80% PID).
+  skip_aln_descs <- c("Elongation factor 2", "Receptor of activated protein C kinase 1")
+  skip_aln_mask  <- prot_tbl$description %in% skip_aln_descs
+
+  # Strategy 1: greedy one-to-one alignment against reference AAStringSet.
+  # Each reference RP is assigned to at most one query chain, preventing multiple
+  # chains in a monosome from all claiming the same top-scoring reference.
+  # Step 1a: build score matrix (scoreOnly for speed).
+  aln_rp     <- rep(NA_character_, nrow(prot_tbl))
+  pid_records <- list()
+  if (!is.null(ref_aa_seqs) && length(ref_aa_seqs) > 0 && nrow(prot_tbl) > 0) {
+    query_seqs <- vector("list", nrow(prot_tbl))
+    for (i in seq_len(nrow(prot_tbl))) {
+      if (skip_aln_mask[i]) next
+      query_seqs[[i]] <- tryCatch(
+        Biostrings::AAString(as.character(raw[[which(tbl$ID == prot_tbl$ID[i])]])),
+        error = function(e) NULL
+      )
+    }
+    score_matrix <- matrix(0, nrow = nrow(prot_tbl), ncol = length(ref_aa_seqs))
+    for (i in seq_len(nrow(prot_tbl))) {
+      if (skip_aln_mask[i]) next
+      qs <- query_seqs[[i]]
+      if (is.null(qs) || nchar(as.character(qs)) == 0L) next
+      score_matrix[i, ] <- tryCatch(
+        Biostrings::pairwiseAlignment(
+          Biostrings::AAStringSet(rep(as.character(qs), length(ref_aa_seqs))),
+          ref_aa_seqs,
+          type = "local", substitutionMatrix = "BLOSUM62",
+          gapOpening = 10, gapExtension = 0.5, scoreOnly = TRUE
+        ),
+        error = function(e) numeric(length(ref_aa_seqs))
+      )
+    }
+    # Step 1b: greedy assignment — walk pairs from highest score downward;
+    # assign only when both query and reference are still unassigned.
+    assigned_q <- logical(nrow(prot_tbl))
+    assigned_r <- logical(length(ref_aa_seqs))
+    pairs <- which(score_matrix > 0, arr.ind = TRUE)
+    if (nrow(pairs) > 0) {
+      pairs <- pairs[order(score_matrix[pairs], decreasing = TRUE), , drop = FALSE]
+      for (k in seq_len(nrow(pairs))) {
+        qi <- pairs[k, 1L]; ri <- pairs[k, 2L]
+        if (assigned_q[qi] || assigned_r[ri]) next
+        qs <- query_seqs[[qi]]
+        if (is.null(qs) || nchar(as.character(qs)) == 0L) next
+        aln <- tryCatch(
+          Biostrings::pairwiseAlignment(
+            qs, ref_aa_seqs[[ri]],
+            type = "local", substitutionMatrix = "BLOSUM62",
+            gapOpening = 10, gapExtension = 0.5
+          ),
+          error = function(e) NULL
+        )
+        if (is.null(aln)) next
+        pid_val <- Biostrings::pid(aln)
+        if (!is.na(pid_val)) {
+          pid_records[[length(pid_records)+1]] <- data.frame(
+            RP = names(ref_aa_seqs)[ri], PID = pid_val, stringsAsFactors = FALSE
+          )
+          if (pid_val >= min_pid) {
+            aln_rp[qi]     <- names(ref_aa_seqs)[ri]
+            assigned_q[qi] <- TRUE
+            assigned_r[ri] <- TRUE
+            if (pid_val < 95)
+              warning(sprintf(
+                "Low-confidence assignment: chain %s -> %s (PID %.1f%%)",
+                prot_tbl$ID[qi], names(ref_aa_seqs)[ri], pid_val
+              ))
+          }
+        }
+      }
+    }
+  }
+
+  # Strategy 2: description string parsing fallback for chains with no alignment hit.
+  # Full-description map handles entries whose generic last-word parsing would yield
+  # a bare number (digit filter would then drop them). EF2 ends in "2"; RACK1 ends in "1".
+  # Keys are the same as skip_aln_descs defined above.
+  desc_name_map <- c("Elongation factor 2" = "EF2",
+                     "Receptor of activated protein C kinase 1" = "RACK1",
+                     "40S ribosomal protein S4, X isoform" = "eS4")
+  # Generic rule: takes last token when description contains "protein"/"factor"/"initiator"
+  # (RP name appears at the end in standard RCSB convention), otherwise first token.
+  prot_last <- vapply(strsplit(prot_tbl$description, " "),
+                      function(x) x[length(x)], character(1))
+  desc_rp <- ifelse(
+    grepl("protein|factor|initiator", prot_tbl$description),
+    prot_last,
+    vapply(strsplit(prot_tbl$description, " "), function(x) x[1L], character(1))
+  )
+  # Apply full-description overrides after generic parsing
+  desc_rp <- ifelse(prot_tbl$description %in% names(desc_name_map),
+                    desc_name_map[prot_tbl$description], desc_rp)
+  # Remap human old-nomenclature names to the unified nomenclature.
+  # Source: Ban group Tables 1a (SSU) and 1b (LSU), "Human Old name" column only.
+  # https://bangroup.ethz.ch/research/nomenclature-of-ribosomal-proteins.html
+  old_to_new <- c(
+    # LSU
+    L3="uL3",  L4="uL4",  L5="uL18", L6="eL6",
+    L7="uL30", L7a="eL8", L8="uL2",  L9="uL6",
+    L10="uL16", L10a="uL1", "L10-like"="uL16-like",
+    L11="uL5",  L12="uL11", L13="eL13", L13a="uL13",
+    L14="eL14", L15="eL15", L17="uL22", L18="eL18",
+    L18a="eL20", L19="eL19", L21="eL21", L22="eL22",
+    L23="uL14", L23a="uL23", L24="eL24", L26="uL24",
+    L27="eL27", L27a="uL15", L28="eL28", L29="eL29",
+    L30="eL30", L31="eL31", L32="eL32", L34="eL34",
+    L35="uL29", L35a="eL33", L36="eL36", L36a="eL42",
+    L37="eL37", L37a="eL43", L38="eL38", L39="eL39",
+    "L39-like"="eL39-like", L40="eL40", L41="eS32",
+    P0="uL10",
+    # SSU
+    SA="uS2",   S2="uS5",  S3="uS3",  S3a="eS1",  S4="eS4",
+    S5="uS7",   S6="eS6",  S7="eS7",  S8="eS8",   S9="uS4",
+    S10="eS10", S11="uS17", S12="eS12", S13="uS15", S14="uS11",
+    S15="uS19", S15a="uS8", S16="uS9", S17="eS17", S18="uS13",
+    S19="eS19", S20="uS10", S21="eS21", S23="uS12", S24="eS24",
+    S25="eS25", S26="eS26", S27="eS27", "S27-like"="eS27-like",
+    S27a="eS31", S28="eS28", S29="uS14", S30="eS30"
+  )
+  desc_rp <- ifelse(desc_rp %in% names(old_to_new), old_to_new[desc_rp], desc_rp)
+
+  # Merge: Ban table description name wins; alignment fills where description fails
+  resolved_rp <- ifelse(!is.na(desc_rp) & desc_rp != "", desc_rp, aln_rp)
+  prot_rows <- data.frame(
+    ID      = prot_tbl$ID,
+    RP_name = resolved_rp,
+    RP_new  = resolved_rp,
+    chainID = prot_tbl$chainID,
+    stringsAsFactors = FALSE
+  )
+  prot_rows <- prot_rows[!is.na(prot_rows$RP_name) & prot_rows$RP_name != "" &
+                           !grepl("^[0-9]", prot_rows$RP_name), ]
+
+  out <- dplyr::distinct(rbind(prot_rows, rRNA_rows))
+  if (return_pid) {
+    pid_df <- if (length(pid_records)) do.call(rbind, pid_records) else
+      data.frame(RP = character(), PID = numeric(), stringsAsFactors = FALSE)
+    return(list(table = out, pid_data = pid_df))
+  }
+  out
+}
+```
+
+---
+
+# Path 1 — Built-in mouse preset
+
+Uses the built-in `mm` structural data (no PDB download needed).
+
+```{r builtin-mm}
+builtin_rds <- file.path(base_dir, "builtin_mm_results.rds")
+if (!file.exists(builtin_rds)) {
+  dir.create(file.path(base_dir, "builtin_mm"), showWarnings = FALSE, recursive = TRUE)
+  res_builtin <- .silent(ARF::dripARF(
+    samplesFile  = samples_file,
+    rRNAs_fasta  = mouse_rRNAs,
+    organism     = "mm",
+    compare      = "group",
+    comparisons  = comparisons,
+    QCplot       = FALSE,
+    ssRPSEAplots = FALSE,
+    targetDir    = file.path(base_dir, "builtin_mm")
+  ))
+  saveRDS(res_builtin, builtin_rds)
+}
+results_list <- list(builtin_mm = readRDS(builtin_rds))
+```
+
+---
+
+# Path 4 — Custom structure pipeline (requires internet)
+
+For each PDB: download FASTA + CIF, build conversion table, compute RP–rRNA distances,
+lift to mouse rRNA coordinates, generate RP proximity sets, run dripARF.
+Results are cached as `.rds` files; re-knitting skips completed structures.
+
+```{r custom-structures, message=TRUE}
+# Build reference AAStringSet once from the 3 reference mouse 80S structures
+ref_aa <- build_ref_aa_seqs(base_dir = base_dir)
+message("Reference sequences built: ", length(ref_aa), " RPs")
+
+for (pdb in pdbs) {
+  outdir  <- file.path(base_dir, pdb)
+  rds_out <- file.path(outdir, "dripARF_results.rds")
+
+  if (file.exists(rds_out)) {
+    cached <- readRDS(rds_out)
+    if (!is.null(cached)) {
+      results_list[[pdb]] <- cached
+      message(pdb, ": loaded from cache.")
+      next
+    }
+  }
+
+  message("\n--- Processing ", pdb, " ---")
+  dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+
+  res <- tryCatch({
+    # Download RCSB FASTA for chain mapping
+    fasta_path <- file.path(outdir, paste0(pdb, ".fasta"))
+    if (!file.exists(fasta_path))
+      utils::download.file(
+        paste0("https://www.rcsb.org/fasta/entry/", pdb),
+        fasta_path, quiet = TRUE
+      )
+
+    conv_df <- build_conversion_table(fasta_path, ref_aa_seqs = ref_aa)
+
+    # 7LS1: RCSB annotation error — chain TA (auth m2, 1871 nt 18S) is described
+    # as "28S rRNA" in the FASTA, causing build_conversion_table to assign it
+    # rRNA_28S. Correct it here before passing to the parser.
+    if (pdb == "7LS1") {
+      conv_df$RP_name[conv_df$chainID == "m2"] <- "rRNA_18S"
+      conv_df$RP_new[conv_df$chainID  == "m2"] <- "rRNA_18S"
+    }
+
+    # Compute RP–rRNA distances
+    cif_path  <- file.path(outdir, paste0(pdb, ".cif"))
+    .silent(ARF::ARF_parse_PDB_ribosome(
+      species                      = "mm",
+      PDBid                        = pdb,
+      PDB_file                     = if (file.exists(cif_path)) cif_path else NULL,
+      rRNAs_file                   = NULL,
+      download_directory           = outdir,
+      out_prefix                   = file.path(outdir, "Ribosome.3D"),
+      PDB_chains_2_RP_nomenclature = conv_df
+    ))
+
+    # Liftover to mouse rRNA coordinates.
+    # auth→FASTA position correction is automatic via the rRNA_resno_map.csv written by parse.
+    LO_df <- .silent(ARF::ARF_convert_Ribo3D_pos(
+      source_distance_file = file.path(outdir, paste0("Ribosome.3D.", pdb, ".ARF.minimum_distances.csv")),
+      source_rRNAs_fasta   = file.path(outdir, paste0(pdb, ".rRNAs.fasta")),
+      target_species       = "mm",
+      target_rRNAs_fasta   = mouse_rRNAs,
+      type                 = "distances"
+    ))
+
+    # RP proximity sets from this structure
+    gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
+      RP_proximity_df   = LO_df,
+      additional_RPcols = c(),
+      rRNAs_fasta       = mouse_rRNAs
+    )
+
+    # Run dripARF for all comparisons in one call
+    .silent(ARF::dripARF(
+      samplesFile     = samples_file,
+      rRNAs_fasta     = mouse_rRNAs,
+      organism        = "mm",
+      compare         = "group",
+      comparisons     = comparisons,
+      QCplot          = FALSE,
+      ssRPSEAplots    = FALSE,
+      targetDir       = outdir,
+      gsea_sets_RP    = gsea_sets_RP,
+      RP_proximity_df = LO_df
+    ))
+  }, error = function(e) {
+    message(pdb, ": failed — ", conditionMessage(e))
+    NULL
+  })
+
+  saveRDS(res, rds_out)
+  results_list[[pdb]] <- res
+  if (!is.null(res)) message(pdb, ": done.") else message(pdb, ": skipped (error).")
+}
+```
+
+---
+
+# Chain-to-RP alignment identity
+
+Sequence identity of each protein chain to its assigned reference RP, across all 18
+structures. Only RPs with at least one alignment below 100% are shown; RPs that align
+at 100% in every structure are omitted for clarity. The dashed line marks the 80% PID
+threshold below which alignment-based assignment is rejected and description parsing
+is used instead.
+
+```{r pid-figure, fig.width=12, fig.height=9}
+pid_rds <- file.path(base_dir, "pid_data.rds")
+if (file.exists(pid_rds)) {
+  pid_df <- readRDS(pid_rds)
+} else {
+  all_pid <- lapply(pdbs, function(pdb) {
+    fasta_path <- file.path(base_dir, pdb, paste0(pdb, ".fasta"))
+    if (!file.exists(fasta_path)) return(NULL)
+    res <- build_conversion_table(fasta_path, ref_aa_seqs = ref_aa, return_pid = TRUE)
+    if (nrow(res$pid_data) == 0) return(NULL)
+    cbind(res$pid_data, PDB = pdb, stringsAsFactors = FALSE)
+  })
+  pid_df <- do.call(rbind, Filter(Negate(is.null), all_pid))
+  saveRDS(pid_df, pid_rds)
+}
+
+# Panel A: per-structure summary — number of assignments below 100% and below 95%
+summ_df <- do.call(rbind, lapply(unique(pid_df$PDB), function(p) {
+  d <- pid_df[pid_df$PDB == p, ]
+  data.frame(PDB      = p,
+             total    = nrow(d),
+             lt100    = sum(d$PID < 100),
+             lt95     = sum(d$PID < 95),
+             stringsAsFactors = FALSE)
+}))
+summ_df$PDB <- factor(summ_df$PDB, levels = pdbs)
+
+p_summary <- ggplot2::ggplot(summ_df, ggplot2::aes(x = PDB)) +
+  ggplot2::geom_col(ggplot2::aes(y = total), fill = "grey85") +
+  ggplot2::geom_col(ggplot2::aes(y = lt100), fill = "#fdae61") +
+  ggplot2::geom_col(ggplot2::aes(y = lt95),  fill = "#d73027") +
+  ggplot2::labs(x = NULL, y = "Number of RPs",
+                title = "Assignments per structure",
+                subtitle = "Grey = total assigned; orange = PID < 100%; red = PID < 95%") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+
+# Panel B: jitter of only RPs with at least one alignment < 100% (excludes all-100% structures)
+variable_rps <- unique(pid_df$RP[pid_df$PID < 100])
+plot_df <- pid_df[pid_df$RP %in% variable_rps, ]
+plot_df$RP      <- factor(plot_df$RP, levels = sort(unique(plot_df$RP)))
+plot_df$subunit <- ifelse(grepl("^eS|^uS", plot_df$RP), "SSU", "LSU")
+
+p_jitter <- ggplot2::ggplot(plot_df, ggplot2::aes(x = RP, y = PID, colour = subunit)) +
+  ggplot2::geom_jitter(width = 0.15, height = 0, size = 2, alpha = 0.7) +
+  ggplot2::geom_hline(yintercept = 95, linetype = "dashed", colour = "grey50") +
+  ggplot2::scale_colour_manual(values = c(SSU = "#2166ac", LSU = "#d6604d"),
+                               name = "Subunit") +
+  ggplot2::scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 20),
+                               labels = function(x) paste0(x, "%")) +
+  ggplot2::labs(x = NULL, y = "Percent identity",
+                title = "Variable RP alignments",
+                subtitle = sprintf("%d RPs with PID < 100%% in at least one structure",
+                                   length(variable_rps))) +
+  ggplot2::theme_bw() +
+  ggplot2::theme(axis.text.x  = ggplot2::element_text(angle = 45, hjust = 1, size = 8),
+                 panel.grid.major.x = ggplot2::element_blank(),
+                 legend.position = "top")
+
+gridExtra::grid.arrange(p_summary, p_jitter, ncol = 1)
+```
+
+---
+
+# ES2 heatmaps
+
+A helper builds each heatmap from a chosen score column.
+
+```{r es2-heatmap-fn}
+make_es2_heatmap <- function(score_col, title, legend_label) {
+  df <- dplyr::bind_rows(
+    lapply(names(results_list), function(struct) {
+      res <- results_list[[struct]]
+      if (is.null(res) || nrow(res) == 0) return(NULL)
+      res |>
+        dplyr::filter(Description %in% target_RPs, comp %in% comp_labels) |>
+        dplyr::select(comp, Description, ES2 = dplyr::all_of(score_col)) |>
+        dplyr::mutate(structure = struct)
+    })
+  )
+  struct_order <- c("builtin_mm", pdbs)
+  df$structure   <- factor(df$structure,   levels = rev(struct_order))
+  df$Description <- factor(df$Description, levels = target_RPs)
+  df$comp <- factor(df$comp, levels = comp_labels,
+                    labels = gsub("_", " ", comp_labels))
+  lim <- max(abs(df$ES2), na.rm = TRUE)
+  ggplot(df, aes(x = Description, y = structure, fill = ES2)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(aes(label = ifelse(!is.na(ES2), sprintf("%.1f", ES2), "")),
+              size = 2.8) +
+    facet_wrap(~ comp, nrow = 1) +
+    scale_fill_gradient2(
+      low = "steelblue", mid = "white", high = "firebrick",
+      midpoint = 0, limits = c(-lim, lim),
+      na.value = "grey85", name = legend_label
+    ) +
+    scale_y_discrete(drop = FALSE) +
+    labs(title = title,
+         caption = "Rows: PDB structures. Columns: target RPs. Panels: IP vs Total comparisons.",
+         x = NULL, y = NULL) +
+    theme_minimal(base_size = 11) +
+    theme(axis.text.x    = element_text(face = "bold", size = 10),
+          axis.text.y    = element_text(size = 9),
+          strip.text     = element_text(face = "bold", size = 9),
+          panel.grid     = element_blank(),
+          legend.position = "right")
+}
+```
+
+## ES2 (RPSEA NES z-score)
+
+`RPSEA.NES_randZ`: NES normalised by the z-score of its randomised control distribution.
+
+```{r es2-heatmap, fig.width=11, fig.height=8}
+make_es2_heatmap("RPSEA.NES_randZ",
+                 "dripARF ES2 across mouse ribosome structures",
+                 "ES2\n(NES z-score)")
+```
+
+## ssRPSEA-corrected ES2
+
+`weighted.RPSEA.NES_randZ`: ES2 weighted by the ssRPSEA score, correcting for transcript
+abundance differences between IP and Total.
+
+```{r es2-ssrpsea-heatmap, fig.width=11, fig.height=8}
+make_es2_heatmap("weighted.RPSEA.NES_randZ",
+                 "dripARF ssRPSEA-corrected ES2 across mouse ribosome structures",
+                 "ssRPSEA ES2\n(weighted NES z-score)")
+```
+
+## Rank heatmap
+
+Rank of each target RP within all RPs for that structure × comparison, ordered by ES2
+descending (rank 1 = highest ES2). Grey = structure not yet run or RP absent.
+
+```{r rank-heatmap, fig.width=11, fig.height=8}
+rank_df <- dplyr::bind_rows(
+  lapply(names(results_list), function(struct) {
+    res <- results_list[[struct]]
+    if (is.null(res) || nrow(res) == 0) return(NULL)
+    do.call(rbind, lapply(comp_labels, function(cmp) {
+      sub <- res[res$comp == cmp, ]
+      sub <- sub[order(sub$RPSEA.NES_randZ, decreasing = TRUE), ]
+      sub$rank <- seq_len(nrow(sub))
+      sub[sub$Description %in% target_RPs,
+          c("comp", "Description", "rank")]
+    })) |> dplyr::mutate(structure = struct)
+  })
+)
+
+if (nrow(rank_df) == 0) {
+  message("No results available yet for rank heatmap.")
+} else {
+
+struct_order <- c("builtin_mm", pdbs)
+rank_df$structure   <- factor(rank_df$structure,   levels = rev(struct_order))
+rank_df$Description <- factor(rank_df$Description, levels = target_RPs)
+rank_df$comp <- factor(rank_df$comp, levels = comp_labels,
+                       labels = gsub("_", " ", comp_labels))
+
+ggplot(rank_df, aes(x = Description, y = structure, fill = rank)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  geom_text(aes(label = ifelse(!is.na(rank), as.character(rank), "")),
+            size = 2.8) +
+  facet_wrap(~ comp, nrow = 2) +
+  scale_fill_gradient(low = "firebrick", high = "white",
+                      na.value = "grey85", name = "Rank\n(1 = top)") +
+  scale_y_discrete(drop = FALSE) +
+  labs(title = "Rank of target RPs by ES2 (RPSEA.NES_randZ)",
+       x = NULL, y = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x    = element_text(face = "bold", size = 10),
+        axis.text.y    = element_text(size = 9),
+        strip.text     = element_text(face = "bold", size = 9),
+        panel.grid     = element_blank(),
+        legend.position = "right")
+}
+```
+
+---
+
+## ES2 distribution across all structures
+
+For each target RP, ES2 (RPSEA.NES\_randZ) is taken from its matched IP-vs-Total comparison
+(`uL1_FLAG`, `eS25_FLAG`, `eL22_HA` vs their respective Total). "Others" shows the same
+score for all remaining RPs in those three comparisons pooled. The dashed line marks ES2 = 1.
+
+```{r es2-violin, fig.width=7, fig.height=5}
+matched_comps <- c(
+  uL1  = "uL1_FLAG_vs_uL1_Total",
+  eS25 = "eS25_FLAG_vs_eS25_Total",
+  eL22 = "eL22_HA_vs_eL22_Total"
+)
+
+violin_df <- dplyr::bind_rows(lapply(names(results_list), function(struct) {
+  res <- results_list[[struct]]
+  if (is.null(res) || nrow(res) == 0) return(NULL)
+  dplyr::bind_rows(lapply(names(matched_comps), function(rp) {
+    sub <- dplyr::filter(res, comp == matched_comps[rp])
+    if (nrow(sub) == 0) return(NULL)
+    dplyr::transmute(sub,
+      structure = struct,
+      group = ifelse(Description == rp, rp, "Others"),
+      ES2   = RPSEA.NES_randZ
+    )
+  }))
+}))
+
+violin_df$group <- factor(violin_df$group, levels = c("uL1", "eS25", "eL22", "Others"))
+
+target_colors <- c(uL1 = "#d73027", eS25 = "#4575b4", eL22 = "#1a9850", Others = "grey70")
+
+ggplot(violin_df, aes(x = group, y = ES2, fill = group)) +
+  geom_violin(trim = TRUE, alpha = 0.6, linewidth = 0.4) +
+  geom_jitter(width = 0.12, size = 1.2, alpha = 0.5, colour = "grey30") +
+  geom_hline(yintercept =  1, linetype = "dashed", colour = "grey30", linewidth = 0.6) +
+  geom_hline(yintercept = -1, linetype = "dashed", colour = "grey30", linewidth = 0.6) +
+  scale_fill_manual(values = target_colors, guide = "none") +
+  labs(x = NULL, y = "ES2 (RPSEA NES z-score)",
+       title = "ES2 distribution across all structures",
+       subtitle = "Matched IP-vs-Total comparisons; dashed lines at ES2 = ±1") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.major.x = element_blank(),
+        axis.text.x = element_text(face = "bold", size = 11))
+```
+
+---
+
+# RP proximity set comparison
+
+For structures where `gsea_sets_RP.rds` does not exist yet (older cached runs), the sets
+are recomputed from the saved distance CSV. The built-in mouse sets come from
+`ARF:::mouse_gsea_sets_RP`.
+
+```{r rp-set-comparison, fig.width=12, fig.height=8, message=TRUE}
+builtin_sets <- ARF:::mouse_gsea_sets_RP
+
+# Collect sets: build from raw distance CSV + liftover if .rds is missing
+all_sets <- list(builtin_mm = builtin_sets)
+for (pdb in pdbs) {
+  outdir_p  <- file.path(base_dir, pdb)
+  sets_rds  <- file.path(outdir_p, "gsea_sets_RP.rds")
+  dist_file <- file.path(outdir_p, paste0("Ribosome.3D.", pdb, ".ARF.minimum_distances.csv"))
+  rrna_fasta <- file.path(outdir_p, paste0(pdb, ".rRNAs.fasta"))
+
+  if (file.exists(sets_rds)) {
+    all_sets[[pdb]] <- readRDS(sets_rds)
+  } else if (file.exists(dist_file) && file.exists(rrna_fasta)) {
+    tryCatch({
+      LO_tmp <- .silent(ARF::ARF_convert_Ribo3D_pos(
+        source_distance_file = dist_file,
+        source_rRNAs_fasta   = rrna_fasta,
+        target_species       = "mm",
+        target_rRNAs_fasta   = mouse_rRNAs,
+        type                 = "distances"
+      ))
+      s <- ARF::dripARF_get_RP_proximity_sets(
+        RP_proximity_df   = LO_tmp,
+        additional_RPcols = c(),
+        rRNAs_fasta       = mouse_rRNAs
+      )
+      saveRDS(s, sets_rds)
+      all_sets[[pdb]] <- s
+      message(pdb, ": sets built and cached")
+    }, error = function(e) message(pdb, ": set build failed — ", conditionMessage(e)))
+  } else {
+    message(pdb, ": no distance CSV available yet")
+  }
+}
+
+# Compute set size and Jaccard overlap vs builtin_mm for each target RP
+struct_order_sets <- c("builtin_mm", pdbs)
+stats_df <- do.call(rbind, lapply(names(all_sets), function(struct) {
+  sets <- all_sets[[struct]]
+  do.call(rbind, lapply(target_RPs, function(rp) {
+    s       <- if (is.data.frame(sets))       sets$gene[sets$ont == rp]       else sets[[rp]]
+    builtin <- if (is.data.frame(builtin_sets)) builtin_sets$gene[builtin_sets$ont == rp] else builtin_sets[[rp]]
+    if (is.null(s) || length(s) == 0) return(NULL)
+    n_s      <- length(s)
+    n_b      <- length(builtin)
+    n_int    <- if (length(builtin) > 0) length(intersect(s, builtin)) else NA_integer_
+    n_uni    <- if (length(builtin) > 0) length(union(s, builtin))     else NA_integer_
+    jaccard  <- if (!is.na(n_int) && n_uni > 0) n_int / n_uni       else NA_real_
+    data.frame(structure = struct, RP = rp,
+               set_size = n_s, overlap = n_int, jaccard = jaccard,
+               stringsAsFactors = FALSE)
+  }))
+}))
+if (!is.null(stats_df) && nrow(stats_df) > 0) {
+
+stats_df$structure <- factor(stats_df$structure, levels = rev(struct_order_sets))
+stats_df$RP        <- factor(stats_df$RP,        levels = target_RPs)
+
+# Panel A: set sizes
+p_size <- ggplot2::ggplot(stats_df, ggplot2::aes(x = RP, y = set_size, fill = structure)) +
+  ggplot2::geom_col(position = ggplot2::position_dodge(0.8), width = 0.7) +
+  ggplot2::labs(title = "RP proximity set size per structure",
+                x = NULL, y = "Number of rRNA positions", fill = "Structure") +
+  ggplot2::theme_bw() +
+  ggplot2::theme(legend.position = "right")
+
+# Panel B: Jaccard similarity to builtin_mm
+jaccard_df <- stats_df[stats_df$structure != "builtin_mm", ]
+p_jaccard <- ggplot2::ggplot(jaccard_df,
+                              ggplot2::aes(x = RP, y = structure, fill = jaccard)) +
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = ifelse(!is.na(jaccard),
+                                                  sprintf("%.2f", jaccard), "")),
+                     size = 2.8) +
+  ggplot2::scale_fill_gradient(low = "white", high = "#2166ac",
+                                limits = c(0, 1), na.value = "grey85",
+                                name = "Jaccard\nvs builtin_mm") +
+  ggplot2::scale_y_discrete(drop = FALSE) +
+  ggplot2::labs(title = "Jaccard similarity of RP sets to builtin_mm",
+                x = NULL, y = NULL) +
+  ggplot2::theme_minimal(base_size = 11) +
+  ggplot2::theme(panel.grid = ggplot2::element_blank(),
+                 axis.text.x = ggplot2::element_text(face = "bold"))
+
+gridExtra::grid.arrange(p_size, p_jaccard, ncol = 1, heights = c(1.2, 1))
+
+} else {
+  message("No set data available yet — re-knit after structures have been processed.")
+}
+```
+
+---
+
+# Session info
+
+```{r session-info}
+sessionInfo()
+```

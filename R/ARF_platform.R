@@ -441,6 +441,13 @@ auto_pair_rRNAs <- function(source_fasta, target_fasta) {
     source_seqs <- Biostrings::readBStringSet(source_fasta)
     target_seqs <- Biostrings::readBStringSet(target_fasta)
 
+    multi_word <- c(names(source_seqs), names(target_seqs))
+    multi_word <- multi_word[grepl(" ", multi_word, fixed = TRUE)]
+    if (length(multi_word) > 0L)
+        message("auto_pair_rRNAs: the following FASTA headers contain spaces; ",
+                "only the first word is used for matching:\n",
+                paste(" ", multi_word, collapse = "\n"))
+
     names(source_seqs) <- vapply(
         strsplit(names(source_seqs), " ", fixed = TRUE), `[`, character(1L), 1L
     )

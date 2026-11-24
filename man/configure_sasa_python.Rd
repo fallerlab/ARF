@@ -31,7 +31,12 @@ Default: \code{NULL}.}
 Default: \code{FALSE}.}
 }
 \value{
-The Python path or environment name, invisibly.
+The Python path or environment name, invisibly. As a side effect,
+stores the resolved path in \code{options("ARF.python.path")} and the
+environment type in \code{options("ARF.python.env_type")}; both persist
+for the R session and are read by \code{ARF_run_SASA()}. Calling this
+function a second time with different arguments silently replaces those
+options.
 }
 \description{
 Creates a dedicated Python virtual environment or conda environment

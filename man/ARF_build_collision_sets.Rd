@@ -54,9 +54,9 @@ rRNA FASTA; the second must match a header in \code{target_rRNAs_fasta}.}
 \item{output_dir}{Character. Directory for all outputs.
 Default: \code{getwd()}.}
 
-\item{set_name}{Character or \code{NULL}. When supplied, all \code{ont}
-values in the returned sets are prefixed with this string (e.g.
-\code{"ec_9gft_disome"} turns \code{"Rib.Col."} into
+\item{set_name}{Character or \code{NULL}. When supplied, all
+\code{ont} values in the returned sets are prefixed with this string
+(e.g. \code{"ec_9gft_disome"} turns \code{"Rib.Col."} into
 \code{"ec_9gft_disome_Rib.Col."}). Useful when combining sets from
 multiple structures with \code{dplyr::bind_rows()}.}
 

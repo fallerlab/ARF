@@ -1,4 +1,17 @@
-#!/usr/bin/env Rscript
+# Copyright (C) 2026  Ferhat Alkan & Edwin Sakyi Kyei-Baffour
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # =============================================================================
 # ARF — Collision Interface Analysis
 # =============================================================================
@@ -266,14 +279,18 @@ ARF_run_SASA <- function(
 #'
 #' Reads the TSV produced by \code{\link{ARF_run_SASA}}, labels each residue
 #' with its rRNA identity, and returns residues where the z-transformed
-#' differential SASA (max - min across chains), log-transformed, exceeds 1.0 (F1-optimised threshold).
+#' differential SASA (max - min across chains) exceeds 1.64 standard deviations (z > 1.64 on raw diff).
 #'
 #' @param output_file   Path to the SASA TSV (written by \code{ARF_run_SASA}).
 #' @param rRNAs         Character vector of rRNA entity description names.
 #' @param target_species Character. Species prefix for the rRNA labels.
 #'
-#' @return data.frame with columns \code{rRNA}, \code{auth_seq_id},
-#'   \code{sasa_A2_diff}, \code{n}, \code{sasa_A2_diff_z}.
+#' @return data.frame with columns: \code{rRNA} (rRNA identity prefixed with
+#'   \code{target_species}), \code{auth_seq_id} (PDB residue number),
+#'   \code{sasa_A2_diff} (max − min SASA across chains, Å²), \code{n} (number
+#'   of chains contributing to that residue's range), \code{sasa_A2_diff_z}
+#'   (z-score of \code{sasa_A2_diff} within the residue's rRNA; rows with
+#'   z > 1.64 are retained as Rib.Col. candidates).
 #'
 #' @export
 ARF_build_SASA_candidates <- function(output_file, rRNAs, target_species) {
@@ -327,12 +344,12 @@ ARF_build_SASA_candidates <- function(output_file, rRNAs, target_species) {
 
     # Residues with sasa_A2_diff > 0 are differentially exposed across chains —
     # in a collision disome one copy is buried at the interface while the other
-    # is not. log(diff) compresses the heavy right tail; z > 1.0 on the
-    # log-transformed values maximises F1 against reference sets across structures.
+    # is not. z > 1.64 on the raw differential SASA yields perfect precision
+    # against validated reference sets across disome structures.
     sasa_set <- temp_sasa_df |>
         dplyr::filter(!is.na(sasa_A2_diff), sasa_A2_diff > 0) |>
-        dplyr::mutate(sasa_A2_diff_z = as.numeric(scale(log(sasa_A2_diff)))) |>
-        dplyr::filter(sasa_A2_diff_z > 1.0)
+        dplyr::mutate(sasa_A2_diff_z = as.numeric(scale(sasa_A2_diff))) |>
+        dplyr::filter(sasa_A2_diff_z > 1.64)
 
     sasa_set |>
         dplyr::mutate(rRNA = paste0(target_species, "_", rRNA))
@@ -1293,7 +1310,7 @@ ARF_build_collision_sets <- function(
 #' Build SASA-based GSEA sets via rRNA liftover alignment
 #'
 #' Aligns source and target rRNA sequences with ClustalW to lift over the SASA
-#' candidate positions (z-transformed log differential SASA > 1.28), extends each
+#' candidate positions (z-score of raw differential SASA > 1.64), extends each
 #' selected position by ±1 nt in rRNA coordinate space, then builds foreground
 #' and 99 circular-shift randomisation GSEA sets.
 #'

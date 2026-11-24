@@ -27,7 +27,7 @@ data.frame with columns \code{ont} and \code{gene}.
 }
 \description{
 Aligns source and target rRNA sequences with ClustalW to lift over the SASA
-candidate positions (z-transformed log differential SASA > 1.28), extends each
+candidate positions (z-score of raw differential SASA > 1.64), extends each
 selected position by ±1 nt in rRNA coordinate space, then builds foreground
 and 99 circular-shift randomisation GSEA sets.
 }

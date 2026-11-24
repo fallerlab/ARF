@@ -1,3 +1,18 @@
+# Copyright (C) 2026  Ferhat Alkan & Edwin Sakyi Kyei-Baffour
+#
+#   This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 # python_backend.R
 #
 # Manages the Python environment used by ARF.
@@ -108,7 +123,12 @@
 #' @param force          Logical. Ignore cached configuration and re-run setup.
 #'   Default: \code{FALSE}.
 #'
-#' @return The Python path or environment name, invisibly.
+#' @return The Python path or environment name, invisibly. As a side effect,
+#'   stores the resolved path in \code{options("ARF.python.path")} and the
+#'   environment type in \code{options("ARF.python.env_type")}; both persist
+#'   for the R session and are read by \code{ARF_run_SASA()}. Calling this
+#'   function a second time with different arguments silently replaces those
+#'   options.
 #'
 #' @examples
 #' \dontrun{

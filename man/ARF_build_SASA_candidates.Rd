@@ -14,11 +14,15 @@ ARF_build_SASA_candidates(output_file, rRNAs, target_species)
 \item{target_species}{Character. Species prefix for the rRNA labels.}
 }
 \value{
-data.frame with columns \code{rRNA}, \code{auth_seq_id},
-\code{sasa_A2_diff}, \code{n}, \code{sasa_A2_diff_z}.
+data.frame with columns: \code{rRNA} (rRNA identity prefixed with
+\code{target_species}), \code{auth_seq_id} (PDB residue number),
+\code{sasa_A2_diff} (max − min SASA across chains, Å²), \code{n} (number
+of chains contributing to that residue's range), \code{sasa_A2_diff_z}
+(z-score of \code{sasa_A2_diff} within the residue's rRNA; rows with
+z > 1.64 are retained as Rib.Col. candidates).
 }
 \description{
 Reads the TSV produced by \code{\link{ARF_run_SASA}}, labels each residue
 with its rRNA identity, and returns residues where the z-transformed
-differential SASA (max - min across chains), log-transformed, exceeds 1.0 (F1-optimised threshold).
+differential SASA (max - min across chains) exceeds 1.64 standard deviations (z > 1.64 on raw diff).
 }

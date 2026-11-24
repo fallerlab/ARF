@@ -24,10 +24,8 @@ IDs. Use \code{"28S"}, \code{"18S"}, \code{"5.8S"}, \code{"5S"} as source IDs. E
 \code{auto_pair_rRNAs()} is called automatically.}
 
 \item{RP_proximity_df}{RP-rRNA proximity matrix used to build the 99 circular-shift randomised
-control sets. If \code{NULL} (the default), the matrix is taken from the calling environment
-— this is the normal usage when \code{dricARF_liftover_collision_sets()} is called from
-within \code{dricARF()} or the \code{dricARF} vignette. Pass explicitly only when calling
-this function in isolation.}
+control sets. Must be supplied explicitly; obtain it from the return value of
+\code{dricARF()} or build one with \code{dripARF_get_RP_proximity_sets()}.}
 }
 \value{
 A data.frame with two columns (\code{ont}, \code{gene}) containing lifted-over collision
@@ -45,7 +43,8 @@ randomised control sets per collision set for use in RPSEA.
 \dontrun{
 dricARF_liftover_collision_sets("dm", "drosophila_rRNAs.fa",
   rRNA_pairs=list(c("28S","dm_rRNA_28S"), c("18S","dm_rRNA_18S"),
-  c("5.8S","dm_rRNA_5.8S"), c("5S","dm_rRNA_5S")))
+  c("5.8S","dm_rRNA_5.8S"), c("5S","dm_rRNA_5S")),
+  RP_proximity_df = RP_proximity_df)
 }
 }
 \seealso{

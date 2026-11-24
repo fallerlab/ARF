@@ -1,0 +1,732 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# ARF Collision Interface Analysis -- User Guide
+
+> **Package context** -- This guide covers the collision-interface functions in the **ARF** package. `ARF_build_collision_sets()` is the one-call entry point that runs the full pipeline. The individual functions `ARF_run_SASA`, `ARF_download_structure_files`, `ARF_parse_structure_fasta`, `ARF_build_SASA_candidates`, `dricARF_build_SASA_set`, and `ARF_build_ColInt_set` are available for step-by-step control. All SASA steps depend on a Python backend (FreeSASA + Gemmi).
+
+---
+
+## What is collision interface analysis?
+
+ARF builds gene sets that capture which parts of the rRNA are positioned at the collision interface of collided ribosomes. Two complementary approaches are used:
+
+**Rib.Col. sets** are based on **SASA burial**. A large probe radius (default 10 Angstrom) scans the intact complex. For each rRNA residue the differential SASA (max - min across the two chains) is z-transformed; positions with z > 1.64 are selected as buried at the interface (threshold chosen for perfect precision against validated reference sets). Each selected position is then extended by +/-1 nt in rRNA coordinate space. This is sensitive to concave pockets and buried contacts.
+
+**Col.Int. sets** are based on **cross-ribosome 3D proximity**. The structure is treated as a disome: chains are automatically partitioned into two ribosome copies via k-means clustering of chain centroids. For each rRNA nucleotide (N1 atom) in one copy, the minimum distance to all ribosomal-protein Calpha atoms and rRNA N1 atoms of the other copy is computed. The selection threshold is the 5th percentile of within-copy rRNA-to-RP distances, so it is calibrated to the same structural scale. Positions below this threshold are extended by +/-1 nt in rRNA coordinate space. This is a direct measurement of the inter-ribosomal contact surface. Pass `n_copies = 1L` to fall back to the monosome RP-proximity method (not recommended for Col.Int.).
+
+Both sets are expressed in GSEA format -- a `data.frame` with columns `ont` (set name) and `gene` (residue identifier such as `ec_23S_rRNA_145`) -- and are designed to be passed to `dricARF()` as `gsea_sets_Collision`.
+
+---
+
+## Setup
+
+### 1. Install the package
+
+```r
+# Install from local source or repository
+remotes::install_local("path/to/ARF")
+```
+
+### 2. Configure the Python environment
+
+ARF uses a Python backend (FreeSASA + Gemmi) for SASA calculations. Run `configure_sasa_python()` once to create a dedicated environment with the needed packages.
+
+**Option A -- miniconda** (recommended; no prior Python installation needed, works on all platforms):
+
+```r
+reticulate::install_miniconda(force = FALSE)   # no-op if already installed
+ARF::configure_sasa_python(env_type = "conda")
+```
+
+If you already have conda, miniconda, or micromamba installed, point reticulate to it before calling `configure_sasa_python()`. Micromamba is a drop-in replacement for the conda CLI and works with `env_type = "conda"`:
+
+```r
+# conda / miniconda / anaconda
+options(reticulate.conda_binary = "/path/to/conda")
+
+# micromamba (works because it accepts the same CLI as conda)
+options(reticulate.conda_binary = "/path/to/micromamba")
+
+ARF::configure_sasa_python(env_type = "conda")
+```
+
+**Option B -- use an existing Python** (e.g. from a conda/mamba/micromamba environment):
+
+```r
+# Find your Python path:
+#   Sys.which("python3")                          # system Python
+#   reticulate::py_discover_environment()$python  # reticulate's choice
+#   system("micromamba run -n myenv which python3", intern = TRUE)
+
+ARF::configure_sasa_python(
+  envname = "sasa-python",
+  python  = "/path/to/your/python3"
+)
+```
+
+Option A installs a self-contained miniconda and creates a conda environment with `gemmi` and `freesasa`. Option B registers an existing Python directly if the packages are already present, or creates a virtualenv from it if not. Either way, the call is a no-op on subsequent runs unless `force = TRUE` is passed.
+
+To verify the setup:
+
+```r
+ARF::check_sasa_python()
+```
+
+---
+
+## Quick start
+
+`ARF_build_collision_sets()` runs the entire pipeline -- download, SASA, FASTA parsing, candidate selection, and set building -- in one call. All intermediate files are written to `output_dir`.
+
+### Single structure
+
+```r
+# Reference rRNA FASTA used for Ribo-seq mapping (shipped with the package)
+target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "ARF")
+
+collision_sets <- ARF::ARF_build_collision_sets(
+  PDBid              = "9GFT",
+  target_species     = "ec",
+  target_rRNAs_fasta = target_rRNAs_fasta,
+  output_dir         = outdir,
+  algorithm          = "LeeRichards",
+  probe_radius       = 10,
+  n_threads          = 1L,  # LeeRichards is single-threaded
+  n_copies           = 2L   # disome cross-ribosome distances for Col.Int. (default)
+)
+
+# The combined set is ready for dricARF()
+gsea_sets_Collision <- collision_sets$gsea_sets_Collision
+```
+
+All files are saved under `outdir`:
+
+| File | Contents |
+|---|---|
+| `9GFT.cif` | Downloaded structure |
+| `9GFT.fasta` | Downloaded PDB FASTA |
+| `9GFT_sasa.tsv` | Raw SASA output from Python backend |
+| `9GFT_rRNA.fasta` | Extracted and prefixed rRNA sequences |
+| `input_sasa.tsv` | Cleaned SASA table used for candidate selection |
+| `9GFT.Ribosome.3D.*.csv` | Intermediate 3D distance files |
+
+Inspect the output:
+
+```r
+# Set names present in the output
+unique(gsea_sets_Collision$ont)
+
+# Number of positions per set (foreground only)
+gsea_sets_Collision |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
+```
+
+---
+
+### Multiple structures
+
+Pass a vector of PDB IDs with a matching `set_name` vector. Each structure gets its own labelled sets (e.g. `"ec_9gft_disome_Rib.Col."`). Because both structures share the same rRNA coordinates, `ARF_build_collision_sets()` automatically adds joint `Rib.Col.` and `Col.Int.` sets representing the union of positions across all structures, with fresh circular-shift Rand sets generated from that union -- identical to what the built-in organism presets use.
+
+The expensive SASA step is skipped for 9GFT because `overwrite = FALSE` reuses the existing TSV from the single-structure run above.
+
+```r
+multi_sets <- ARF::ARF_build_collision_sets(
+  PDBid              = c("9GFT", "9GGR"),
+  target_species     = "ec",
+  target_rRNAs_fasta = target_rRNAs_fasta,
+  output_dir         = multi_outdir,   # expands to multi_outdir/9GFT, multi_outdir/9GGR
+  set_name           = c("ec_9gft_disome", "ec_9ggr_disome"),
+  probe_radius       = 10,
+  overwrite          = FALSE
+)
+
+gsea_sets_Collision_multi <- multi_sets$gsea_sets_Collision
+```
+
+Inspect the output:
+
+```r
+# All set names -- per-structure and joint
+unique(gsea_sets_Collision_multi$ont)
+
+# Position counts for foreground sets only
+gsea_sets_Collision_multi |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
+```
+
+The joint `Rib.Col.` and `Col.Int.` sets (without a structure-specific prefix) are the ones to pass to `dricARF()`. Per-structure sets are available via `multi_sets$structures[["9GFT"]]` and `multi_sets$structures[["9GGR"]]` for downstream inspection.
+
+---
+
+## Step-by-step pipeline
+
+Use the step-by-step approach when you need to inspect intermediate results, cache expensive computations, or customise individual steps.
+
+### Step 1 -- Download files and compute SASA
+
+```r
+sasa_result <- ARF::ARF_run_SASA(
+  PDBid              = "9GFT",
+  PDB_file           = NULL,          # NULL -> download automatically
+  rRNAs_file         = NULL,          # NULL -> download FASTA automatically
+  download_directory = outdir,
+  output_file        = file.path(outdir, "9GFT_sasa.tsv"),
+  overwrite          = FALSE,
+  algorithm          = "LeeRichards",
+  probe_radius       = 10,            # large probe for interface scanning
+  n_threads          = 1L             # LeeRichards is single-threaded; use ShrakeRupley for n_threads > 1
+)
+
+# Resolved paths (important when files were downloaded)
+PDB_file   <- sasa_result$PDB_file
+fasta_file <- sasa_result$fasta_file
+```
+
+**Tip**: If you already have the `.cif` and `.fasta` files, pass their paths directly to skip the download:
+
+```r
+sasa_result <- ARF::ARF_run_SASA(
+  PDBid      = "9GFT",
+  PDB_file   = file.path(outdir, "9GFT.cif"),
+  rRNAs_file = file.path(outdir, "9GFT.fasta")
+)
+```
+
+Or download separately (useful for slow networks or batch workflows):
+
+```r
+files <- ARF::ARF_download_structure_files(
+  PDBid              = "9GFT",
+  download_directory = outdir
+)
+# files$PDB_file, files$fasta_file
+```
+
+#### Build the conversion table and rRNA sequence objects
+
+After the SASA run, parse the downloaded FASTA to derive the conversion table (a mapping from chain IDs to RP names) and extract the rRNA sequences. `ARF_parse_structure_fasta()` handles this in one call:
+
+```r
+rRNAs_file_clean <- file.path(outdir, "9GFT_rRNA.fasta")
+
+parsed <- ARF::ARF_parse_structure_fasta(
+  fasta_file        = fasta_file,
+  target_species    = "ec",
+  rRNAs_output_file = rRNAs_file_clean   # NULL to skip writing
+)
+
+conversion_table <- parsed$conversion_table
+rRNA_seqs        <- parsed$rRNA_seqs
+target_species   <- "ec"
+```
+
+`rRNA_seqs` is a `BStringSet` with names like `ec_5S_ribosomal_RNA`, `ec_23S_RNA`, `ec_16S_ribosomal_RNA`.
+
+Clean the SASA table:
+
+```r
+# sasa_result$annotations is already a data.frame
+pdb_sasa_df <- sasa_result$annotations |>
+  dplyr::mutate(
+    entity_description = dplyr::case_when(
+      grepl("protein", entity_description) ~
+        sub(".*protein", "", entity_description),
+      TRUE ~ entity_description
+    ),
+    entity_description = gsub("^'|'$|^ | $", "", entity_description),
+    entity_description = gsub(" ", "_", entity_description)
+  )
+
+input_sasa_file <- file.path(outdir, "input_sasa.tsv")
+write.table(pdb_sasa_df, input_sasa_file,
+            row.names = FALSE, quote = FALSE, sep = "\t")
+```
+
+---
+
+### Step 2 -- Build SASA candidates
+
+```r
+# Strip the species prefix -- ARF_build_SASA_candidates matches against the
+# entity_description column in the SASA TSV (e.g. "23S_ribosomal_RNA"),
+# which has no prefix. The prefix is added back internally by the function.
+rRNAs <- sub(paste0("^", target_species, "_"), "", names(rRNA_seqs))
+# e.g. "5S_ribosomal_RNA", "23S_ribosomal_RNA", "16S_ribosomal_RNA"
+
+sasa_df <- ARF_build_SASA_candidates(
+  output_file    = input_sasa_file,
+  rRNAs          = rRNAs,
+  target_species = target_species
+)
+```
+
+`sasa_df` contains per-residue SASA metrics for rRNA positions, filtered to chains that are part of the ribosome complex.
+
+---
+
+### Step 3 -- Build Rib.Col. gene sets
+
+`rRNA_pairs` is optional -- by default (`rRNA_pairs = NULL`) each source rRNA is paired automatically with the highest-scoring global-alignment target rRNA. Supply it explicitly only when the auto-detection picks the wrong partner.
+
+```r
+target_rRNAs_fasta <- system.file("extdata", "EscherichiaColi.fa", package = "ARF")
+
+RibCol.gsea_sets <- ARF::dricARF_build_SASA_set(
+  sasa_df            = sasa_df,
+  rRNAs_file         = rRNAs_file_clean,
+  target_rRNAs_fasta = target_rRNAs_fasta
+)
+```
+
+The result is a `data.frame` with `ont` values like `"Rib.Col."` and `"Rand1_Rib.Col."` (randomised null sets), and `gene` values like `"ec_23S_rRNA_145"`.
+
+---
+
+### Step 4 -- Build Col.Int. gene sets
+
+By default (`n_copies = 2L`) the structure is treated as a disome: chains are automatically split into two ribosome copies and cross-ribosome distances drive the set. The structure at `PDB_file` must therefore contain two ribosome copies. Pass `n_copies = 1L` only if you have a monosome structure and want to fall back to the within-ribosome RP-proximity method.
+
+```r
+Col.gsea_set <- ARF_build_ColInt_set(
+  rRNAs_file          = rRNAs_file_clean,
+  PDB_file            = PDB_file,
+  conversion_table    = conversion_table,
+  PDBid               = sub("\\.cif$", "", basename(PDB_file)),
+  out_prefix          = file.path(outdir, "Ribosome.3D"),
+  rRNAs               = paste(target_species, rRNAs, sep = "_"),
+  duplication_resolve = min,          # how to merge two copies per rRNA position
+  target_species      = target_species,
+  target_rRNAs_fasta  = target_rRNAs_fasta,
+  n_copies            = 2L            # disome cross-ribosome distances (default)
+)
+```
+
+`duplication_resolve` controls how distances from the two ribosome copies are merged into one value per rRNA position. `min` (the default) keeps the shorter of the two cross-ribosome distances, giving the most sensitive detection of interface contacts.
+
+---
+
+### Combining and using the sets
+
+```r
+gsea_sets_Collision <- dplyr::bind_rows(RibCol.gsea_sets, Col.gsea_set)
+
+# Convert to named list for fgsea
+gene_sets <- split(gsea_sets_Collision$gene, gsea_sets_Collision$ont)
+
+# Run enrichment (example)
+# fgsea::fgsea(pathways = gene_sets, stats = ranked_gene_scores)
+```
+
+---
+
+## Using collision sets for prediction
+
+To run `dricARF()`, three inputs must share the same rRNA coordinate system -- specifically the FASTA whose sequence names appear as chromosomes in the Ribo-seq bedGraph files:
+
+- `gsea_sets_Collision` -- collision interface sets (Rib.Col. + Col.Int.), built from one or more disome structures
+- `gsea_sets_RP` -- ribosomal protein proximity sets
+- `RP_proximity_df` -- the RP-rRNA distance matrix
+
+The E. coli test data (`test_data/Escherichia_coli_PRJNA1126309`) was aligned to `6XZA.rRNAs.fasta` (sequence names `rRNA_16S`, `rRNA_23S`, `rRNA_5S`). All three inputs must use this same reference.
+
+> **Preset organisms (hs / mm / sc):** if you are using a preset organism but your `rRNAs_fasta` has different sequence names from the built-in preset, `dricARF()` and `dripARF()` detect this automatically and lift the preset coordinate data to your FASTA via ClustalW alignment. You will see an informational message; no manual step is needed.
+
+### Build RP proximity sets
+
+These are shared by both the single- and multi-structure prediction runs below.
+
+```r
+ecoli_rRNAs_fasta <- file.path(ecoli_outdir, "6XZA.rRNAs.fasta")
+
+# Compute RP-rRNA minimum distances from the 6XZA 70S structure (cached if already run)
+RP_proximity_df <- ARF::ARF_parse_PDB_ribosome(
+  species            = "ec",
+  PDBid              = "6XZA",
+  download_directory = ecoli_outdir,
+  out_prefix         = file.path(ecoli_outdir, "Ribosome.3D")
+)
+
+# Source and target FASTA are the same -- auto-pairing will produce 1:1 identity pairs
+LO.RP_proximity_df <- ARF::ARF_convert_Ribo3D_pos(
+  source_distance_file = file.path(ecoli_outdir, "Ribosome.3D.6XZA.ARF.minimum_distances.csv"),
+  source_rRNAs_fasta   = ecoli_rRNAs_fasta,
+  target_species       = "ec",
+  target_rRNAs_fasta   = ecoli_rRNAs_fasta,
+  source_positions     = NULL, source_sets = NULL, type = "distances"
+)
+
+gsea_sets_RP <- ARF::dripARF_get_RP_proximity_sets(
+  RP_proximity_df = LO.RP_proximity_df,
+  rRNAs_fasta     = ecoli_rRNAs_fasta
+)
+```
+
+---
+
+### Single structure
+
+The Quick Start built sets targeting `EscherichiaColi.fa`. For prediction the bedGraph chromosome names are `rRNA_16S`, `rRNA_23S`, `rRNA_5S` -- so sets must target `6XZA.rRNAs.fasta` instead. The SASA step is skipped automatically (`overwrite = FALSE` reuses the existing TSV). No `set_name` is supplied, so the output uses the plain `Rib.Col.` / `Col.Int.` names that `dricARF()` expects.
+
+```r
+collision_sets_single <- ARF::ARF_build_collision_sets(
+  PDBid              = "9GFT",
+  target_species     = "ec",
+  target_rRNAs_fasta = ecoli_rRNAs_fasta,
+  output_dir         = "testrun/collision_sets/9GFT",
+  overwrite          = FALSE
+)
+
+gsea_sets_Collision_single <- collision_sets_single$gsea_sets_Collision
+unique(gsea_sets_Collision_single$ont)
+```
+
+```r
+dricARF_single <- ARF::dricARF(
+  samplesFile         = "test_data/Escherichia_coli_PRJNA1126309/riboseq/samples.tsv",
+  rRNAs_fasta         = ecoli_rRNAs_fasta,
+  organism            = NULL,
+  gsea_sets_Collision = gsea_sets_Collision_single,
+  gsea_sets_RP        = gsea_sets_RP,
+  RP_proximity_df     = LO.RP_proximity_df,
+  targetDir           = dricarf_single_outdir
+)
+```
+
+```r
+# Collision enrichment rows for the two interface set types
+dricARF_single |>
+  dplyr::filter(Description %in% c("Rib.Col.", "Col.Int.")) |>
+  dplyr::select(Description, comp, RPSEA.NES, RPSEA.NES_randZ, RPSEA.padj) |>
+  dplyr::arrange(Description, comp)
+```
+
+---
+
+### Multiple structures
+
+Using two disome structures (9GFT and 9GGR) produces joint `Rib.Col.` and `Col.Int.` sets whose positions are the union across both structures, with fresh Rand null sets. This is more robust than a single structure because positions present in only one structure due to resolution artefacts or model uncertainty are still captured.
+
+```r
+collision_sets_pred <- ARF::ARF_build_collision_sets(
+  PDBid              = c("9GFT", "9GGR"),
+  target_species     = "ec",
+  target_rRNAs_fasta = ecoli_rRNAs_fasta,
+  output_dir         = "testrun/collision_sets",
+  set_name           = c("ec_9gft_disome", "ec_9ggr_disome"),
+  overwrite          = FALSE
+)
+
+gsea_sets_Collision_pred <- collision_sets_pred$gsea_sets_Collision
+
+# Joint sets (plain names) are what dricARF() uses; per-structure sets are also present
+gsea_sets_Collision_pred |>
+  dplyr::filter(!grepl("^Rand", ont)) |>
+  dplyr::count(ont)
+```
+
+```r
+dricARF_results <- ARF::dricARF(
+  samplesFile         = "test_data/Escherichia_coli_PRJNA1126309/riboseq/samples.tsv",
+  rRNAs_fasta         = ecoli_rRNAs_fasta,
+  organism            = NULL,
+  gsea_sets_Collision = gsea_sets_Collision_pred,
+  gsea_sets_RP        = gsea_sets_RP,
+  RP_proximity_df     = LO.RP_proximity_df,
+  targetDir           = dricarf_outdir
+)
+```
+
+```r
+# Collision enrichment rows for the two interface set types
+dricARF_results |>
+  dplyr::filter(Description %in% c("Rib.Col.", "Col.Int.")) |>
+  dplyr::select(Description, comp, RPSEA.NES, RPSEA.NES_randZ, RPSEA.padj) |>
+  dplyr::arrange(Description, comp)
+```
+
+---
+
+## Preparing your inputs
+
+### Choosing a PDB structure
+
+The structure should be a **near-complete ribosome complex** in `.cif` format. Search [RCSB PDB](https://www.rcsb.org/) for `70S ribosome` or `80S ribosome` with your organism of interest. Structures with resolution < 3 Angstrom are preferred for the 3D-proximity step.
+
+Pass the four-letter PDB ID to `ARF_build_collision_sets()` or `ARF_run_SASA()` and files are downloaded automatically. To reuse a local file, pass its path as `PDB_file`.
+
+### rRNA pairing (auto-detect vs. manual)
+
+By default (`rRNA_pairs = NULL`) the pipeline calls `auto_pair_rRNAs()` to pair structure rRNAs with reference rRNAs automatically: each source sequence is globally aligned against every target sequence and the best-scoring match is selected. This works reliably when the rRNAs differ in length (5S ~ 120 nt, 16S/18S ~ 1500 nt, 23S/25S/28S ~ 2900 nt), because global alignment score is an unambiguous discriminator.
+
+To override, supply `rRNA_pairs` explicitly as a list of two-element character vectors:
+
+```
+list(
+  c("<name in structure FASTA after prefixing>", "<name in reference FASTA>"),
+  ...
+)
+```
+
+The first element must match (after `target_species`-prefixing) a `names(rRNA_seqs)` entry from `ARF_parse_structure_fasta()`. The second element must match a sequence header in `target_rRNAs_fasta`.
+
+### The conversion table
+
+The conversion table maps auth chain IDs to RP names. It is derived from the PDB FASTA automatically by `ARF_parse_structure_fasta()`. Its columns are:
+
+| Column | Description |
+|---|---|
+| `names` | Full FASTA header |
+| `chainID` | Auth chain ID (comma-separated for multi-chain entries) |
+| `RP_name` | Raw protein name from the header |
+| `RP_new` | Cleaned RP name (spaces replaced with underscores) |
+| `organism` | Organism string from the header |
+
+If your structure has non-standard FASTA headers, you may need to supply the conversion table manually instead of using `ARF_parse_structure_fasta()`.
+
+---
+
+## Function reference
+
+### `ARF_build_collision_sets()`
+
+One-call wrapper for the full pipeline. Downloads the structure, computes SASA, parses the FASTA, builds SASA candidates, and generates both Rib.Col. and Col.Int. gene sets. Returns a named list; `$gsea_sets_Collision` is the combined set ready for `dricARF()`.
+
+```r
+ARF_build_collision_sets(
+  PDBid,
+  target_species,
+  target_rRNAs_fasta,
+  rRNA_pairs           = NULL,
+  PDB_file             = NULL,
+  fasta_file           = NULL,
+  output_dir           = getwd(),
+  set_name             = NULL,
+  overwrite            = FALSE,
+  algorithm            = "LeeRichards",
+  probe_radius         = 10,
+  n_slices             = 20L,
+  n_points             = 1000L,
+  n_threads            = 1L,
+  model                = NULL,
+  polymer_type         = "ALL",
+  include_hydrogen     = FALSE,
+  zero_tolerance       = 1e-8,
+  precision            = 4L,
+  duplication_resolve  = min,
+  n_copies             = 2L,   # 2L = disome cross-ribosome distances; 1L = monosome RP-proximity
+  envname              = getOption("ARF.python.envname", "sasa-python"),
+  env_type             = getOption("ARF.python.env_type", "virtualenv"),
+  python_version       = "3.11",
+  force                = FALSE
+)
+```
+
+---
+
+### `ARF_download_structure_files()`
+
+Downloads the PDB mmCIF and FASTA files for a given PDB entry. Returns a named list with `PDB_file` and `fasta_file` (resolved paths). If paths are already supplied, validates they exist without downloading.
+
+```r
+ARF_download_structure_files(
+  PDBid,
+  PDB_file           = NULL,      # path to existing .cif, or NULL to download
+  fasta_file         = NULL,      # path to existing .fasta, or NULL to download
+  download_directory = getwd()    # where to save downloaded files
+)
+```
+
+---
+
+### `ARF_run_SASA()`
+
+Calls `ARF_download_structure_files()` internally, then configures the Python environment and runs the SASA calculation. Returns a list with `annotations` (data.frame of residue-level SASA), `PDB_file`, and `fasta_file`.
+
+```r
+ARF_run_SASA(
+  PDBid,
+  PDB_file           = NULL,
+  rRNAs_file         = NULL,
+  download_directory = getwd(),
+  output_file        = NULL,        # path for the SASA .tsv; NULL -> tempfile
+  overwrite          = FALSE,
+  algorithm          = "LeeRichards",
+  probe_radius       = 10,          # Angstrom; large value for interface detection
+  n_slices           = 20L,
+  n_points           = 1000L,
+  n_threads          = 1L,
+  model              = NULL,        # NULL -> first model
+  polymer_type       = "ALL",
+  include_hydrogen   = FALSE,
+  zero_tolerance     = 1e-8,
+  precision          = 4L,
+  envname            = getOption("ARF.python.envname", "sasa-python"),
+  env_type           = getOption("ARF.python.env_type", "virtualenv"),
+  python_version     = "3.11",
+  force              = FALSE        # TRUE to rebuild the Python env
+)
+```
+
+---
+
+### `ARF_parse_structure_fasta()`
+
+Parses a RCSB-format PDB FASTA file into a conversion table and rRNA `BStringSet`. Optionally writes the rRNA sequences to a FASTA file.
+
+```r
+ARF_parse_structure_fasta(
+  fasta_file,
+  target_species,
+  rRNAs_output_file = NULL    # path to write rRNA FASTA; NULL to skip
+)
+```
+
+---
+
+### `ARF_build_SASA_candidates()`
+
+Reads the cleaned SASA `.tsv`, filters to rRNA chains, and computes per-residue burial metrics. Returns a `data.frame` used by the set-building functions.
+
+```r
+ARF_build_SASA_candidates(
+  output_file,       # path to cleaned SASA .tsv
+  rRNAs,             # character vector of rRNA names without species prefix
+  target_species     # two-letter species prefix
+)
+```
+
+---
+
+### `dricARF_build_SASA_set()`
+
+Generates **Rib.Col.** gene sets from SASA burial data, aligned to reference rRNA coordinates using the rRNA pairs and FASTA files.
+
+```r
+dricARF_build_SASA_set(
+  sasa_df,                    # output of ARF_build_SASA_candidates()
+  rRNAs_file,                 # path to the rRNA FASTA (from Step 1)
+  target_rRNAs_fasta,         # path to reference genome rRNA FASTA
+  rRNA_pairs = NULL           # auto-detected; supply to override
+)
+```
+
+---
+
+### `ARF_build_ColInt_set()`
+
+Generates **Col.Int.** gene sets from 3D proximity data. Writes intermediate distance files to `out_prefix_*.csv`.
+
+```r
+ARF_build_ColInt_set(
+  rRNAs_file,
+  PDB_file,
+  conversion_table,
+  PDBid,
+  out_prefix,               # file-path prefix for intermediate outputs
+  rRNAs,                    # character vector: paste(target_species, rRNAs, sep="_")
+  duplication_resolve,      # function: min / max / mean
+  target_species,
+  target_rRNAs_fasta,
+  rRNA_pairs = NULL,        # auto-detected; supply to override
+  n_copies   = 2L           # 2L = disome cross-ribosome distances; 1L = monosome RP-proximity
+)
+```
+
+---
+
+## Output format
+
+All set-building functions return (or contribute to) a `data.frame` with two columns:
+
+| Column | Type | Example | Description |
+|---|---|---|---|
+| `ont` | character | `"Rib.Col."` | Gene set name |
+| `gene` | character | `"ec_23S_rRNA_145"` | Residue identifier |
+
+**Set name prefixes:**
+
+| Prefix | Type | Meaning |
+|---|---|---|
+| `Rib.Col.` | Real | SASA-burial interface |
+| `Col.Int.` | Real | 3D-proximity interface |
+| `Rand1_Rib.Col.`, `Rand2_Rib.Col.`, ... | Null | Randomised Rib.Col. sets |
+| `Rand1_Col.Int.`, `Rand2_Col.Int.`, ... | Null | Randomised Col.Int. sets |
+| `{name}_Rib.Col.`, `{name}_Col.Int.` | Real | Per-structure sets when `set_name` is supplied |
+| `Rand1_{name}_Rib.Col.`, ... | Null | Per-structure randomised sets |
+
+**Gene identifiers** follow the pattern `{target_species}_{rRNA_molecule}_{position}`, e.g. `ec_23S_rRNA_145`. Positions are expressed in reference rRNA coordinates (aligned via the rRNA pairs).
+
+---
+
+## Key parameters
+
+### `n_copies`
+
+Controls whether Col.Int. is computed from a disome (`2L`, default) or a monosome (`1L`).
+
+With `n_copies = 2L` the pipeline expects the structure to contain two ribosome copies. Chains are separated automatically by k-means clustering of chain centroids; no manual annotation is needed. Cross-ribosome distances (rRNA N1 -> RP Calpha + rRNA N1 of the other copy) are used, calibrated against within-copy RP distances. This is the methodologically correct approach for Col.Int.
+
+With `n_copies = 1L` the pipeline treats the structure as a monosome and measures distances between rRNA nucleotides and ribosomal proteins within the same complex. This is an approximation and is provided for cases where only a monosome structure is available.
+
+---
+
+### `probe_radius`
+
+Controls the SASA probe size. The default of **10 Angstrom** is intentionally large -- it detects the gross interface footprint rather than the water-accessible surface. Use `1.4` (water probe) only if you want classical SASA values for comparison.
+
+### `polymer_type`
+
+`"ALL"` (default) includes protein and RNA chains. Use `"DNA"` or `"RNA"` to restrict, but for interface analysis you almost always want `"ALL"`.
+
+### `duplication_resolve`
+
+When an RP has multiple chains in the structure, this function merges the per-chain distances into a single value. `min` (the default) reports the closest contact, which gives the most sensitive detection. Use `mean` for a more conservative estimate.
+
+---
+
+## Tips and troubleshooting
+
+### Python environment issues
+
+If the SASA calculation fails with a Python import error, verify the environment:
+
+```r
+ARF::check_sasa_python()
+```
+
+To rebuild the environment from scratch (re-downloads Python and reinstalls packages):
+
+```r
+ARF::configure_sasa_python(force = TRUE)
+```
+
+### FASTA header parsing
+
+`ARF_parse_structure_fasta()` assumes RCSB-standard FASTA headers in the format:
+
+```
+>PDBid_ChainID|Chain(s) auth A|ribosomal protein L1|Escherichia coli
+```
+
+Non-standard headers (from AlphaFold structures, for example) may require building the conversion table manually.
+
+### Slow SASA calculation
+
+The main bottleneck is the FreeSASA Python call. For a full 70S ribosome with `probe_radius = 10`, this can take several minutes. Reduce `n_points` to `100`-`500` for a quick exploratory run; the default of `1000` gives publication-quality values.
+
+### Empty gene sets
+
+If `dricARF_build_SASA_set()` returns an empty table:
+
+1. If using auto-detection, check the pairing messages printed by `auto_pair_rRNAs()`. If a pair is wrong, supply `rRNA_pairs` explicitly. If supplying manually, check that names match `names(rRNA_seqs)` and headers in `target_rRNAs_fasta` exactly (case-sensitive).
+2. Verify that the SASA `.tsv` contains rows for the expected chain IDs.
+3. Run `ARF_build_SASA_candidates()` and inspect `sasa_df` before proceeding.
+
+### Reproducibility
+
+SASA values can vary slightly between runs with different `n_points` or `n_slices`. For publication-quality results, fix these and set `overwrite = FALSE` so the same `.tsv` is reused on subsequent runs.
